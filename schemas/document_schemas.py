@@ -15,10 +15,26 @@ class Currency(str, Enum):
 
 
 class MatchStatus(str, Enum):
+    """
+    Outcome of document verification.
+
+    VERIFIED_3WAY means the documents are internally consistent — it does NOT
+    mean the underlying trade is genuine. Three documents produced by the same
+    party will agree with each other perfectly. Consistency is a necessary
+    condition for financing, never a sufficient one.
+
+    REVIEW_REQUIRED is the state for "the system cannot conclude": ambiguous
+    reconciliation, conflicting evidence, or a check that needs a source
+    CashBridge cannot query. It exists so that uncertainty is routed to a human
+    instead of being rounded to a pass or a fail.
+    """
+
     UNMATCHED = "UNMATCHED"
     PARTIAL = "PARTIAL"
     VERIFIED_3WAY = "VERIFIED_3WAY"
     DISCREPANCY_FLAGGED = "DISCREPANCY_FLAGGED"
+    REVIEW_REQUIRED = "REVIEW_REQUIRED"
+    DISPUTED = "DISPUTED"
     RECONCILED = "RECONCILED"
     FINANCED = "FINANCED"
 
@@ -104,7 +120,17 @@ class TradeBundle(BaseModel):
     match_confidence: float = 0.0
     status: MatchStatus = MatchStatus.UNMATCHED
     discrepancy_reasons: List[str] = Field(default_factory=list)
+    review_reasons: List[str] = Field(
+        default_factory=list,
+        description="Checks the system cannot complete without an outside source",
+    )
     bundle_sha256: Optional[str] = None
+    checks_performed: List[str] = Field(default_factory=list)
+    checks_not_performed: List[str] = Field(
+        default_factory=list,
+        description="Verifications this build cannot do — stated so a pass is "
+        "not read as more assurance than it carries",
+    )
 
 
 class SubsetSumMatchResult(BaseModel):
@@ -116,3 +142,13 @@ class SubsetSumMatchResult(BaseModel):
     is_valid_match: bool
     reconciliation_status: str
     period_lock_hash: Optional[str] = None
+    candidate_match_count: int = Field(
+        default=0, description="Number of invoice subsets that fit within tolerance"
+    )
+    alternative_matches: List[List[str]] = Field(
+        default_factory=list,
+        description="Other subsets that fit equally well. More than one means "
+        "the reconciliation is ambiguous and must not be auto-posted.",
+    )
+    requires_human_review: bool = False
+    review_reason: Optional[str] = None

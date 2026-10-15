@@ -1,12 +1,1 @@
-[
-  {
-    "block_index": 0,
-    "timestamp_utc": "2026-10-15T05:19:35.425406+00:00",
-    "invoice_id": "INV-2026-103",
-    "document_bundle_sha256": "sha256hash",
-    "financing_partner": "WeBank",
-    "advance_amount_usd": 55250.0,
-    "previous_block_hash": "0000000000000000000000000000000000000000000000000000000000000000",
-    "block_hash": "1d1af60c458961bee251d0b2e35f8c0d02e5d87ab0cc210f37b3fd5985088240"
-  }
-]
+[]
