@@ -1,153 +1,129 @@
-"""
-OTP Verifier — Human-in-the-Loop approval gate for all L3_EXTERNAL_OTP actions.
+"""Action-bound one-time approvals for L3 actions (TOTP via pyotp).
 
-In demo/competition mode (DEMO_MODE=True), the valid OTP is always '123456'.
-In production, this module would integrate with an SMS/email TOTP service.
+An approval is valid only if it
+  * matches the current TOTP code,
+  * is bound to ``action_hash = SHA-256(action_type + canonical JSON payload)``,
+  * is used once (consumed ``(action_hash, code)`` pairs are remembered),
+  * is used within 120 seconds of the challenge.
 
-Every OTP attempt (pass or fail) is logged to the audit trail.
+Approving pack A therefore never authorises sending pack B, and changing the payload
+after approval invalidates it.
 """
+
+from __future__ import annotations
 
 import hashlib
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Callable, Dict, Literal, Optional, Set, Tuple
 
-from config.settings import DEMO_MODE, DEMO_OTP, OPERATION_LOGS_PATH, EXECUTION_EVIDENCE_DIR
+import pyotp
+from pydantic import BaseModel
+
+from config.settings import OTP_SECRET, OTP_VALIDITY_SECONDS
+from schemas.agent_schemas import ApprovalRecord
+from security.audit_log import canonical_json
+
+Clock = Callable[[], datetime]
+OtpError = Literal["invalid_code", "expired", "replayed", "payload_mismatch"]
 
 
-EXECUTION_EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
-
-# Track active OTP sessions in-memory (keyed by session_id)
-# In production, this would be a short-lived Redis/DB store with TTL
-_active_sessions: dict = {}
+def action_hash(action_type: str, payload: Dict[str, Any]) -> str:
+    """SHA-256 of the action type followed by the canonical JSON payload."""
+    return hashlib.sha256((action_type + canonical_json(payload)).encode("utf-8")).hexdigest()
 
 
-def generate_otp_session(action_name: str, target_resource: str) -> dict:
-    """
-    Create a new OTP verification session for an L3 external action.
+class Challenge(BaseModel):
+    """What the approver is asked to approve."""
 
-    In demo mode, the OTP is always DEMO_OTP ('123456') and shown to the user.
-    In production, this would trigger an SMS/email delivery.
+    action_type: str
+    action_hash: str
+    issued_at: datetime
+    expires_at: datetime
+    instructions: str
 
-    Args:
-        action_name: The action awaiting approval (e.g., 'SUBMIT_FUNDING_PACK').
-        target_resource: The resource the action will affect (e.g., 'INV-2026-103').
 
-    Returns:
-        Session dict with session_id, otp (in demo mode), and instructions.
-    """
-    session_id = str(uuid.uuid4())
-    timestamp = datetime.now(timezone.utc).isoformat()
+class OtpResult(BaseModel):
+    """Either an approval record or one of the four contract error strings."""
 
-    session = {
-        "session_id": session_id,
-        "action_name": action_name,
-        "target_resource": target_resource,
-        "created_at_utc": timestamp,
-        "verified": False,
-        "demo_mode": DEMO_MODE,
-    }
-    _active_sessions[session_id] = session
+    ok: bool
+    error: Optional[OtpError] = None
+    approval: Optional[ApprovalRecord] = None
 
-    if DEMO_MODE:
-        session["otp_hint"] = DEMO_OTP
-        message = (
-            f"[DEMO MODE] OTP for '{action_name}' on '{target_resource}': "
-            f"Enter code {DEMO_OTP} to approve."
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class OtpVerifier:
+    """Issues challenges and verifies codes. The clock is injectable for tests."""
+
+    def __init__(
+        self,
+        secret: str = OTP_SECRET,
+        clock: Clock = _utc_now,
+        validity_seconds: int = OTP_VALIDITY_SECONDS,
+        approver: str = "Minh",
+    ) -> None:
+        self._totp = pyotp.TOTP(secret)
+        self._clock = clock
+        self._validity = timedelta(seconds=validity_seconds)
+        self._approver = approver
+        self._consumed: Set[Tuple[str, str]] = set()
+
+    def current_code(self) -> str:
+        """The code valid right now. Used only by demo automation and tests."""
+        return self._totp.at(self._clock())
+
+    def issue_challenge(self, action_type: str, payload: Dict[str, Any]) -> Challenge:
+        """Bind a new challenge to this exact action and payload."""
+        now = self._clock()
+        digest = action_hash(action_type, payload)
+        return Challenge(
+            action_type=action_type,
+            action_hash=digest,
+            issued_at=now,
+            expires_at=now + self._validity,
+            instructions=(
+                f"Enter the 6-digit code from the authenticator within "
+                f"{int(self._validity.total_seconds())} seconds to approve {action_type} "
+                f"(action_hash {digest[:12]}...)."
+            ),
         )
-    else:
-        message = (
-            f"An OTP has been sent to your registered contact. "
-            f"Enter the code to approve '{action_name}'."
+
+    def verify(
+        self,
+        challenge: Challenge,
+        code: str,
+        *,
+        action_type: Optional[str] = None,
+        payload: Optional[Dict[str, Any]] = None,
+    ) -> OtpResult:
+        """Check ``code`` against ``challenge``.
+
+        Pass ``action_type`` and ``payload`` of the action about to run so a code issued
+        for a different action (or an edited payload) is refused as payload_mismatch.
+        """
+        now = self._clock()
+        if action_type is not None and payload is not None:
+            if action_hash(action_type, payload) != challenge.action_hash:
+                return OtpResult(ok=False, error="payload_mismatch")
+        if now > challenge.expires_at:
+            return OtpResult(ok=False, error="expired")
+        pair = (challenge.action_hash, code)
+        if pair in self._consumed:
+            return OtpResult(ok=False, error="replayed")
+        if not self._totp.verify(code, for_time=now, valid_window=1):
+            return OtpResult(ok=False, error="invalid_code")
+        self._consumed.add(pair)
+        return OtpResult(
+            ok=True,
+            approval=ApprovalRecord(
+                approval_id=str(uuid.uuid4()),
+                action_type=challenge.action_type,
+                action_hash=challenge.action_hash,
+                approver=self._approver,
+                approved_at=now,
+                valid_until=now + self._validity,
+            ),
         )
-
-    return {
-        "session_id": session_id,
-        "message": message,
-        "demo_mode": DEMO_MODE,
-        **({"otp_hint": DEMO_OTP} if DEMO_MODE else {}),
-    }
-
-
-def verify_otp(session_id: str, entered_otp: str, actor: str = "HUMAN_USER") -> dict:
-    """
-    Validate the OTP provided by the human user for an active L3 session.
-
-    Args:
-        session_id: The session ID returned by generate_otp_session().
-        entered_otp: The 6-digit code entered by the user.
-        actor: Identifier of the person approving (e.g., 'CFO_DEMO_USER').
-
-    Returns:
-        Dict with 'verified' (bool), 'session_id', 'action_name', and 'reason'.
-    """
-    import json
-
-    timestamp = datetime.now(timezone.utc).isoformat()
-    log_id = str(uuid.uuid4())
-
-    if session_id not in _active_sessions:
-        log_entry = {
-            "log_id": log_id,
-            "timestamp_utc": timestamp,
-            "permission_level": "L3_EXTERNAL_OTP",
-            "action_name": "OTP_VERIFICATION",
-            "actor": actor,
-            "target_resource": session_id,
-            "state_hash": hashlib.sha256(f"INVALID|{session_id}|{timestamp}".encode()).hexdigest(),
-            "status": "REJECTED",
-            "human_otp_verified": False,
-            "reason": "OTP session not found or expired.",
-        }
-        with open(OPERATION_LOGS_PATH, "a") as f:
-            f.write(json.dumps(log_entry) + "\n")
-        return {"verified": False, "reason": "Session not found or expired. Please generate a new OTP."}
-
-    session = _active_sessions[session_id]
-
-    # Determine correct OTP (demo or production)
-    correct_otp = DEMO_OTP if DEMO_MODE else _active_sessions[session_id].get("_secret_otp", "")
-
-    verified = entered_otp.strip() == correct_otp
-    status = "OTP_CONFIRMED" if verified else "OTP_REJECTED"
-    reason = (
-        f"Human OTP verified. '{session['action_name']}' on '{session['target_resource']}' is approved."
-        if verified else
-        "Incorrect OTP. Action blocked. Please try again."
-    )
-
-    log_entry = {
-        "log_id": log_id,
-        "timestamp_utc": timestamp,
-        "permission_level": "L3_EXTERNAL_OTP",
-        "action_name": session["action_name"],
-        "actor": actor,
-        "target_resource": session["target_resource"],
-        "state_hash": hashlib.sha256(
-            f"{session['action_name']}|{session['target_resource']}|{timestamp}".encode()
-        ).hexdigest(),
-        "status": status,
-        "human_otp_verified": verified,
-        "reason": reason,
-    }
-
-    with open(OPERATION_LOGS_PATH, "a") as f:
-        f.write(json.dumps(log_entry) + "\n")
-
-    if verified:
-        session["verified"] = True
-        # Clean up session after successful use (one-time tokens)
-        _active_sessions.pop(session_id, None)
-
-    return {
-        "verified": verified,
-        "session_id": session_id,
-        "action_name": session["action_name"],
-        "log_id": log_id,
-        "reason": reason,
-    }
-
-
-def is_session_verified(session_id: str) -> bool:
-    """Check if a session was already successfully verified (stateful check)."""
-    return _active_sessions.get(session_id, {}).get("verified", False)

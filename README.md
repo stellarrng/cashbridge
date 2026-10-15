@@ -1,159 +1,135 @@
-# CashBridge — SME Finance Copilot for Export Enterprises
+# CashBridge: SME Finance Copilot for Export Enterprises
 
-> **2026 Shenzhen International FinTechathon Submission (Topic E: SME Finance Copilot)**
->
-> **Core Principle:** *"Code Calculates, AI Writes"* — Deterministic Python Financial Core + Zero-Trust Multi-Agent Orchestration (`L0`–`L4`) + SHA-256 Anti-Double-Financing Registry.
+> CashBridge turns each export invoice into evidence a lender can verify, and then into cash.
 
----
+**Status: in progress.** The deterministic core and the security layer are built and tested (Phases 0 to 2). The seed data, coordinator, agents, API and dashboard are not built yet. See [Built / Not built](#built--not-built).
 
-## 1. Project Overview
+2026 Shenzhen International FinTech Competition, International Track, Topic E: SME Finance Copilot.
+All companies, people, buyers, lenders and APIs in this repository are **SYNTHETIC** or **MOCK**.
 
-### Executive Summary & Problem Statement
+## The problem
 
-- **The Core Crisis:** Export SMEs frequently face severe cash flow shortages despite being profitable on paper. Cash is trapped in long accounts receivable cycles (DSO of 45–90 days) and upfront supplier deposits, governed by the Cash Conversion Cycle:
+Vietnamese B2B export manufacturers sell on 45 to 90 day open-account terms to buyers in the US, Japan and China. They look profitable on paper but run out of cash because working capital is locked in receivables and supplier deposits (`CCC = DIO + DSO - DPO`). Banks cannot verify foreign invoices or prevent double-financing, so they ask for real-estate collateral.
 
-  `CCC = DIO + DSO - DPO`
+| Fact | Source |
+|---|---|
+| About 8.8% of Vietnamese SMEs access bank loans, against 47.1% of large firms | FiinGroup, "Vietnam SME: Maturity and Credit Access", Aug 2026 |
+| International factoring is about 0.04% of Vietnam's trade turnover, against 0.86% in developing economies | VNBA / IFC / FCI workshop, Mar 2026 |
+| Factoring outstanding is about VND 22,000 bn across 16 credit institutions | VNBA, Mar 2026 |
+| WeBank launched 微贸贷 (an online credit loan for small foreign-trade firms) with China Eximbank Shenzhen, Sinosure Shenzhen and Shenzhen Southern E-Port | Xinhua, 27 May 2025 |
+| US tariffs on Vietnamese goods changed several times in 2025 to 2026 | Described as volatility only; no current rate is quoted |
 
-- **Collateral & Lending Barriers:** Only 9.3% of SMEs in Vietnam secure bank loans, compared with 56.1% of large enterprises. Traditional lenders demand real estate collateral because they cannot independently verify unstructured international invoices and foreign buyers. International factoring accounts for only approximately 0.04% of Vietnam's trade volume due to disconnected data and rigorous verification hurdles.
+## The core loop
 
-- **Target Niche:** B2B export manufacturing and trading SMEs, including wood processing, garments, and subcontracting businesses selling on credit to buyers in the US, Japan, and China.
+1. **Anticipate**: 13-week cash forecast with the first shortfall week and its drivers.
+2. **Prove**: reconcile payments, 3-way match PO, invoice and bill of lading, and package the evidence.
+3. **Compare and Choose**: a liquidity menu ranked by annualised cost.
+4. **Approve**: OTP-gated, human-in-the-loop.
 
----
+Design rule: *AI reads and writes. Code calculates and decides. Humans approve everything that leaves the system.*
 
-## 2. Core Solution & Workflow Loop
-
-CashBridge operates on a continuous four-step workflow:
-
-**Anticipate → Prove → Compare & Choose → Approve**
-
-1. **Multi-Source Reconciliation:** Automatically ingests bank statements, electronic invoices, bills of lading (B/L), and purchase orders (POs), handling multi-currency matching (`USD`, `JPY`, `CNY`) and intermediary bank fee variances.
-
-2. **13-Week Cash Flow Forecasting:** Predicts weekly cash positions, flagging upcoming shortfalls caused by supplier deposit demands or delayed customer payments.
-
-3. **Liquidity & APR Comparison:** When a shortfall is detected, CashBridge scans eligible invoices and ranks financing options by their true annualized cost (APR).
-
-4. **Verifiable Funding Packs:** Generates tamper-evident documentation packages backed by SHA-256 audit logs and hash registries to prevent double-financing.
-
----
-
-## 3. Architecture & Safety Design
-
-### 3.1 Deterministic Core — "Code Calculates, AI Writes"
-
-LLMs are strictly prohibited from performing arithmetic or financial calculations.
-
-- **Python core (`core/`):** Handles all financial calculations, formulas, deterministic rules, and validation.
-- **LLM layer (`agents/`):** Limited to unstructured text extraction, OCR parsing, document interpretation, and drafting text.
-- **Verification:** Financial results are computed by deterministic code and independently tested by `pytest`.
-
-### 3.2 Five-Tier Permission Model (`L0`–`L4`)
-
-| Level | Permission | Description |
-|---|---|---|
-| `L0` | Read | Read-only access to authorized data sources. |
-| `L1` | Analyze & Draft | Internal calculations, cash flow forecasts, and draft messaging. |
-| `L2` | Internal Write | Automated internal ledger updates for high-confidence reconciliations. |
-| `L3` | External Action | Submitting loan application packs or sending external communications. Every action requires explicit human approval via OTP (`123456` in demo mode). |
-| `L4` | Money Movement | **Zero autonomy. Hard-blocked at the code level.** Banking transactions remain entirely human-executed. |
-
-### 3.3 Security & Fraud Protection
-
-- **Business Email Compromise (BEC) Protection:** Detects and blocks suspicious or fraudulent bank account change requests and spoofed lookalike domains.
-- **PII Data Masking:** Masks IBAN, SWIFT codes, Tax IDs, and personal emails before data is transmitted to cloud-based LLMs.
-- **Immutable Audit Trail:** Uses SHA-256 hash-linked audit logs (`data/execution_evidence/sandbox_operation_logs.jsonl`) to detect unauthorized changes.
-- **Anti-Double-Financing:** Maintains a SHA-256 hash chain registry (`data/execution_evidence/audit_hash_registry.json`) — any attempt to finance an already-pledged invoice raises `DOUBLE_FINANCING_BLOCKED`.
-- **Human-in-the-Loop Approval:** Enforces OTP approval for all `L3` external actions.
-
----
-
-## 4. Agent & Module Breakdown
-
-| Module | File | Responsibilities |
-|---|---|---|
-| **Coordinator** | `agents/coordinator.py` | State machine managing workflows, event triggers, and L0–L4 permission boundaries. |
-| **CFO Assistant** | `agents/cfo_assistant.py` | Conversational interface providing financial metric queries and scenario analyses with source citations. Offline deterministic fallback mode included. |
-| **Verification & Matching Engine** | `core/matching_engine.py` | 3-way matching (Invoice–PO–B/L), multi-currency subset-sum reconciliation (SSMP), and SHA-256 period locking. |
-| **Forecasting Engine** | `core/forecasting_engine.py` | 13-week direct cash flow projections (`CCC = 82 days`) and What-If scenario modeling. |
-| **Funding Evaluator** | `core/funding_evaluator.py` | True APR calculation and ranking: WeBank Factoring (10.74%) < Early Discount (16.55%) < Bridge (18.90%). |
-| **Cryptographic Registry** | `core/cryptographic_registry.py` | SHA-256 hash-chain ledger preventing double-financing. |
-| **PDF Compiler** | `core/pdf_compiler.py` | Generates tamper-evident Verifiable Funding Pack PDFs. |
-| **Debt Collection Agent** | `agents/debt_collection_agent.py` | Automated multi-tier reminder schedules (Gentle → Firm → Escalation) and buyer response parsing. |
-| **Buyer Retention Agent** | `agents/buyer_retention_agent.py` | Buyer profiles, churn risk calculation, and seasonal marketing plans. |
-
----
-
-## 5. Business Model & Expansion Roadmap
-
-### Revenue Streams
-
-- **SaaS Subscriptions:** Monthly subscription fees tiered by connected bank accounts and invoice volume.
-- **Lender Referral Fees:** Transparent referral fees from financing partners.
-- **White-Label Bank Integration:** Supply chain financing integration modeled on WeBank's approach.
-
-### Expansion Phases
-
-- **Phase 1 — Vietnam Export SMEs:** Wood processing, textiles, and manufacturing.
-- **Phase 2 — Domestic Supply Chains:** Distributors, freight forwarders, and household businesses.
-- **Phase 3 — Regional Expansion:** ASEAN and China via open banking APIs, e-invoicing connectors, and EU Carbon Border Adjustment Mechanism (CBAM) compliance add-ons.
-
----
-
-## 6. Quickstart Guide
-
-### How to Run Locally — No Docker Required
-
-Everything runs natively in Python. Docker files are included as static architectural deliverables for judges only.
-
-### Prerequisites
-
-- Python 3.11+
-- Git
-
-### Step 1: Clone the Repository & Install Dependencies
+## Quickstart
 
 ```bash
-git clone https://github.com/stellarrng/cashbridge.git
-cd cashbridge
-pip install -r requirements.txt
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env        # optional; leave LLM_API_KEY empty to run offline
+make test                   # 121 tests, no network, no API key
 ```
 
-### Step 2: Initialize the Sandbox Data & Evidence Logs
+`make seed`, `make story`, `make eval`, `make run` and `make anchor` are defined but their scripts arrive in later phases (see below).
 
-```bash
-python data/seed_sandbox.py
+## Demo scenario (single source of truth: `instructions.md` section 2)
+
+Company: Binh Duong Timberworks Co., Ltd. (SYNTHETIC), about 120 staff, annual revenue about VND 120 bn.
+Fixed demo FX rates (assumed): USD/VND 26,000, JPY/VND 175, CNY/VND 3,650.
+
+| Item | Target |
+|---|---|
+| Cash conversion cycle | 82 days (DIO 35 + DSO 75 - DPO 28), computed from the ledger |
+| Incoming wire | +USD 48,620, matched by subset-sum to INV-1021 + INV-1022 + INV-1024 (gap USD 35, booked as a bank fee) |
+| First negative week | Week 7, shortfall between USD 40,000 and 47,000 |
+| Liquidity menu | Factoring INV-1030 about 17.1%, bridge loan about 18.2%, early-payment discount 2/10 net 30 about 37.2%; overdraft not eligible |
+| Verification | INV-1030 ELIGIBLE, INV-1027 FLAGGED (2 packages missing) |
+| Fraud | Lookalike-domain email asking to change bank details is BLOCKED |
+
+The engine computes these values from seed data; nothing is hard-coded in the engine or the UI.
+The lender in the demo is "Partner Factor (FCI two-factor model, MOCK)". WeBank appears only as the intended white-label channel; no WeBank API is claimed.
+
+### Approving as the Director (judges)
+
+L3 actions (submitting a funding pack, sending an external email) need a 6-digit TOTP code. The demo secret is public:
+
+```
+OTP_SECRET=JBSWY3DPEHPK3PXP
 ```
 
-Generates realistic English mock data for **Pacific Timber & Garment Exports Ltd.**, including multi-currency invoices (USD, JPY, CNY), a bulk wire transfer with a $35 correspondent bank fee variance, a spoofed BEC fraud email, and pre-populated execution logs.
+Add it to any authenticator app (Base32, 30-second codes). Each code works once, only for the exact action shown, and only within 120 seconds.
 
-### Step 3: Run the Automated Test Suite
+## Architecture
 
-```bash
-pytest -v
+```mermaid
+flowchart LR
+    UI[Streamlit UI] -->|UI contract only| ADAPTER[ui/backend_real.py]
+    ADAPTER --> COORD[Coordinator state machine]
+    COORD --> GUARD[Guard layer: PII mask, injection guard, number check, BEC]
+    GUARD --> AGENTS[Agents: CFO, document, collections, buyer risk]
+    COORD --> GATE[Permission gatekeeper L0 to L4]
+    AGENTS --> GATE
+    GATE --> CORE[core: matching, forecast, funding, registry]
+    GATE --> AUDIT[Hash-chained audit log]
+    CORE --> EVID[data/execution_evidence]
 ```
 
-Runs automated tests covering the deterministic financial engines, 3-way match, subset-sum reconciliation, L3 OTP gating, L4 money movement block, and SHA-256 anti-double-financing.
+Phases 0 to 2 (everything left of the coordinator) are implemented. The coordinator, agents, adapter and UI are planned.
 
-### Step 4: Launch the CashBridge Web Application
+## Repository layout
 
-```bash
-streamlit run ui/app.py
+```text
+config/     settings.py (constants), tool_allowlist.py (agent -> tools)
+schemas/    document_schemas.py, forecast_schemas.py, agent_schemas.py (Pydantic v2)
+core/       matching_engine.py, forecasting_engine.py, funding_evaluator.py,
+            invoice_registry.py, period_lock.py        (pure Python, no I/O, no LLM)
+security/   permission_gatekeeper.py, audit_log.py, otp_verifier.py, pii_masker.py,
+            injection_guard.py, number_check.py, bec_fraud_detector.py
+agents/ api/ ui/ scripts/ eval/   (placeholders for later phases)
+data/       sandbox_inputs/ and execution_evidence/
+docs/       UI_CONTRACT.md (the interface between the UI and the backend)
+tests/      121 tests
 ```
 
-### API Keys & Demo Mode
+## Built / Not built
 
-The application includes a built-in **Deterministic Demo Mode** that runs 100% offline without an OpenAI API key. To enable live GPT-4o tool calling, create a `.env` file:
+| Area | Status |
+|---|---|
+| Config, tool allowlists, Pydantic schemas | Built, tested |
+| Matching engine (3-tier reconciliation, 3-way match) | Built, tested |
+| Forecasting engine (CCC, 13-week forecast, what-if, attribution, FX exposure) | Built, tested |
+| Funding evaluator (APR and ranking) | Built, tested |
+| Invoice registry and period lock (tamper-evident) | Built, tested |
+| Gatekeeper, audit log, action-bound OTP | Built, tested |
+| PII masker, injection guard, number check, BEC detector | Built, tested |
+| Seed sandbox data (`data/seed_sandbox.py`) | Not built (Phase 3) |
+| Coordinator, LLM client, demo story script, UI adapter | Not built (Phase 3) |
+| Streamlit dashboard | Not built (Phase 4) |
+| CFO assistant, document and collections agents, PDF funding pack, evaluation harness | Not built (Phase 5) |
+| Buyer risk agent, FastAPI, working Docker image | Not built (Phase 6) |
+| Whitepaper and security self-assessment | Not written (Phase 7) |
 
-```dotenv
-OPENAI_API_KEY=your_key
-```
+## Limits
 
----
+- The registry and audit chain are **tamper-evident**, not tamper-resistant. A local admin can rewrite both files; anchoring the head hashes outside the machine is the mitigation.
+- A registry inside one SME's installation cannot stop the same invoice being financed at a second lender. In production it must be shared, for example run by a lender consortium or anchored to the e-invoice authority.
+- The demo TOTP secret is public.
 
-## 7. Project Principles
+## Roadmap (not built)
 
-1. **Deterministic Finance:** Financial calculations are performed by tested Python code, not generated by an LLM.
-2. **Verifiable Evidence:** Trade documents and reconciliation results provide traceable evidence for financing decisions.
-3. **Controlled Autonomy:** Agent permissions follow the `L0`–`L4` model, with explicit human approval for external actions.
-4. **Financial Integrity:** Audit trails, SHA-256 hashes, and anti-double-financing controls protect the integrity of funding documentation.
+Marketing agent, contract and bid evaluation agent, ESG / CBAM add-on, inventory, HR/payroll and tax agents, real bank Open API, e-invoice and Zalo connectors via MCP, a shared cross-lender registry, and expansion to distributors, forwarders and household businesses.
 
-**CashBridge turns verified trade data into actionable cash flow insights and evidence-backed financing opportunities for export SMEs.**
+Demo video: _link to be added_
+
+## Project documents
+
+- `instructions.md`: the master build specification (it wins over every other document).
+- `buildplan.md`: the phased technical build plan, including the UI contract.
+- `DECISIONS.md`: design choices and the control-to-file-to-test table.

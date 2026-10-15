@@ -1,116 +1,98 @@
-"""
-PII Masker — Redacts Personally Identifiable Information before text is transmitted
-to any cloud-based LLM (e.g., OpenAI GPT-4o).
+"""PII masking: replace sensitive values with reversible tokens before any cloud LLM call.
 
-Masked fields:
-  - IBAN / bank account numbers  → [IBAN_REDACTED]
-  - SWIFT / BIC codes            → [SWIFT_REDACTED]
-  - Tax IDs / EIN / VAT          → [TAX_ID_REDACTED]
-  - Personal email addresses     → [EMAIL_REDACTED]
-  - Phone numbers                → [PHONE_REDACTED]
+Tokens: [ACCT_n] IBAN and bank accounts, [SWIFT_n] SWIFT/BIC, [TAXID_n] tax IDs,
+[EMAIL_n] emails, [PHONE_n] phone numbers, [PERSON_n] names from the contact directory.
+
+The token map stays in process memory and is never logged. ``PiiMasker.last_pair`` keeps
+the latest before/after text for the UI "PII inspector".
 """
+
+from __future__ import annotations
 
 import re
-from typing import Tuple
+from typing import Dict, Iterable, List, Mapping, Optional, Tuple
 
+TokenMap = Dict[str, str]
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Regex Patterns
-# ─────────────────────────────────────────────────────────────────────────────
-
-# IBAN: 2-letter country code + 2 check digits + up to 30 alphanumeric chars
-_IBAN_PATTERN = re.compile(
-    r"\b[A-Z]{2}\d{2}[A-Z0-9]{4,30}\b",
+_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+_TAX_LABELLED = re.compile(
+    r"(?P<label>(?:tax\s*(?:id|code|no\.?|number)|MST)\s*[:#]?\s*)(?P<value>\d{10}(?:-?\d{3})?)\b",
     re.IGNORECASE,
 )
-
-# SWIFT / BIC: 8 or 11 character standard (e.g., BOFAUS3NXXX, DEUTDEDB)
-_SWIFT_PATTERN = re.compile(
-    r"\b[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?\b",
-    re.IGNORECASE,
+_SWIFT_LABELLED = re.compile(
+    r"(?P<label>(?:SWIFT|BIC)(?:\s*code)?\s*[:#]?\s*)(?P<value>[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?)\b"
 )
-
-# Tax IDs (Vietnamese MST, US EIN ##-#######, generic VAT prefix)
-_TAX_ID_PATTERN = re.compile(
-    r"\b(?:MST|EIN|VAT|TIN)?[-:\s]?\d{9,13}\b",
-    re.IGNORECASE,
+_IBAN = re.compile(
+    r"(?:\bIBAN\s*[:#]?\s*)?\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]{4}){2,7}(?:\s?\d{1,3})?\b"
 )
-
-# Standard email address
-_EMAIL_PATTERN = re.compile(
-    r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"
+_ACCOUNT_LABELLED = re.compile(
+    r"(?:\b(?:account|acct)(?:\s*(?:number|no\.?))?\s*[:#]?\s*)\d[\d -]{6,22}\d", re.IGNORECASE
 )
-
-# Phone numbers (international + local formats)
-_PHONE_PATTERN = re.compile(
-    r"\b(?:\+?\d{1,3}[-.\s]?)?(?:\(?\d{2,4}\)?[-.\s]?)?\d{3,4}[-.\s]?\d{3,4}\b"
-)
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Token Replacements
-# ─────────────────────────────────────────────────────────────────────────────
-
-IBAN_TOKEN = "[IBAN_REDACTED]"
-SWIFT_TOKEN = "[SWIFT_REDACTED]"
-TAX_ID_TOKEN = "[TAX_ID_REDACTED]"
-EMAIL_TOKEN = "[EMAIL_REDACTED]"
-PHONE_TOKEN = "[PHONE_REDACTED]"
+_LONG_DIGITS = re.compile(r"(?<![\d,.])\d{9,19}(?![\d,.])")
+_PHONE = re.compile(r"\+\d{1,3}(?:[\s.-]?\d{2,4}){2,4}\b|(?<![\d,.])0\d{2,3}[\s.-]\d{3,4}[\s.-]\d{3,4}\b")
 
 
-def mask_pii(text: str) -> Tuple[str, int]:
-    """
-    Redact all PII from the input text before it is sent to a cloud LLM.
+class PiiMasker:
+    """Stateful masker; one instance per LLM call keeps tokens consistent."""
 
-    Args:
-        text: Raw input string potentially containing sensitive information.
+    def __init__(self) -> None:
+        self.last_pair: Optional[Tuple[str, str]] = None
 
-    Returns:
-        A tuple of (masked_text, count_of_replacements_made).
-    """
-    total_replacements = 0
-    result = text
+    def mask(self, text: str, directory: Optional[Mapping[str, Iterable[str]]] = None) -> Tuple[str, TokenMap]:
+        """Return (masked_text, token_map). ``directory`` keys: names, emails, phones, tax_ids, accounts, swifts."""
+        token_map: TokenMap = {}
+        counters: Dict[str, int] = {}
+        by_value: Dict[str, str] = {}
 
-    # Order matters: mask SWIFT before IBAN to avoid partial overlaps
-    result, n = _SWIFT_PATTERN.subn(SWIFT_TOKEN, result)
-    total_replacements += n
+        def token_for(kind: str, value: str) -> str:
+            if value in by_value:
+                return by_value[value]
+            counters[kind] = counters.get(kind, 0) + 1
+            token = f"[{kind}_{counters[kind]}]"
+            by_value[value] = token
+            token_map[token] = value
+            return token
 
-    result, n = _IBAN_PATTERN.subn(IBAN_TOKEN, result)
-    total_replacements += n
+        masked = text
+        directory = directory or {}
+        for key, kind in (
+            ("accounts", "ACCT"),
+            ("swifts", "SWIFT"),
+            ("tax_ids", "TAXID"),
+            ("emails", "EMAIL"),
+            ("phones", "PHONE"),
+            ("names", "PERSON"),
+        ):
+            for value in sorted(directory.get(key, []), key=len, reverse=True):
+                if value:
+                    masked = re.sub(re.escape(value), lambda _m, k=kind, v=value: token_for(k, v), masked, flags=re.IGNORECASE)
 
-    result, n = _EMAIL_PATTERN.subn(EMAIL_TOKEN, result)
-    total_replacements += n
+        masked = _EMAIL.sub(lambda m: token_for("EMAIL", m.group(0)), masked)
+        masked = _TAX_LABELLED.sub(lambda m: m.group("label") + token_for("TAXID", m.group("value")), masked)
+        masked = _SWIFT_LABELLED.sub(lambda m: m.group("label") + token_for("SWIFT", m.group("value")), masked)
+        masked = _IBAN.sub(lambda m: token_for("ACCT", m.group(0)), masked)
+        masked = _ACCOUNT_LABELLED.sub(lambda m: token_for("ACCT", m.group(0)), masked)
+        masked = _LONG_DIGITS.sub(lambda m: token_for("ACCT", m.group(0)), masked)
+        masked = _PHONE.sub(lambda m: token_for("PHONE", m.group(0)), masked)
 
-    result, n = _TAX_ID_PATTERN.subn(TAX_ID_TOKEN, result)
-    total_replacements += n
+        self.last_pair = (text, masked)
+        return masked, token_map
 
-    result, n = _PHONE_PATTERN.subn(PHONE_TOKEN, result)
-    total_replacements += n
+    @staticmethod
+    def unmask(text: str, token_map: TokenMap) -> str:
+        """Put the original values back. Longer tokens first so [ACCT_10] beats [ACCT_1]."""
+        for token in sorted(token_map, key=len, reverse=True):
+            text = text.replace(token, token_map[token])
+        return text
 
-    return result, total_replacements
+    def inspector(self) -> Dict[str, str]:
+        """The last before/after pair in the UI contract ``pii_inspector`` shape."""
+        before, after = self.last_pair or ("", "")
+        return {"before": before, "after": after}
 
 
-def mask_pii_dict(data: dict) -> dict:
-    """
-    Recursively mask all string values inside a dictionary (e.g., a JSON payload).
-
-    Args:
-        data: Input dict that may contain PII in string values.
-
-    Returns:
-        A new dict with all string values masked.
-    """
-    masked = {}
-    for key, value in data.items():
-        if isinstance(value, str):
-            masked[key], _ = mask_pii(value)
-        elif isinstance(value, dict):
-            masked[key] = mask_pii_dict(value)
-        elif isinstance(value, list):
-            masked[key] = [
-                mask_pii_dict(item) if isinstance(item, dict)
-                else (mask_pii(item)[0] if isinstance(item, str) else item)
-                for item in value
-            ]
-        else:
-            masked[key] = value
-    return masked
+def mask_all(texts: List[str], directory: Optional[Mapping[str, Iterable[str]]] = None) -> Tuple[List[str], TokenMap]:
+    """Mask several texts with one shared token map."""
+    masker = PiiMasker()
+    joined, token_map = masker.mask("␞".join(texts), directory)
+    return joined.split("␞"), token_map

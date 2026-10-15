@@ -1,194 +1,164 @@
-"""
-BEC Fraud Detector — Business Email Compromise Defense Module.
+"""Business-email-compromise detector.
 
-Automatically scans incoming supplier and buyer emails for:
-  1. Lookalike / typosquatted sender domains (e.g., nordichorne.com vs nordichome.com)
-  2. Fraudulent bank account / IBAN / SWIFT change requests
-  3. Suspicious urgency language used in social engineering attacks
+An email is BLOCKED when any of these is true:
+  (a) it asks to change bank, IBAN or SWIFT details,
+  (b) the sender domain is a lookalike of a verified contact domain (Levenshtein <= 2,
+      a homoglyph swap, or the same name on a different TLD),
+  (c) it quotes an account that is not in ``verified_payees``.
 
-When a CRITICAL_BLOCK threat is detected, the system logs the event and
-prevents any payment action from proceeding.
+It is SUSPICIOUS when the sender domain is simply unknown. The detector only reads the
+contact directory; it never updates payee details (that would be L4).
 """
+
+from __future__ import annotations
 
 import re
-import uuid
-from datetime import datetime, timezone
-from typing import List, Tuple
+from enum import Enum
+from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Set
 
-from security.pii_masker import mask_pii
+from pydantic import BaseModel
 
+from schemas.document_schemas import Email
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Known Legitimate Buyer Domains (Trusted Whitelist)
-# ─────────────────────────────────────────────────────────────────────────────
-
-TRUSTED_BUYER_DOMAINS = {
-    "nordichome.com",
-    "sakurafurniture.co.jp",
-    "greatwallimports.cn",
-    "pacifictiber.vn",
-}
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# BEC Attack Patterns
-# ─────────────────────────────────────────────────────────────────────────────
-
-# Keywords strongly associated with SWIFT/bank account change fraud
-_BANK_CHANGE_KEYWORDS = [
-    "new bank account",
-    "updated banking details",
-    "change our bank",
-    "new iban",
-    "new swift",
-    "new wire instructions",
-    "new payment instructions",
-    "redirect payment",
-    "updated account number",
-    "new routing",
-    "please update your records",
-    "effective immediately",
+_BANK_CHANGE = [
+    re.compile(
+        r"\b(?:change|changed|changing|update|updated|updating|new|revised|replace|replaced|modify)\b"
+        r".{0,40}\b(?:bank|account|iban|swift|beneficiary|payment\s+details|banking\s+details)\b",
+        re.IGNORECASE | re.DOTALL,
+    ),
+    re.compile(r"\b(?:bank|account|banking|payment)\s+details\b.{0,40}\b(?:changed|changing|updated|new)\b", re.IGNORECASE | re.DOTALL),
 ]
-
-# Urgency / pressure tactics used in social engineering
-_URGENCY_KEYWORDS = [
-    "urgent",
-    "immediately",
-    "as soon as possible",
-    "asap",
-    "do not delay",
-    "action required",
-    "time sensitive",
-]
-
-# Patterns to extract raw SWIFT and IBAN from email body
-_SWIFT_EXTRACTOR = re.compile(r"\b([A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?)\b")
-_IBAN_EXTRACTOR = re.compile(r"\b([A-Z]{2}\d{2}[A-Z0-9]{4,30})\b")
+_ACCOUNT_IN_TEXT = re.compile(
+    r"(?-i:\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]{4}){2,7}(?:\s?\d{1,3})?\b)|(?:account|acct)(?:\s*(?:number|no\.?))?\s*[:#]?\s*(\d[\d -]{6,22}\d)",
+    re.IGNORECASE,
+)
+_HOMOGLYPHS = str.maketrans({"1": "l", "i": "l", "0": "o", "5": "s"})
 
 
-def _levenshtein_distance(s1: str, s2: str) -> int:
-    """Compute edit distance between two strings for typosquat detection."""
-    if len(s1) < len(s2):
-        return _levenshtein_distance(s2, s1)
-    if len(s2) == 0:
-        return len(s1)
-    prev_row = list(range(len(s2) + 1))
-    for i, c1 in enumerate(s1):
-        curr_row = [i + 1]
-        for j, c2 in enumerate(s2):
-            insert = prev_row[j + 1] + 1
-            delete = curr_row[j] + 1
-            replace = prev_row[j] + (c1 != c2)
-            curr_row.append(min(insert, delete, replace))
-        prev_row = curr_row
-    return prev_row[-1]
+class BecVerdict(str, Enum):
+    """Outcome of an email check."""
+
+    CLEAN = "CLEAN"
+    SUSPICIOUS = "SUSPICIOUS"
+    BLOCKED = "BLOCKED"
 
 
-def _is_spoofed_domain(sender_domain: str) -> Tuple[bool, str]:
-    """
-    Detect if the sender domain is a lookalike of a known trusted buyer domain.
-    Returns (is_spoofed, closest_legit_domain_matched).
-    """
-    sender_domain = sender_domain.lower().strip()
-    if sender_domain in TRUSTED_BUYER_DOMAINS:
-        return False, ""
-    for legit in TRUSTED_BUYER_DOMAINS:
-        dist = _levenshtein_distance(sender_domain, legit)
-        # Distance of 1–3 edits on domains of similar length = likely spoofed
-        if 0 < dist <= 3 and abs(len(sender_domain) - len(legit)) <= 3:
-            return True, legit
-    return False, ""
+class BecResult(BaseModel):
+    """Verdict, reasons and the data needed for a UI alert card."""
+
+    email_id: str
+    sender: str
+    subject: str
+    verdict: BecVerdict
+    reasons: List[str]
+
+    def to_alert(self, alert_id: str) -> Dict[str, Any]:
+        """Shape of one UI contract ``alerts`` entry."""
+        return {
+            "id": alert_id,
+            "type": "BEC",
+            "severity": "critical" if self.verdict is BecVerdict.BLOCKED else "medium",
+            "sender": self.sender,
+            "subject": self.subject,
+            "reasons": self.reasons,
+            "action_hint": "Verify by phone using the number on file. CashBridge never changes payee details.",
+        }
 
 
-def scan_email(
-    email_id: str,
-    sender_email: str,
-    subject: str,
-    body: str,
-) -> dict:
-    """
-    Scan an incoming email for BEC fraud indicators.
+def levenshtein(a: str, b: str) -> int:
+    """Edit distance between two strings."""
+    previous = list(range(len(b) + 1))
+    for i, ca in enumerate(a, start=1):
+        current = [i]
+        for j, cb in enumerate(b, start=1):
+            current.append(min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (ca != cb)))
+        previous = current
+    return previous[-1]
 
-    Args:
-        email_id: Unique identifier for the email (e.g., 'EMAIL-001').
-        sender_email: Full sender address (e.g., 'finance@nordichorne.com').
-        subject: Email subject line.
-        body: Full email body text.
 
-    Returns:
-        A dict with threat_level ('SAFE' | 'MEDIUM' | 'CRITICAL_BLOCK'),
-        detected indicators, extracted bank details, and sanitized body text.
-    """
-    sender_domain = sender_email.split("@")[-1] if "@" in sender_email else sender_email
-    combined_text = f"{subject} {body}".lower()
-    timestamp = datetime.now(timezone.utc).isoformat()
+def _skeleton(domain: str) -> str:
+    return domain.lower().replace("rn", "m").replace("vv", "w").translate(_HOMOGLYPHS)
 
-    suspicious_keywords: List[str] = []
-    flagged_bank_change = False
 
-    # 1. Detect domain spoofing
-    is_spoofed, matched_legit_domain = _is_spoofed_domain(sender_domain)
+def is_lookalike(domain: str, verified: str) -> bool:
+    """True if ``domain`` imitates ``verified`` without being it."""
+    domain, verified = domain.lower(), verified.lower()
+    if domain == verified:
+        return False
+    if levenshtein(domain, verified) <= 2:
+        return True
+    if _skeleton(domain) == _skeleton(verified):
+        return True
+    return domain.rsplit(".", 1)[0] == verified.rsplit(".", 1)[0]  # same name, different TLD
 
-    # 2. Detect bank account change language
-    for keyword in _BANK_CHANGE_KEYWORDS:
-        if keyword in combined_text:
-            suspicious_keywords.append(keyword)
-            flagged_bank_change = True
 
-    # 3. Detect urgency pressure tactics
-    for keyword in _URGENCY_KEYWORDS:
-        if keyword in combined_text:
-            suspicious_keywords.append(f"[URGENCY] {keyword}")
+def _verified_domains(contacts: Mapping[str, Any]) -> Set[str]:
+    domains: Set[str] = set()
+    for contact in contacts.get("verified_contacts", []):
+        domains.update(d.lower() for d in contact.get("domains", []))
+    return domains
 
-    # 4. Extract any SWIFT / IBAN mentioned in the email body
-    extracted_swift_matches = _SWIFT_EXTRACTOR.findall(body.upper())
-    extracted_iban_matches = _IBAN_EXTRACTOR.findall(body.upper())
-    extracted_swift = extracted_swift_matches[0] if extracted_swift_matches else None
-    extracted_iban = extracted_iban_matches[0] if extracted_iban_matches else None
 
-    # 5. Determine threat level
-    if is_spoofed and flagged_bank_change:
-        threat_level = "CRITICAL_BLOCK"
-        reason = (
-            f"CRITICAL BLOCK: Spoofed domain '{sender_domain}' resembles trusted "
-            f"buyer '{matched_legit_domain}' AND email contains fraudulent bank "
-            f"account change request. Suspected Business Email Compromise (BEC) attack."
-        )
-    elif is_spoofed:
-        threat_level = "CRITICAL_BLOCK"
-        reason = (
-            f"CRITICAL BLOCK: Sender domain '{sender_domain}' is a lookalike of "
-            f"trusted buyer domain '{matched_legit_domain}'. Do NOT respond or transfer funds."
-        )
-    elif flagged_bank_change:
-        threat_level = "CRITICAL_BLOCK"
-        reason = (
-            "CRITICAL BLOCK: Email contains bank account / SWIFT change instructions. "
-            "Always verify out-of-band via a known phone number before acting."
-        )
-    elif suspicious_keywords:
-        threat_level = "MEDIUM"
-        reason = "MEDIUM: Urgency language detected. Treat with caution and verify sender."
+def _verified_accounts(contacts: Mapping[str, Any]) -> Set[str]:
+    return {_digits_only(p.get("account", "")) for p in contacts.get("verified_payees", [])}
+
+
+def _digits_only(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9]", "", value).upper()
+
+
+def analyze(email: Email, contacts: Mapping[str, Any]) -> BecResult:
+    """Check one email against the verified contact directory (read-only)."""
+    text = f"{email.subject}\n{email.body}"
+    reasons: List[str] = []
+    blocked = False
+
+    if any(pattern.search(text) for pattern in _BANK_CHANGE):
+        reasons.append("Requests change of bank account")
+        blocked = True
+
+    domain = email.sender_domain
+    verified = _verified_domains(contacts)
+    if domain not in verified:
+        for known in sorted(verified):
+            if is_lookalike(domain, known):
+                reasons.append(f"Lookalike domain of {known}")
+                blocked = True
+                break
+
+    accounts = _verified_accounts(contacts)
+    for match in _ACCOUNT_IN_TEXT.finditer(text):
+        quoted = _digits_only(match.group(1) or match.group(0))
+        if quoted not in accounts:
+            reasons.append("Account not in verified payees")
+            blocked = True
+            break
+
+    if blocked:
+        verdict = BecVerdict.BLOCKED
+    elif domain not in verified:
+        verdict = BecVerdict.SUSPICIOUS
+        reasons.append("Sender domain is not in the verified contact directory")
     else:
-        threat_level = "SAFE"
-        reason = "No BEC indicators detected."
+        verdict = BecVerdict.CLEAN
+    return BecResult(
+        email_id=email.email_id,
+        sender=email.sender,
+        subject=email.subject,
+        verdict=verdict,
+        reasons=reasons,
+    )
 
-    # Sanitize the email body (mask PII for logging)
-    sanitized_body, _ = mask_pii(body)
 
-    return {
-        "scan_id": str(uuid.uuid4()),
-        "email_id": email_id,
-        "timestamp_utc": timestamp,
-        "sender_email": sender_email,
-        "sender_domain": sender_domain,
-        "is_spoofed_domain": is_spoofed,
-        "matched_legit_domain": matched_legit_domain if is_spoofed else None,
-        "detected_suspicious_keywords": list(set(suspicious_keywords)),
-        "flagged_bank_change": flagged_bank_change,
-        "extracted_swift": extracted_swift,
-        "extracted_iban": extracted_iban,
-        "threat_level": threat_level,
-        "reason": reason,
-        "sanitized_body": sanitized_body,
-    }
+# ------------------------------------------------------------------ tax ID helper
+_VN_TAX_ID = re.compile(r"^\d{10}(?:-?\d{3})?$")
+
+
+def is_valid_vn_tax_id(tax_id: str, issuer_registry: Optional[FrozenSet[str]] = None) -> bool:
+    """Vietnamese tax code format (10 or 13 digits) and, if given, presence in the issuer registry."""
+    candidate = tax_id.strip()
+    if not _VN_TAX_ID.match(candidate):
+        return False
+    if issuer_registry is None:
+        return True
+    return candidate.replace("-", "") in {t.replace("-", "") for t in issuer_registry}

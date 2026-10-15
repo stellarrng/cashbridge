@@ -1,221 +1,209 @@
-"""
-Matching Engine — Deterministic 3-Way Match (Invoice–PO–Bill of Lading)
-and Multi-Currency Subset-Sum Reconciliation (SSMP).
+"""Matching engine: bank reconciliation (3 tiers) and the 3-way match.
 
-Rules:
-  - All matching logic is pure Python — NO LLM involvement.
-  - 3-way match: |Invoice.amount - PO.amount| ≤ $0.01, currency match, valid tax ID,
-    BL.shipped_on_board_date ≤ Invoice.issue_date.
-  - SSMP: Find subset of open invoices whose USD sum falls within $50 of a bulk wire.
-  - All successful L2 writes are SHA-256 period-locked and logged.
+Pure Python, no I/O, no LLM. Money is compared in integer minor units or USD cents.
+
+Reconciliation tiers
+  1. Exact: the reference names one open invoice and the amount is identical.
+  2. Tolerance: the reference names one open invoice and the gap is a bank fee
+     (at most USD 50) or an FX difference.
+  3. Subset-sum: some combination of the buyer's open invoices (at most 6) sums to
+     the amount received within the fee tolerance. All solutions are returned; more
+     than one means NEEDS_HUMAN.
 """
 
-import hashlib
-import json
-from datetime import datetime, timezone
+from __future__ import annotations
+
+import re
+from decimal import Decimal
 from itertools import combinations
-from typing import List, Optional
+from typing import List, Optional, Sequence, Tuple
 
 from config.settings import (
-    FX_RATES_TO_USD,
-    PO_INVOICE_TOLERANCE_USD,
-    CORRESPONDENT_BANK_FEE_TOLERANCE_USD,
-    PermissionLevel,
+    INTERMEDIARY_FEE_TOLERANCE_USD,
+    MAX_SUBSET_SIZE,
+    THREE_WAY_AMOUNT_TOLERANCE,
 )
 from schemas.document_schemas import (
-    CommercialInvoice,
-    PurchaseOrder,
-    BillOfLading,
     BankTxn,
-    TradeBundle,
+    BillOfLading,
+    CommercialInvoice,
     MatchStatus,
-    SubsetSumMatchResult,
+    PurchaseOrder,
+    ReconciliationResult,
+    ReconStatus,
+    ThreeWayResult,
 )
-from security.permission_gatekeeper import request_permission
+
+_INVOICE_REF = re.compile(r"INV[-\s]?(\d+)", re.IGNORECASE)
 
 
-def _to_usd(amount: float, currency: str) -> float:
-    """Convert a foreign currency amount to USD using locked deterministic FX rates."""
-    rate = FX_RATES_TO_USD.get(currency.upper(), 1.0)
-    return round(amount * rate, 2)
+def _fee_tolerance_cents() -> int:
+    return int(INTERMEDIARY_FEE_TOLERANCE_USD * 100)
 
 
-def _bundle_sha256(invoice_id: str, po_number: str, bl_number: Optional[str]) -> str:
-    """Compute a deterministic SHA-256 fingerprint for a trade document bundle."""
-    raw = f"{invoice_id}|{po_number}|{bl_number or 'NO_BL'}|{datetime.now(timezone.utc).date()}"
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+def _normalise_invoice_no(raw: str) -> str:
+    match = _INVOICE_REF.search(raw)
+    return f"INV-{match.group(1)}" if match else raw.strip().upper()
 
 
-def run_3way_match(bundle: TradeBundle) -> TradeBundle:
-    """
-    Perform a full 3-Way Match across a CommercialInvoice, PurchaseOrder, and BillOfLading.
+def referenced_invoice_numbers(reference: str) -> List[str]:
+    """Return the invoice numbers named in a free-text bank reference, normalised."""
+    return [f"INV-{digits}" for digits in _INVOICE_REF.findall(reference)]
 
-    Verification rules (all must pass for VERIFIED_3WAY):
-      1. Currency match between Invoice and PO.
-      2. |Invoice.amount - PO.amount| ≤ $0.01 tolerance.
-      3. Invoice.buyer_tax_id is not empty (valid buyer identity).
-      4. BL.shipped_on_board_date ≤ Invoice.issue_date (goods shipped before invoice).
 
-    Args:
-        bundle: A TradeBundle containing invoice, po, and optionally bl.
+def _gap_usd(cents: int) -> Decimal:
+    return Decimal(cents) / 100
 
-    Returns:
-        Updated TradeBundle with match_confidence, status, and discrepancy_reasons.
-    """
-    request_permission(
-        PermissionLevel.L1_ANALYZE,
-        "RUN_3WAY_MATCH",
-        bundle.invoice_id,
+
+def _gap_within_tolerance(gap_cents: int, same_currency: bool) -> bool:
+    """Bank fees only reduce what arrives; FX differences can go either way."""
+    tolerance = _fee_tolerance_cents()
+    if same_currency:
+        return 0 <= gap_cents <= tolerance
+    return abs(gap_cents) <= tolerance
+
+
+def reconcile(txn: BankTxn, open_invoices: Sequence[CommercialInvoice]) -> ReconciliationResult:
+    """Match one incoming transaction to the open invoices of the same buyer."""
+    pool = [inv for inv in open_invoices if txn.buyer_id is None or inv.buyer_id == txn.buyer_id]
+    by_no = {_normalise_invoice_no(inv.invoice_no): inv for inv in pool}
+    received_cents = txn.amount.to_usd_cents()
+
+    named = [no for no in referenced_invoice_numbers(txn.reference) if no in by_no]
+    if len(named) == 1:
+        invoice = by_no[named[0]]
+        same_currency = invoice.currency == txn.amount.currency
+        if same_currency and invoice.amount.minor_units == txn.amount.minor_units:
+            return ReconciliationResult(
+                txn_id=txn.txn_id,
+                tier=1,
+                matched_invoices=[invoice.invoice_no],
+                gap=Decimal("0"),
+                confidence=1.0,
+                status=ReconStatus.BOOKED,
+                reason="Exact match on invoice reference and amount",
+            )
+        gap_cents = invoice.amount.to_usd_cents() - received_cents
+        if _gap_within_tolerance(gap_cents, same_currency):
+            return _tolerance_result(txn.txn_id, 2, [invoice.invoice_no], gap_cents, same_currency)
+
+    return _subset_sum(txn, pool, received_cents)
+
+
+def _tolerance_result(
+    txn_id: str, tier: int, invoice_nos: List[str], gap_cents: int, same_currency: bool
+) -> ReconciliationResult:
+    if same_currency:
+        reason_code, confidence = "bank_fee", 1.0
+        text = "Gap is within the intermediary bank fee tolerance"
+    else:
+        reason_code, confidence = "fx_difference", 0.9
+        text = "Gap comes from FX conversion; proposed match needs accountant approval"
+    if gap_cents == 0 and same_currency:
+        reason_code = None
+    return ReconciliationResult(
+        txn_id=txn_id,
+        tier=tier,
+        matched_invoices=invoice_nos,
+        gap=_gap_usd(gap_cents),
+        gap_reason=reason_code,
+        confidence=confidence,
+        status=ReconStatus.BOOKED if confidence == 1.0 else ReconStatus.NEEDS_HUMAN,
+        reason=text,
     )
 
-    invoice = bundle.invoice
-    po = bundle.po
-    bl = bundle.bl
-    reasons: List[str] = []
-    confidence = 1.0
 
-    # Rule 1: BL must be present
-    if bl is None:
-        reasons.append("MISSING_BILL_OF_LADING: No Bill of Lading document provided.")
-        confidence -= 0.4
+def _subset_sum(
+    txn: BankTxn, pool: Sequence[CommercialInvoice], received_cents: int
+) -> ReconciliationResult:
+    """Tier 3: find every combination of open invoices that explains the amount."""
+    candidates = sorted(pool, key=lambda inv: inv.invoice_no)
+    cents = {inv.invoice_no: inv.amount.to_usd_cents() for inv in candidates}
+    solutions: List[Tuple[Tuple[str, ...], int, bool]] = []
+    for size in range(1, min(MAX_SUBSET_SIZE, len(candidates)) + 1):
+        for combo in combinations(candidates, size):
+            total = sum(cents[inv.invoice_no] for inv in combo)
+            same_currency = all(inv.currency == txn.amount.currency for inv in combo)
+            gap = total - received_cents
+            if _gap_within_tolerance(gap, same_currency):
+                solutions.append((tuple(inv.invoice_no for inv in combo), gap, same_currency))
 
-    # Rule 2: PO must be present
+    if not solutions:
+        return ReconciliationResult(
+            txn_id=txn.txn_id,
+            tier=None,
+            confidence=0.0,
+            status=ReconStatus.NEEDS_HUMAN,
+            reason="No combination of open invoices matches within tolerance",
+        )
+    if len(solutions) > 1:
+        return ReconciliationResult(
+            txn_id=txn.txn_id,
+            tier=3,
+            confidence=0.5,
+            status=ReconStatus.NEEDS_HUMAN,
+            reason=f"{len(solutions)} combinations fit within tolerance; a human must choose",
+            candidates=[list(nos) for nos, _, _ in solutions],
+        )
+    numbers, gap, same_currency = solutions[0]
+    return _tolerance_result(txn.txn_id, 3, list(numbers), gap, same_currency)
+
+
+def three_way_match(
+    po: Optional[PurchaseOrder],
+    invoice: CommercialInvoice,
+    bl: Optional[BillOfLading],
+) -> ThreeWayResult:
+    """Check a purchase order, invoice and bill of lading against each other.
+
+    BLOCKED: a document is missing or the parties/currency do not agree.
+    FLAGGED: amount, quantity, package count or ports differ (differences listed).
+    ELIGIBLE: everything agrees.
+    """
+    blocked: List[str] = []
+    flagged: List[str] = []
+
     if po is None:
-        reasons.append("MISSING_PURCHASE_ORDER: No linked Purchase Order found.")
-        confidence -= 0.4
+        blocked.append("Purchase order missing")
+    if bl is None:
+        blocked.append("Bill of lading missing")
 
     if po is not None:
-        # Rule 3: Currency match
-        if invoice.currency != po.currency:
-            reasons.append(
-                f"CURRENCY_MISMATCH: Invoice currency {invoice.currency} ≠ PO currency {po.currency}."
+        if po.currency != invoice.currency:
+            blocked.append(f"Currency PO {po.currency.value} vs invoice {invoice.currency.value}")
+        if po.buyer_id != invoice.buyer_id:
+            blocked.append(f"Buyer PO {po.buyer_id} vs invoice {invoice.buyer_id}")
+        if po.seller_tax_id != invoice.seller_tax_id:
+            blocked.append(f"Seller tax ID PO {po.seller_tax_id} vs invoice {invoice.seller_tax_id}")
+        if po.currency == invoice.currency:
+            tolerance_minor = int(THREE_WAY_AMOUNT_TOLERANCE * (Decimal(10) ** invoice.amount.digits))
+            if abs(po.amount.minor_units - invoice.amount.minor_units) > tolerance_minor:
+                flagged.append(
+                    f"PO amount {po.amount.display()} vs invoice {invoice.amount.display()}"
+                )
+        if po.quantity != invoice.quantity:
+            flagged.append(f"PO quantity {po.quantity} vs invoice {invoice.quantity}")
+
+    if bl is not None:
+        if bl.buyer_id != invoice.buyer_id:
+            blocked.append(f"Buyer B/L {bl.buyer_id} vs invoice {invoice.buyer_id}")
+        if bl.quantity != invoice.quantity:
+            flagged.append(f"B/L quantity {bl.quantity} vs invoice {invoice.quantity}")
+        if bl.package_count != invoice.package_count:
+            flagged.append(f"B/L packages {bl.package_count} vs invoice {invoice.package_count}")
+        if bl.port_of_loading != invoice.port_of_loading:
+            flagged.append(
+                f"B/L port of loading {bl.port_of_loading} vs invoice {invoice.port_of_loading}"
             )
-            confidence -= 0.3
-
-        # Rule 4: Amount tolerance check
-        invoice_usd = _to_usd(invoice.amount, invoice.currency.value)
-        po_usd = _to_usd(po.amount, po.currency.value)
-        variance = abs(invoice_usd - po_usd)
-        if variance > PO_INVOICE_TOLERANCE_USD:
-            reasons.append(
-                f"AMOUNT_DISCREPANCY: Invoice {invoice_usd:.2f} USD vs PO {po_usd:.2f} USD "
-                f"(variance ${variance:.2f} exceeds ${PO_INVOICE_TOLERANCE_USD:.2f} tolerance)."
+        if bl.port_of_discharge != invoice.port_of_discharge:
+            flagged.append(
+                f"B/L port of discharge {bl.port_of_discharge} vs invoice {invoice.port_of_discharge}"
             )
-            confidence -= 0.3
 
-    # Rule 5: Valid buyer tax ID
-    if not invoice.buyer_tax_id or len(invoice.buyer_tax_id) < 5:
-        reasons.append("INVALID_BUYER_TAX_ID: Buyer tax code is missing or too short.")
-        confidence -= 0.2
-
-    # Rule 6: BL shipped date ≤ invoice issue date
-    if bl is not None and bl.shipped_on_board_date > invoice.issue_date:
-        reasons.append(
-            f"SHIPMENT_DATE_ERROR: BL shipped date {bl.shipped_on_board_date} is AFTER "
-            f"invoice issue date {invoice.issue_date}. Goods cannot be invoiced before shipment."
-        )
-        confidence -= 0.3
-
-    confidence = max(0.0, round(confidence, 2))
-
-    if not reasons and confidence == 1.0:
-        status = MatchStatus.VERIFIED_3WAY
-        bundle_hash = _bundle_sha256(
-            bundle.invoice_id,
-            po.po_number if po else "NO_PO",
-            bl.bl_number if bl else None,
-        )
+    if blocked:
+        status = MatchStatus.BLOCKED
+    elif flagged:
+        status = MatchStatus.FLAGGED
     else:
-        status = MatchStatus.DISCREPANCY_FLAGGED
-        bundle_hash = None
-
-    bundle.match_confidence = confidence
-    bundle.status = status
-    bundle.discrepancy_reasons = reasons
-    bundle.bundle_sha256 = bundle_hash
-
-    return bundle
-
-
-def run_subset_sum_reconciliation(
-    wire_txn: BankTxn,
-    open_invoices: List[CommercialInvoice],
-) -> SubsetSumMatchResult:
-    """
-    Multi-Currency Subset-Sum Matching Problem (SSMP): find a subset of open invoices
-    whose total USD value falls within $50 of the incoming bulk wire transfer.
-
-    Uses exhaustive search over subsets (suitable for SME-scale invoice volumes).
-
-    Args:
-        wire_txn: The incoming bank wire transfer to reconcile.
-        open_invoices: List of open (unpaid) CommercialInvoice records.
-
-    Returns:
-        SubsetSumMatchResult with matched invoices, fee variance, and period lock hash.
-
-    Raises:
-        ValueError: If no valid subset is found within the tolerance.
-    """
-    request_permission(
-        PermissionLevel.L1_ANALYZE,
-        "RUN_SUBSET_SUM_RECONCILIATION",
-        wire_txn.txn_id,
-    )
-
-    wire_usd = wire_txn.usd_amount
-    tolerance = CORRESPONDENT_BANK_FEE_TOLERANCE_USD
-
-    # Try subsets from largest to smallest (most likely match first)
-    for r in range(len(open_invoices), 0, -1):
-        for subset in combinations(open_invoices, r):
-            subset_total = sum(inv.usd_amount for inv in subset)
-            shortfall = subset_total - wire_usd
-            if 0 <= shortfall <= tolerance:
-                matched_ids = [inv.invoice_id for inv in subset]
-                fee_variance = round(shortfall, 2)
-
-                # Compute SHA-256 period lock for the reconciled subset
-                lock_raw = f"{wire_txn.txn_id}|{'|'.join(sorted(matched_ids))}|{wire_usd}"
-                period_lock_hash = hashlib.sha256(lock_raw.encode()).hexdigest()
-
-                # Log the L2 internal ledger write
-                request_permission(
-                    PermissionLevel.L2_INTERNAL_WRITE,
-                    "RECONCILE_WIRE_TO_INVOICES",
-                    wire_txn.txn_id,
-                    details={
-                        "matched_invoices": matched_ids,
-                        "wire_usd": wire_usd,
-                        "intermediary_fee_variance_usd": fee_variance,
-                        "period_lock_hash": period_lock_hash,
-                    },
-                )
-
-                return SubsetSumMatchResult(
-                    txn_id=wire_txn.txn_id,
-                    incoming_wire_amount=wire_usd,
-                    matched_invoice_ids=matched_ids,
-                    matched_invoices_gross_usd=round(subset_total, 2),
-                    intermediary_bank_fee_variance_usd=fee_variance,
-                    is_valid_match=True,
-                    reconciliation_status="RECONCILED_WITH_FEE_VARIANCE",
-                    period_lock_hash=period_lock_hash,
-                )
-
-    # No match found within tolerance — log and return unmatched
-    request_permission(
-        PermissionLevel.L1_ANALYZE,
-        "RECONCILIATION_FAILED",
-        wire_txn.txn_id,
-        details={"wire_usd": wire_usd, "reason": "No invoice subset found within tolerance"},
-    )
-    return SubsetSumMatchResult(
-        txn_id=wire_txn.txn_id,
-        incoming_wire_amount=wire_usd,
-        matched_invoice_ids=[],
-        matched_invoices_gross_usd=0.0,
-        intermediary_bank_fee_variance_usd=0.0,
-        is_valid_match=False,
-        reconciliation_status="UNMATCHED",
-    )
+        status = MatchStatus.ELIGIBLE
+    return ThreeWayResult(invoice_no=invoice.invoice_no, status=status, differences=blocked + flagged)

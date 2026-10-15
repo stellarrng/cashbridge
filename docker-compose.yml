@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   cashbridge-ui:
     build:
@@ -11,7 +9,10 @@ services:
     environment:
       - STREAMLIT_SERVER_PORT=8501
       - STREAMLIT_SERVER_HEADLESS=true
-      - DEMO_MODE=true
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+      - LLM_MODEL=${LLM_MODEL:-}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - OTP_SECRET=${OTP_SECRET:-}
     volumes:
       - ./data:/app/data
     restart: unless-stopped
@@ -25,7 +26,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DEMO_MODE=true
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+      - LLM_MODEL=${LLM_MODEL:-}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - OTP_SECRET=${OTP_SECRET:-}
     volumes:
       - ./data:/app/data
     restart: unless-stopped

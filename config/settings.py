@@ -1,80 +1,103 @@
-"""
-Configuration and constants for CashBridge SME Finance Copilot.
-All parameters, tolerances, permission tiers, and deterministic FX rates are centralized here.
+"""CashBridge configuration constants (instructions.md section 2.2).
+
+All company data in this project is SYNTHETIC. Secrets are read from the
+environment or a local ``.env`` file only; nothing secret is stored in code.
 """
 
-from pathlib import Path
-from enum import Enum
+from __future__ import annotations
+
 import os
+from decimal import Decimal
+from enum import Enum
+from pathlib import Path
+from typing import Mapping, Optional
 
-# Base Directories
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+try:
+    from dotenv import load_dotenv
+except ImportError:  # python-dotenv is optional at runtime
+    load_dotenv = None
+if load_dotenv is not None:
+    load_dotenv(BASE_DIR / ".env")
+
+# ---------------------------------------------------------------- paths
 DATA_DIR = BASE_DIR / "data"
 SANDBOX_INPUTS_DIR = DATA_DIR / "sandbox_inputs"
 EXECUTION_EVIDENCE_DIR = DATA_DIR / "execution_evidence"
+AUDIT_LOG_PATH = EXECUTION_EVIDENCE_DIR / "sandbox_operation_logs.jsonl"
+INVOICE_REGISTRY_PATH = EXECUTION_EVIDENCE_DIR / "invoice_registry.json"
+CASES_DIR = DATA_DIR / "cases"
 
-AUDIT_HASH_REGISTRY_PATH = EXECUTION_EVIDENCE_DIR / "audit_hash_registry.json"
-OPERATION_LOGS_PATH = EXECUTION_EVIDENCE_DIR / "sandbox_operation_logs.jsonl"
+SYNTHETIC_LABEL = "SYNTHETIC DEMO DATA"
+COMPANY_NAME = "Binh Duong Timberworks Co., Ltd. (SYNTHETIC)"
+PARTNER_FACTOR_NAME = "Partner Factor (FCI two-factor model, MOCK)"
 
-# Operational Mode
-DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() in ("true", "1", "yes")
-DEMO_OTP = "123456"
-
-# 5-Tier Permission State Machine Constants
-class PermissionLevel(str, Enum):
-    L0_READ = "L0_READ"                     # Read-only data ingestion
-    L1_ANALYZE = "L1_ANALYZE"               # Calculations, cash flow forecasts, draft messaging
-    L2_INTERNAL_WRITE = "L2_INTERNAL_WRITE" # Ledger updates, high-confidence reconciliation, period locks
-    L3_EXTERNAL_OTP = "L3_EXTERNAL_OTP"     # External loan pack submissions, debt collection emails (OTP gated)
-    L4_MONEY_MOVEMENT = "L4_MONEY_MOVEMENT" # Banking funds transfer (HARD-BLOCKED, Zero Autonomy)
-
-# Deterministic FX Rates (Locked to USD base)
-FX_RATES_TO_USD = {
-    "USD": 1.0,
-    "JPY": 0.0067,
-    "CNY": 0.14,
+# ------------------------------------------------- FX (assumed demo rates)
+# VND per one unit of currency. Labelled "assumed demo rates" wherever shown.
+USD_VND = 26_000
+JPY_VND = 175
+CNY_VND = 3_650
+FX_VND_PER_UNIT: Mapping[str, Decimal] = {
+    "USD": Decimal(USD_VND),
+    "JPY": Decimal(JPY_VND),
+    "CNY": Decimal(CNY_VND),
+    "VND": Decimal(1),
 }
+CURRENCY_MINOR_DIGITS: Mapping[str, int] = {"USD": 2, "JPY": 0, "CNY": 2, "VND": 0}
+FX_NOTE = "Assumed demo rate USD/VND 26,000"
 
-# Matching and Reconciliation Tolerances
-PO_INVOICE_TOLERANCE_USD = 0.01          # 3-way match allowable variance
-CORRESPONDENT_BANK_FEE_TOLERANCE_USD = 50.00  # Max intermediary wire deduction (SSMP epsilon)
+# ------------------------------------------------------------ tolerances
+INTERMEDIARY_FEE_TOLERANCE_USD = Decimal("50")  # per incoming wire
+THREE_WAY_AMOUNT_TOLERANCE = Decimal("0.01")  # in invoice currency
+MAX_SUBSET_SIZE = 6
+EXTRACTION_CONFIDENCE_THRESHOLD = 0.85
 
-# Sandbox Company Baseline
-DEFAULT_COMPANY = {
-    "name": "Pacific Timber & Garment Exports Ltd.",
-    "registration_no": "VN-EXPORT-889211-HK",
-    "tax_id": "VN9876543210",
-    "base_currency": "USD",
-    "dio_days": 38.0,
-    "dso_days": 68.0,
-    "dpo_days": 24.0,
-    "ccc_days": 82.0,  # 38 + 68 - 24 = 82
-    "opening_cash_week_1": 42000.0,
-    "fixed_weekly_opex": 12500.0,
-}
-
-# Default Forecast Milestones
+# ------------------------------------------------------------ forecasting
 FORECAST_WEEKS = 13
-DEFAULT_WEEK_3_SUPPLIER_DEPOSIT = 18000.0
-DEFAULT_WEEK_6_SUPPLIER_DEPOSIT = 55000.0  # Timber & Textile deposits causing Week 6 deficit
-EXPECTED_WEEK_6_DEFICIT_USD = -31350.0
+MIN_CASH_BUFFER_USD = Decimal("10000")  # below this: at_risk; below 0: shortfall
+LATE_PAYMENT_DELAY_WEEKS = 4  # late remainder arrives in due week + 4
+FX_STRESS_PCT = Decimal("2")
+# Hypothetical tariff used only by the "tariff shared %" what-if control.
+# It is a scenario assumption, not a statement about any current tariff rate.
+SCENARIO_TARIFF_RATE_PCT = Decimal("10")
+CONCENTRATION_ALERT_PCT = Decimal("40")
 
-# True APR Benchmark Presets for $65,000 / 45-day invoice
-BENCHMARK_APR_OPTIONS = {
-    "WEBANK_FACTORING": {
-        "provider": "WeBank Partner Supply Chain Factoring",
-        "advance_rate": 0.85,
-        "fee_rate": 0.01125,
-        "fixed_fee": 110.0,
-        "expected_apr": 10.74,
-    },
-    "EARLY_PAYMENT_DISCOUNT": {
-        "provider": "Customer Early-Payment Discount (2/10 Net 55)",
-        "discount_rate": 0.02,
-        "expected_apr": 16.55,
-    },
-    "UNSECURED_BRIDGE": {
-        "provider": "Traditional Unsecured Working Capital Bridge",
-        "fixed_apr": 18.90,
-    },
-}
+# CCC calibration targets. The seed data is tuned towards these and tests check
+# the engine lands near them; the engine itself never reads this constant.
+CCC_TARGET_DAYS = {"dio": 35, "dso": 75, "dpo": 28, "ccc": 82}
+
+# --------------------------------------------------------------- security
+OTP_VALIDITY_SECONDS = 120
+DEMO_OTP_SECRET = "JBSWY3DPEHPK3PXP"  # public demo secret, printed in the README
+OTP_SECRET = os.getenv("OTP_SECRET", "").strip() or DEMO_OTP_SECRET
+
+# -------------------------------------------------------------------- LLM
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").strip()
+LLM_MODEL = os.getenv("LLM_MODEL", "").strip()
+LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()
+LLM_TIMEOUT_SECONDS = 8
+
+
+def is_demo_mode(env: Optional[Mapping[str, str]] = None) -> bool:
+    """Return True when no LLM API key is configured (offline deterministic mode)."""
+    source = os.environ if env is None else env
+    return not source.get("LLM_API_KEY", "").strip()
+
+
+DEMO_MODE = is_demo_mode()
+
+
+class Tier(str, Enum):
+    """The 5-tier permission model (instructions.md section 3, Rule 2)."""
+
+    L0_READ = "L0_READ"
+    L1_ANALYZE = "L1_ANALYZE"
+    L2_INTERNAL_WRITE = "L2_INTERNAL_WRITE"
+    L3_EXTERNAL = "L3_EXTERNAL"
+    L4_MONEY_MOVEMENT = "L4_MONEY_MOVEMENT"
+
+    @property
+    def rank(self) -> int:
+        """Numeric order of the tier (L0 = 0 ... L4 = 4)."""
+        return int(self.value[1])

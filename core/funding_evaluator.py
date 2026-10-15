@@ -1,203 +1,229 @@
-"""
-Funding Evaluator — Deterministic True Annualized Percentage Rate (APR) Calculator.
+"""Funding evaluator: true annualised cost of each liquidity option.
 
-Ranks financing options from lowest to highest APR for eligible verified invoices.
-All math is pure Python — NO LLM arithmetic.
+    APR = total_cost / net_funds_received x 365 / days_outstanding
 
-APR Formulas:
-  Factoring:       APR = (Total Fee / Net Advance) × (365 / Days Accelerated) × 100
-  Early Discount:  APR = (d / (100 - d)) × (365 / Days Accelerated) × 100
-  Unsecured:       APR = fixed rate provided by lender
-
-Expected output for INV-2026-103 ($65,000, 45 days):
-  1. WeBank Factoring           → 10.74%
-  2. Customer Early Discount    → 16.55%
-  3. Unsecured Working Capital  → 18.90%
+Pure Python, no I/O, no LLM. Every option in the menu is computed here; nothing is
+hard-coded. Lender terms come in through a ``LenderCatalog`` (read from
+``data/sandbox_inputs/lender_catalog.json`` by the caller). All lenders are MOCK.
 """
 
-from typing import List
+from __future__ import annotations
+
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Dict, List, Optional
+
+from pydantic import BaseModel, Field
+
 from schemas.forecast_schemas import LiquidityOption
-from config.settings import PermissionLevel
-from security.permission_gatekeeper import request_permission
+
+APR_FORMULA = "APR = total cost / net funds x 365 / days"
+DISCOUNT_FORMULA = "APR = d/(1-d) x 365 / (net days - discount days)"
+_CENT = Decimal("0.01")
 
 
-def _apr_factoring(total_fee: float, net_advance: float, days_accelerated: int) -> float:
-    """
-    Compute APR for an invoice factoring product.
+class FactoringTerms(BaseModel):
+    """Terms of the mock partner factor."""
 
-    APR = (total_fee / net_advance) × (365 / days_accelerated) × 100
-
-    Args:
-        total_fee: Total factoring + platform fees charged.
-        net_advance: Upfront cash advanced to the company.
-        days_accelerated: Number of days the invoice payment is accelerated.
-
-    Returns:
-        APR as a percentage (e.g., 10.74).
-    """
-    if net_advance <= 0 or days_accelerated <= 0:
-        raise ValueError("net_advance and days_accelerated must be positive.")
-    return round((total_fee / net_advance) * (365 / days_accelerated) * 100, 2)
+    advance_pct: Decimal = Field(gt=0, le=100)
+    fee_pct_of_invoice: Decimal = Field(ge=0)
+    interest_pa_pct: Decimal = Field(ge=0)
+    max_days: int = Field(default=120, gt=0)
+    min_invoice_usd: Decimal = Field(default=Decimal("0"), ge=0)
 
 
-def _apr_early_payment_discount(discount_rate_pct: float, days_accelerated: int) -> float:
-    """
-    Compute APR for a buyer early-payment discount offer.
+class BridgeLoanTerms(BaseModel):
+    """Terms of the mock working-capital bridge loan."""
 
-    APR = (d / (100 - d)) × (365 / days_accelerated) × 100
-
-    Args:
-        discount_rate_pct: Buyer discount percentage (e.g., 2.0 for 2%).
-        days_accelerated: Number of days the invoice is settled early.
-
-    Returns:
-        APR as a percentage (e.g., 16.55).
-    """
-    if discount_rate_pct <= 0 or days_accelerated <= 0:
-        raise ValueError("discount_rate_pct and days_accelerated must be positive.")
-    d = discount_rate_pct
-    return round((d / (100 - d)) * (365 / days_accelerated) * 100, 2)
+    amount_usd: Decimal = Field(gt=0)
+    upfront_fee_pct: Decimal = Field(ge=0)
+    interest_pa_pct: Decimal = Field(ge=0)
+    days: int = Field(gt=0)
 
 
-def evaluate_liquidity_options(
-    invoice_id: str,
-    invoice_amount_usd: float,
-    days_until_due: int,
-    shortfall_to_cover_usd: float = 0.0,
-) -> List[LiquidityOption]:
-    """
-    Evaluate and rank all available financing options for a given verified invoice.
+class EarlyDiscountTerms(BaseModel):
+    """An early-payment discount offered to a buyer, such as 2/10 net 30."""
 
-    Computes true APR for each option and returns them ranked lowest-to-highest cost.
+    discount_pct: Decimal = Field(gt=0, lt=100)
+    discount_days: int = Field(gt=0)
+    net_days: int = Field(gt=0)
+    invoice_amount_usd: Decimal = Field(gt=0)
 
-    Args:
-        invoice_id: Invoice being offered for financing (e.g., 'INV-2026-103').
-        invoice_amount_usd: Total invoice face value in USD (e.g., 65000.0).
-        days_until_due: Days remaining until buyer payment is due (e.g., 45).
-        shortfall_to_cover_usd: Cash gap the financing must cover (for recommendation text).
 
-    Returns:
-        List of LiquidityOption models ranked by APR (ascending — cheapest first).
-    """
-    request_permission(
-        PermissionLevel.L1_ANALYZE,
-        "EVALUATE_LIQUIDITY_OPTIONS",
-        invoice_id,
-        details={
-            "invoice_amount_usd": invoice_amount_usd,
-            "days_until_due": days_until_due,
-        },
+class OverdraftTerms(BaseModel):
+    """An existing overdraft facility."""
+
+    facility_limit_usd: Decimal = Field(ge=0)
+    interest_pa_pct: Decimal = Field(ge=0)
+
+
+class LenderCatalog(BaseModel):
+    """What the company can actually use. A missing section means not on offer."""
+
+    factoring: Optional[FactoringTerms] = None
+    bridge_loan: Optional[BridgeLoanTerms] = None
+    early_discount: Optional[EarlyDiscountTerms] = None
+    overdraft: Optional[OverdraftTerms] = None
+
+
+class FundingRequest(BaseModel):
+    """The invoice offered for factoring and the cash needed."""
+
+    invoice_id: str
+    invoice_amount_usd: Decimal = Field(gt=0)
+    days_outstanding: int = Field(gt=0)
+    invoice_eligible: bool = True
+    invoice_ineligible_reason: Optional[str] = None
+    amount_needed_usd: Decimal = Decimal("0")
+
+
+def _cents(value: Decimal) -> Decimal:
+    return value.quantize(_CENT, rounding=ROUND_HALF_UP)
+
+
+def calc_apr(total_cost: Decimal, net_funds: Decimal, days: int) -> float:
+    """Return the annualised cost as a percentage, rounded to 2 decimals."""
+    if net_funds <= 0 or days <= 0:
+        raise ValueError("net_funds and days must be positive")
+    apr = total_cost / net_funds * Decimal(365) / Decimal(days) * 100
+    return float(apr.quantize(_CENT, rounding=ROUND_HALF_UP))
+
+
+def _simple_interest(principal: Decimal, rate_pa_pct: Decimal, days: int) -> Decimal:
+    return _cents(principal * rate_pa_pct / 100 * Decimal(days) / Decimal(365))
+
+
+def factoring_option(terms: FactoringTerms, request: FundingRequest) -> LiquidityOption:
+    """Advance a share of the invoice; fee on invoice value; interest on the advance."""
+    name = f"Factoring {request.invoice_id} (Partner Factor, MOCK)"
+    base = dict(id="factoring_" + request.invoice_id.lower().replace("-", ""), name=name, type="factoring")
+    assumptions = {
+        "advance_pct": float(terms.advance_pct),
+        "fee_pct_of_invoice": float(terms.fee_pct_of_invoice),
+        "interest_pa_pct": float(terms.interest_pa_pct),
+        "days": request.days_outstanding,
+    }
+    reason = None
+    if not request.invoice_eligible:
+        reason = request.invoice_ineligible_reason or f"{request.invoice_id} failed verification"
+    elif request.days_outstanding > terms.max_days:
+        reason = f"Invoice tenor {request.days_outstanding} days exceeds the {terms.max_days}-day limit"
+    elif request.invoice_amount_usd < terms.min_invoice_usd:
+        reason = f"Invoice is below the USD {terms.min_invoice_usd:,.0f} minimum"
+    if reason:
+        return LiquidityOption(
+            eligible=False, ineligible_reason=reason, assumptions=assumptions, **base
+        )
+
+    advance = _cents(request.invoice_amount_usd * terms.advance_pct / 100)
+    fee = _cents(request.invoice_amount_usd * terms.fee_pct_of_invoice / 100)
+    interest = _simple_interest(advance, terms.interest_pa_pct, request.days_outstanding)
+    total = fee + interest
+    return LiquidityOption(
+        eligible=True,
+        amount_usd=advance,
+        apr_pct=calc_apr(total, advance, request.days_outstanding),
+        cost_breakdown={"fee_usd": fee, "interest_usd": interest, "total_usd": total},
+        assumptions=assumptions,
+        formula=APR_FORMULA,
+        **base,
     )
 
-    options: List[LiquidityOption] = []
 
-    # ── Option A: WeBank Partner Supply Chain Factoring ──────────────────────
-    advance_rate_a = 0.85
-    net_advance_a = round(invoice_amount_usd * advance_rate_a, 2)
-    # Fee: 1.125% of advance + $110 flat platform fee
-    factoring_pct_fee = net_advance_a * 0.01125
-    flat_fee = 110.00
-    total_fee_a = round(factoring_pct_fee + flat_fee, 2)
-    # For INV-2026-103 ($65k, 85% advance): net_advance = $55,250, total_fee = $621.56 + $110 = $731.25
-    # Override to spec values for deterministic test accuracy
-    if invoice_id == "INV-2026-103":
-        net_advance_a = 55250.00
-        total_fee_a = 731.25
-    apr_a = _apr_factoring(total_fee_a, net_advance_a, days_until_due)
+def bridge_option(terms: BridgeLoanTerms) -> LiquidityOption:
+    """Loan with the arrangement fee deducted upfront, so net funds are lower."""
+    fee = _cents(terms.amount_usd * terms.upfront_fee_pct / 100)
+    interest = _simple_interest(terms.amount_usd, terms.interest_pa_pct, terms.days)
+    total = fee + interest
+    net_funds = terms.amount_usd - fee
+    return LiquidityOption(
+        id="bridge_loan",
+        name="Working-capital bridge loan (MOCK)",
+        type="loan",
+        eligible=True,
+        amount_usd=terms.amount_usd,
+        apr_pct=calc_apr(total, net_funds, terms.days),
+        cost_breakdown={"fee_usd": fee, "interest_usd": interest, "total_usd": total},
+        assumptions={
+            "upfront_fee_pct": float(terms.upfront_fee_pct),
+            "interest_pa_pct": float(terms.interest_pa_pct),
+            "days": terms.days,
+        },
+        formula=APR_FORMULA,
+    )
 
-    options.append(LiquidityOption(
-        option_id="OPT-A-WEBANK-FACTORING",
-        provider="WeBank Partner Supply Chain Factoring",
-        option_type="FACTORING",
-        eligible_invoice_id=invoice_id,
-        invoice_gross_amount_usd=invoice_amount_usd,
-        advance_rate_pct=advance_rate_a * 100,
-        immediate_cash_advance_usd=net_advance_a,
-        total_fee_cost_usd=total_fee_a,
-        net_cash_realized_usd=net_advance_a,
-        days_accelerated=days_until_due,
-        apr_pct=apr_a,
-        covers_shortfall=(net_advance_a >= shortfall_to_cover_usd),
-        pros=[
-            "Lowest APR of all options",
-            "Immediate cash advance within 24–48 hours",
-            "Non-recourse — credit risk transferred to factoring partner",
-            "No real estate collateral required",
-        ],
-        cons=[
-            "Advance is 85% of face value (15% held as reserve until buyer pays)",
-            "Buyer must be notified and approve the assignment",
-        ],
-        recommendation_verdict="RECOMMENDED: Lowest cost-of-capital. Covers the Week 6 shortfall.",
-    ))
 
-    # ── Option B: Customer Early-Payment Discount (2/10 Net 55) ─────────────
-    discount_rate_b = 2.0
-    discount_cost_b = round(invoice_amount_usd * (discount_rate_b / 100), 2)
-    early_settlement_b = round(invoice_amount_usd - discount_cost_b, 2)
-    apr_b = _apr_early_payment_discount(discount_rate_b, days_until_due)
+def early_discount_option(terms: EarlyDiscountTerms) -> LiquidityOption:
+    """Giving up d% to be paid ``net - discount`` days sooner."""
+    discount = _cents(terms.invoice_amount_usd * terms.discount_pct / 100)
+    net_funds = terms.invoice_amount_usd - discount
+    days = terms.net_days - terms.discount_days
+    name = (
+        f"Early-payment discount {terms.discount_pct.normalize():f}/{terms.discount_days} "
+        f"net {terms.net_days}"
+    )
+    return LiquidityOption(
+        id="early_discount",
+        name=name,
+        type="discount",
+        eligible=True,
+        amount_usd=terms.invoice_amount_usd,
+        apr_pct=calc_apr(discount, net_funds, days),
+        cost_breakdown={"discount_usd": discount, "total_usd": discount},
+        assumptions={
+            "discount_pct": float(terms.discount_pct),
+            "discount_days": terms.discount_days,
+            "net_days": terms.net_days,
+        },
+        formula=DISCOUNT_FORMULA,
+    )
 
-    options.append(LiquidityOption(
-        option_id="OPT-B-EARLY-DISCOUNT",
-        provider="Customer Early-Payment Discount (2/10 Net 55)",
-        option_type="EARLY_DISCOUNT",
-        eligible_invoice_id=invoice_id,
-        invoice_gross_amount_usd=invoice_amount_usd,
-        advance_rate_pct=100.0,
-        immediate_cash_advance_usd=early_settlement_b,
-        total_fee_cost_usd=discount_cost_b,
-        net_cash_realized_usd=early_settlement_b,
-        days_accelerated=days_until_due,
-        apr_pct=apr_b,
-        covers_shortfall=(early_settlement_b >= shortfall_to_cover_usd),
-        pros=[
-            "Full invoice value received (minus 2% discount)",
-            "No lender or third-party involved",
-            "Buyer relationship maintained",
-        ],
-        cons=[
-            "Requires buyer agreement to accelerate payment",
-            "Effective APR is 16.55% — more expensive than factoring",
-        ],
-        recommendation_verdict="OPTION 2: Higher cost than factoring. Only viable if buyer confirms within 24 hours.",
-    ))
 
-    # ── Option C: Traditional Unsecured Working Capital Bridge ───────────────
-    fixed_apr_c = 18.90
-    annual_rate_decimal = fixed_apr_c / 100
-    period_rate = annual_rate_decimal * (days_until_due / 365)
-    # Borrow just enough to cover shortfall, or full advance if no shortfall
-    borrow_amount_c = shortfall_to_cover_usd if shortfall_to_cover_usd > 0 else invoice_amount_usd
-    interest_c = round(borrow_amount_c * period_rate, 2)
+def overdraft_option(terms: Optional[OverdraftTerms], request: FundingRequest) -> LiquidityOption:
+    """Eligible only when a facility with a positive limit exists in the catalog."""
+    base = dict(id="overdraft", name="Overdraft", type="overdraft")
+    if terms is None or terms.facility_limit_usd <= 0:
+        return LiquidityOption(
+            eligible=False, ineligible_reason="No overdraft facility on file", **base
+        )
+    amount = min(terms.facility_limit_usd, request.amount_needed_usd or terms.facility_limit_usd)
+    interest = _simple_interest(amount, terms.interest_pa_pct, request.days_outstanding)
+    return LiquidityOption(
+        eligible=True,
+        amount_usd=amount,
+        apr_pct=calc_apr(interest, amount, request.days_outstanding),
+        cost_breakdown={"interest_usd": interest, "total_usd": interest},
+        assumptions={"interest_pa_pct": float(terms.interest_pa_pct), "days": request.days_outstanding},
+        formula=APR_FORMULA,
+        **base,
+    )
 
-    options.append(LiquidityOption(
-        option_id="OPT-C-UNSECURED-BRIDGE",
-        provider="Traditional Unsecured Working Capital Bridge",
-        option_type="UNSECURED_BRIDGE",
-        eligible_invoice_id=invoice_id,
-        invoice_gross_amount_usd=invoice_amount_usd,
-        advance_rate_pct=100.0,
-        immediate_cash_advance_usd=borrow_amount_c,
-        total_fee_cost_usd=interest_c,
-        net_cash_realized_usd=round(borrow_amount_c - interest_c, 2),
-        days_accelerated=days_until_due,
-        apr_pct=fixed_apr_c,
-        covers_shortfall=(borrow_amount_c >= shortfall_to_cover_usd),
-        pros=[
-            "Invoice not required as collateral",
-            "Flexible repayment once buyer pays",
-        ],
-        cons=[
-            "Highest APR at 18.90% — most expensive option",
-            "Adds a debt obligation to the balance sheet",
-            "May require credit checks and approval delays",
-        ],
-        recommendation_verdict="AVOID: Highest cost-of-capital. Only use if factoring and discount options fail.",
-    ))
 
-    # ── Rank by APR (ascending — cheapest first) ─────────────────────────────
-    options.sort(key=lambda o: o.apr_pct)
-    for idx, opt in enumerate(options):
-        opt.rank = idx + 1
+def _why_not_cheaper(option: LiquidityOption, cheapest: LiquidityOption) -> str:
+    if option is cheapest:
+        return "Cheapest eligible option."
+    gap = round((option.apr_pct or 0) - (cheapest.apr_pct or 0), 1)
+    return f"About {gap:.1f} points a year more expensive than {cheapest.name}."
 
-    return options
+
+def rank_options(request: FundingRequest, catalog: LenderCatalog) -> List[LiquidityOption]:
+    """Return eligible options by ascending APR, then ineligible options with reasons."""
+    built: List[LiquidityOption] = []
+    if catalog.factoring is not None:
+        built.append(factoring_option(catalog.factoring, request))
+    if catalog.bridge_loan is not None:
+        built.append(bridge_option(catalog.bridge_loan))
+    if catalog.early_discount is not None:
+        built.append(early_discount_option(catalog.early_discount))
+    built.append(overdraft_option(catalog.overdraft, request))
+
+    eligible = sorted((o for o in built if o.eligible), key=lambda o: o.apr_pct or 0.0)
+    ineligible = [o for o in built if not o.eligible]
+    for position, option in enumerate(eligible, start=1):
+        option.rank = position
+        option.why_not_cheaper = _why_not_cheaper(option, eligible[0])
+    return eligible + ineligible
+
+
+def options_by_id(options: List[LiquidityOption]) -> Dict[str, LiquidityOption]:
+    """Index a ranked menu by option id."""
+    return {option.id: option for option in options}
