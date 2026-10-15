@@ -1,1 +1,10 @@
 instructions.md
+instruction.md
+
+# Python cache files — never commit these
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment secrets — never commit
+.env
