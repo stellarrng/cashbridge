@@ -17,3 +17,6 @@ buildplan.md
 # Local working files
 data/cases/
 .DS_Store
+data/runtime/
+
+ui/web/node_modules/

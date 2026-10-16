@@ -1,9 +1,6 @@
-streamlit==1.66.0
 fastapi==0.143.2
 uvicorn==0.54.0
 pydantic==2.14.1
-pandas==3.0.6
-plotly==7.1.0
 fpdf2==2.8.9
 pytest==9.1.1
 openai==3.31.0

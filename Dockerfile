@@ -1,26 +1,20 @@
-# CashBridge - SME Finance Copilot for Export Enterprises
-# Cloud-Native Enterprise Deployment Specification
+# CashBridge (SYNTHETIC demo): FastAPI app serving the built React dashboard on port 8000.
+# The React bundle ui/web/dist is committed, so no Node is needed in the image.
 FROM python:3.11-slim
 
 WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PORT=8501
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+    PYTHONDONTWRITEBYTECODE=1
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Initialize demo sandbox data on startup
-RUN python data/seed_sandbox.py || true
+# Seed the deterministic SYNTHETIC inputs. No secrets are baked in; pass LLM_* and OTP_SECRET at run time.
+RUN python data/seed_sandbox.py
 
-EXPOSE 8501 8000
+EXPOSE 8000
 
-CMD ["streamlit", "run", "ui/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

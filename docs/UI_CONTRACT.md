@@ -1,9 +1,10 @@
-## C. UI CONTRACT (shared by both AIs — do not change casually)
+## C. UI CONTRACT (the interface between backend and React UI — do not change casually)
 
-The UI talks to the backend only through `ui/backend.py`, which exposes one object with the methods below.
-- `ui/backend_stub.py` returns the sample snapshot from `ui/sample_snapshot.json`. The UI Designer uses this.
-- `ui/backend_real.py` calls the real engine. The Builder writes this in Step 3.5.
-- The environment variable `CASHBRIDGE_UI_BACKEND=stub|real` chooses which one is used (default `real`, falling back to `stub` if `real` fails to import).
+The UI talks to the backend only through the methods below.
+- `ui/backend_real.py` implements them on the real engines (Step 3.5); `ui/backend.py` exposes `get_backend()`.
+- `api/main.py` publishes them over HTTP: `GET /api/snapshot` for `get_snapshot()` and `POST /api/<method>` (JSON body = the method's arguments) for every other method. Responses are exactly the return shapes below.
+- There is no stub backend. Design-time sample data is the JSON in section C.2, and `tests/test_ui_contract.py` checks that the real snapshot has every key of it.
+- Additions made while building: `meta.last_error` (a refused action's message, otherwise null) and `pii_inspector.note`. Extra keys are allowed; renaming or removing keys is not.
 
 ### C.1 Actions (method signatures)
 
@@ -22,14 +23,14 @@ The UI talks to the backend only through `ui/backend.py`, which exposes one obje
 | `tamper_demo() -> dict` | `{"ok": false, "broken_seq": int, "lines_checked": int, "note": "temporary copy only"}` | Evidence tab |
 | `reset_demo() -> dict` | Fresh snapshot | Header button |
 
-### C.2 Snapshot shape (`ui/sample_snapshot.json`)
+### C.2 Snapshot shape (sample, illustrative numbers)
 
 The numbers below are **illustrative placeholders** for design. Real values come from the engine. Fields marked `null` or empty are filled in later phases. The UI must handle them being `null` or empty by showing a tidy "Not available yet" state.
 
 ```json
 {
   "meta": {"mode": "offline-demo", "synthetic": true, "company": "Binh Duong Timberworks Co., Ltd. (SYNTHETIC)",
-           "case_id": "case-0001", "case_state": "OPTIONS_RANKED", "as_of": "2026-10-19", "fx_note": "Assumed demo rate USD/VND 26,000"},
+           "case_id": "case-0001", "case_state": "OPTIONS_RANKED", "as_of": "2026-10-19", "fx_note": "Assumed demo rate USD/VND 26,000", "last_error": null},
   "kpis": {"cash_today_usd": 61200, "cash_today_vnd": 1591200000,
            "ccc": {"dio": 35, "dso": 75, "dpo": 28, "ccc": 82},
            "first_shortfall_week": 7, "shortfall_usd": 44300, "blocked_fraud_count": 1},
@@ -118,7 +119,8 @@ The numbers below are **illustrative placeholders** for design. Real values come
     {"seq": 44, "time": "07:00:05", "agent": "coordinator", "tool": "update_payee", "tier": "L4_MONEY_MOVEMENT", "decision": "BLOCKED", "reason": "L4 is never automated"}
   ],
   "pii_inspector": {"before": "Please pay to IBAN VN12 3456 7890 1234, contact lan.nguyen@timberworks.vn",
-                    "after": "Please pay to [ACCT_1], contact [EMAIL_1]"},
+                    "after": "Please pay to [ACCT_1], contact [EMAIL_1]",
+                    "note": "Preview only: offline mode, nothing was sent to a cloud model."},
   "chat": {"history": [
     {"role": "assistant", "text": "Week 7 is expected to be short by about USD 44,300. Cheapest option: factor INV-1030 for USD 48,000 at about 17.1% a year.",
      "citations": [{"label": "Forecast run fc-0007", "source_id": "forecast:fc-0007"}, {"label": "APR calc", "source_id": "funding:factoring_inv1030"}], "mode": "offline-demo"}

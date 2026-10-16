@@ -2,12 +2,10 @@
 
 > **How to use this file**
 > - Put `instructions.md` (the spec) and this file in the project root.
-> - There are **two AIs**:
->   - **Builder AI** — writes the backend, then plugs the UI in. Follows Phases 0–7.
->   - **UI Designer AI** — designs and codes the screens separately. Follows the **UI Track** section only.
+> - One builder works through Phases 0–7 and builds both the backend and the React UI. The UI is a separate layer that talks to the backend only through the **UI Contract** (section C).
 > - Start every Builder session with the **Builder session prompt**, then paste **one step at a time**.
 > - Move to the next step only when every acceptance box of the current step is ticked. At the end of each phase, run its **gate**.
-> - The two AIs share one fixed interface, the **UI Contract** (section C). This is what lets the UI be designed in parallel.
+> - The UI Contract (section C) is the fixed interface between the backend and the React UI. The UI never calculates anything.
 
 **Deadline:** Tue 20 Oct 2026, 23:59 Beijing time (22:59 Vietnam time). Technical work should be finished by **Mon 19 Oct, night**.
 
@@ -15,23 +13,21 @@
 
 ## A. TIMELINE AND WHERE THE UI FITS
 
-| Phase | Who | What | Target finish (VN time) |
-|---|---|---|---|
-| 0 | Builder | Repo setup, settings, schemas | Thu 15 Oct, night |
-| **UI-1** | **UI Designer** | **Design all screens against the sample snapshot — start right now, in parallel** | **Fri 16 Oct** |
-| 1 | Builder | Deterministic financial core | Fri 16 Oct, afternoon |
-| 2 | Builder | Security layer and evidence | Fri 16 Oct, night |
-| 3 | Builder | Seed data, coordinator, demo story, **real UI contract adapter** | Sat 17 Oct, midday |
-| 4 | Builder | **Integrate the designed UI** with the real backend | Sat 17 Oct, night |
-| **UI-2** | **UI Designer** | **Polish pass using real screenshots and feedback** (optional) | Sun 18 Oct |
-| 5 | Builder | Agents, PDF pack, evaluation — each fills a reserved UI contract field | Sun 18 Oct, night |
-| 6 | Builder | Extras: buyer risk, API, Docker (skip if behind) | Mon 19 Oct, midday |
-| 7 | Builder | Documentation, security report, final technical QA | Mon 19 Oct, night |
+| Phase | What | Target finish (VN time) |
+|---|---|---|
+| 0 | Repo setup, settings, schemas | Thu 15 Oct, night |
+| 1 | Deterministic financial core | Fri 16 Oct, afternoon |
+| 2 | Security layer and evidence | Fri 16 Oct, night |
+| 3 | Seed data, LLM client, coordinator, demo story, **real UI contract adapter** | Sat 17 Oct, midday |
+| 4 | **FastAPI serving the contract, then the React UI** | Sat 17 Oct to Sun 18 Oct |
+| 5 | Agents, PDF pack, evaluation: each fills a reserved UI contract field | Sun 18 Oct, night |
+| 6 | Extras: buyer risk, extra endpoints, Docker (skip if behind) | Mon 19 Oct, midday |
+| 7 | Documentation, security report, final technical QA | Mon 19 Oct, night |
 
-**When to add the UI:**
-- **Design it now** (UI-1), against the sample data in section C.
-- **Plug it in at Phase 4**, after the backend story runs in Phase 3.
-- The UI never calculates anything. It only displays the contract data and calls the contract actions, so the two sides can be built separately.
+**How the UI fits:**
+- The adapter `ui/backend_real.py` (Step 3.5) implements the contract on the real engines.
+- `api/main.py` (Step 4.1) exposes it as JSON and serves the built React bundle.
+- The React app (Steps 4.2 to 4.5) renders contract data and calls contract actions only.
 
 ---
 
@@ -47,7 +43,7 @@ Rules for every step:
 - Only build what the current step asks for. Do not start later steps or touch unrelated files.
 - No TODO, pass, placeholder functions, or hard-coded engine results.
 - All numbers must come from the engine; seed data may be tuned to produce the story in instructions.md §2.3.
-- The UI is designed by a separate AI against the UI Contract in buildplan.md section C. Never change the contract's field names or action signatures without telling me first.
+- The React UI talks to the backend only through the UI Contract in buildplan.md section C. Never change the contract's field names or action signatures without telling me first, and update docs/UI_CONTRACT.md in the same change.
 - Python 3.11+, Pydantic v2, type hints, docstrings in English.
 - After writing code, run the tests for this step and show me the output.
 - End each step with: (1) files created/changed, (2) test results, (3) any decision you made, which you also append to DECISIONS.md.
@@ -55,12 +51,13 @@ Rules for every step:
 
 ---
 
-## C. UI CONTRACT (shared by both AIs — do not change casually)
+## C. UI CONTRACT (the interface between backend and React UI — do not change casually)
 
-The UI talks to the backend only through `ui/backend.py`, which exposes one object with the methods below.
-- `ui/backend_stub.py` returns the sample snapshot from `ui/sample_snapshot.json`. The UI Designer uses this.
-- `ui/backend_real.py` calls the real engine. The Builder writes this in Step 3.5.
-- The environment variable `CASHBRIDGE_UI_BACKEND=stub|real` chooses which one is used (default `real`, falling back to `stub` if `real` fails to import).
+The UI talks to the backend only through the methods below.
+- `ui/backend_real.py` implements them on the real engines (Step 3.5); `ui/backend.py` exposes `get_backend()`.
+- `api/main.py` publishes them over HTTP: `GET /api/snapshot` for `get_snapshot()` and `POST /api/<method>` (JSON body = the method's arguments) for every other method. Responses are exactly the return shapes below.
+- There is no stub backend. Design-time sample data is the JSON in section C.2, and `tests/test_ui_contract.py` checks that the real snapshot has every key of it.
+- Additions made while building: `meta.last_error` (a refused action's message, otherwise null) and `pii_inspector.note`. Extra keys are allowed; renaming or removing keys is not.
 
 ### C.1 Actions (method signatures)
 
@@ -79,14 +76,14 @@ The UI talks to the backend only through `ui/backend.py`, which exposes one obje
 | `tamper_demo() -> dict` | `{"ok": false, "broken_seq": int, "lines_checked": int, "note": "temporary copy only"}` | Evidence tab |
 | `reset_demo() -> dict` | Fresh snapshot | Header button |
 
-### C.2 Snapshot shape (`ui/sample_snapshot.json`)
+### C.2 Snapshot shape (sample, illustrative numbers)
 
 The numbers below are **illustrative placeholders** for design. Real values come from the engine. Fields marked `null` or empty are filled in later phases. The UI must handle them being `null` or empty by showing a tidy "Not available yet" state.
 
 ```json
 {
   "meta": {"mode": "offline-demo", "synthetic": true, "company": "Binh Duong Timberworks Co., Ltd. (SYNTHETIC)",
-           "case_id": "case-0001", "case_state": "OPTIONS_RANKED", "as_of": "2026-10-19", "fx_note": "Assumed demo rate USD/VND 26,000"},
+           "case_id": "case-0001", "case_state": "OPTIONS_RANKED", "as_of": "2026-10-19", "fx_note": "Assumed demo rate USD/VND 26,000", "last_error": null},
   "kpis": {"cash_today_usd": 61200, "cash_today_vnd": 1591200000,
            "ccc": {"dio": 35, "dso": 75, "dpo": 28, "ccc": 82},
            "first_shortfall_week": 7, "shortfall_usd": 44300, "blocked_fraud_count": 1},
@@ -175,7 +172,8 @@ The numbers below are **illustrative placeholders** for design. Real values come
     {"seq": 44, "time": "07:00:05", "agent": "coordinator", "tool": "update_payee", "tier": "L4_MONEY_MOVEMENT", "decision": "BLOCKED", "reason": "L4 is never automated"}
   ],
   "pii_inspector": {"before": "Please pay to IBAN VN12 3456 7890 1234, contact lan.nguyen@timberworks.vn",
-                    "after": "Please pay to [ACCT_1], contact [EMAIL_1]"},
+                    "after": "Please pay to [ACCT_1], contact [EMAIL_1]",
+                    "note": "Preview only: offline mode, nothing was sent to a cloud model."},
   "chat": {"history": [
     {"role": "assistant", "text": "Week 7 is expected to be short by about USD 44,300. Cheapest option: factor INV-1030 for USD 48,000 at about 17.1% a year.",
      "citations": [{"label": "Forecast run fc-0007", "source_id": "forecast:fc-0007"}, {"label": "APR calc", "source_id": "funding:factoring_inv1030"}], "mode": "offline-demo"}
@@ -206,62 +204,24 @@ Shapes of those fields:
 
 ---
 
-## UI TRACK — prompts for the UI Designer AI
+## UI TRACK — the React UI
 
-Use a separate chat or tool. Give it `instructions.md` §5 (or the whole file) and section C of this file.
+The UI is built by the same builder in Phase 4 against the contract. The design system is fixed in `instructions.md` §5.1; this section is the checklist.
 
-### UI-1 — Design and code the screens (start now)
+**Hard rules**
+- No arithmetic on money in `ui/web/src`. Formatting (separators, %, dates) is fine. Searching for `+`, `-`, `*` applied to amounts must find only formatting.
+- Every field that can be null or an empty list has a tidy empty state ("Available after the collections agent is enabled", and so on).
+- English only. SYNTHETIC badge and mode badge always visible. Never the words "WeBank Factoring", "immutable" or "tamper-proof".
+- Stack: React 18, TypeScript, Vite. No component library, no chart library, no icon pack. Fonts bundled with the build (`@fontsource`), nothing fetched at runtime.
+- The built bundle `ui/web/dist/` is committed so `make run` works with no Node and no network.
 
-~~~
-You are the UI designer for CashBridge, an SME finance copilot for Vietnamese export manufacturers, built for the FinTechathon 2026 (judges: WeBank / Tsinghua). Another AI builds the backend. You build ONLY the user interface.
-
-Read: instructions.md §5 (UI) and buildplan.md section C (UI Contract), which I have pasted below.
-
-Tech: Streamlit (latest), Plotly for charts, custom CSS injected via st.markdown is allowed. Python 3.11. No other frontend framework.
-
-Hard rules:
-- The UI NEVER calculates financial numbers. It only displays values from backend.get_snapshot() and calls the action methods listed in section C.1. Formatting (thousands separators, %, VND conversion text already provided) is fine; arithmetic on money is not.
-- Import the backend with: from ui.backend import get_backend; backend = get_backend()
-- Create ui/backend.py (selects stub or real via env CASHBRIDGE_UI_BACKEND, default "real", falling back to stub if import fails), ui/backend_stub.py (implements every C.1 method using ui/sample_snapshot.json; simulate() may return the same forecast with a small visible change so sliders feel live; approve() accepts "123456" and returns each error type for codes "000001"–"000004" so I can test error states), and ui/sample_snapshot.json (exactly the JSON in section C.2).
-- Every field that can be null or an empty list must have a tidy empty state ("Available after collections agent is enabled", etc.).
-- Everything in English. Show the SYNTHETIC badge and the mode badge (offline-demo / live-llm) at all times.
-- Never use the words "WeBank Factoring", "immutable" or "tamper-proof".
-
-Screens (from instructions.md §5):
-- Header: product name, SYNTHETIC badge, mode badge, case state pill, "Reset demo" button.
-- KPI ribbon: cash today (USD + VND), CCC with DIO/DSO/DPO breakdown, first shortfall week + amount (red if present), blocked fraud attempts.
-- Sidebar: tier monitor (last 10 decisions, colour per tier L0–L4, BLOCKED clearly marked), CFO chat (history + input, each answer shows citations in a "Why?" expander), PII inspector (before/after).
-- Tab 1 Anticipate: 13-week cash chart (bars for closing balance or a line, buffer line, zero line, shortfall weeks highlighted), attribution bar chart, four sliders from scenario_controls calling simulate() and showing before/after first-shortfall week, plus collections and buyer-risk sections with empty states.
-- Tab 2 Prove: reconciliation table with status chips, featured-wire explainer card showing the invoice sum, fee and received amount, verification table (ELIGIBLE / FLAGGED with differences), alert cards for BEC and injection.
-- Tab 3 Compare & Choose: one card per option ranked by APR, cheapest highlighted, cost breakdown, assumptions, formula, "why not cheaper", ineligible options greyed with reason, "Choose this option" button.
-- Tab 4 Approve: pack status stepper (selected → drafted → awaiting approval → submitted), locked metrics table, letter preview, number-check badge, "Prepare pack" button, "Approve & submit" opening st.dialog with action_hash and 6-digit OTP input and clear error messages per error type, PDF download when pdf_path exists, "Try to finance INV-1030 again" and "Tamper the draft" demo buttons showing their blocked results.
-- Tab 5 Evidence: audit tail table, "Verify chain" and "Tamper demo (temporary copy)" buttons with results, registry blocks, eval results table with empty state.
-
-Design direction: a calm, trustworthy fintech look (think bank back-office, not crypto). Clear hierarchy, generous spacing, one accent colour, red only for shortfall/blocked, amber for at-risk/flagged, green for ok/eligible. Must look good at 1440×900 for a screen recording and still work at 1280 wide. The demo must be clickable from start to finish in under 4 minutes.
-
-Deliver: the full ui/ folder (app.py, backend.py, backend_stub.py, sample_snapshot.json, components/*.py, styles.css or a styles.py), and a short UI_README.md listing every backend method each screen calls. It must run with: CASHBRIDGE_UI_BACKEND=stub streamlit run ui/app.py
-~~~
-
-**UI-1 acceptance criteria**
-- [ ] `CASHBRIDGE_UI_BACKEND=stub streamlit run ui/app.py` runs with no backend code present.
-- [ ] All 5 tabs, the header, KPI ribbon and sidebar are present, and all empty states look tidy.
-- [ ] Searching `ui/` for arithmetic on money (`+`, `-`, `*` applied to amounts) finds only formatting.
-- [ ] The OTP dialog shows all 4 error types correctly using the stub test codes.
-- [ ] `UI_README.md` maps every screen to the backend methods it calls.
-- [ ] Take screenshots of each tab and keep them; you'll need them in UI-2.
-
-### UI-2 — Polish pass (after Phase 4, optional)
-
-~~~
-Here are screenshots of CashBridge running on the REAL backend, plus my feedback: [paste screenshots + notes].
-Improve visual polish only: spacing, typography, chart readability, colours, empty states, wording of labels.
-Do NOT change ui/backend.py, the contract in buildplan.md section C, or any method calls. Do NOT add calculations.
-Return only the files you changed.
-~~~
-
-**UI-2 acceptance criteria**
-- [ ] Only files under `ui/` changed, and `ui/backend*.py` are untouched.
-- [ ] The app still runs in both `stub` and `real` mode.
+**Acceptance criteria**
+- [ ] `make run` serves the dashboard at http://localhost:8000 with no API key and no network.
+- [ ] Header, KPI ribbon, sidebar and all 5 tabs present; every empty state looks deliberate.
+- [ ] The OTP dialog shows all 4 error strings (`invalid_code`, `expired`, `replayed`, `payload_mismatch`) correctly.
+- [ ] Palette and rules of §5.1 are followed: one accent, green only for success, red only for deficit or block.
+- [ ] Looks right at 1440×900 (screen recording) and still works at 1280 wide.
+- [ ] A timed click-through of the §9 story takes under 4 minutes.
 
 ---
 
@@ -271,9 +231,9 @@ Return only the files you changed.
 
 ~~~
 Step 0.1: Create the repository skeleton from instructions.md §6.
-- Create all folders and empty __init__.py files. Leave ui/ empty except an empty __init__.py (the UI is built by another AI).
+- Create all folders and empty __init__.py files.
 - Create requirements.txt (pinned versions, include pyotp and scikit-learn), .env.example, .gitignore, Makefile with targets: seed, test, story, eval, run, anchor.
-- `make run` must run: streamlit run ui/app.py
+- `make run` must start the FastAPI app that serves the dashboard on port 8000; `make ui` rebuilds the React bundle.
 - Create README.md with only: project title, one-line pitch, "Status: in progress", quickstart commands.
 - Create DECISIONS.md with a header.
 - Copy buildplan.md section C into a file docs/UI_CONTRACT.md unchanged.
@@ -321,7 +281,6 @@ tests/test_schemas.py: valid objects build; negative amount, confidence > 1 and 
 
 ### ✅ Phase 0 gate
 - [ ] `make test` is green. Commit: `phase 0: scaffold, settings, schemas`.
-- [ ] **Now start UI-1 in the other AI**, if you haven't already.
 
 ---
 
@@ -518,8 +477,8 @@ Step 3.5: Implement ui/backend_real.py exactly matching the UI Contract in docs/
 - approve(code) returns the exact error strings from the contract.
 - tamper_demo() works on a temporary copy of the audit log only.
 Also write scripts/export_ui_snapshot.py that writes the real snapshot to data/execution_evidence/ui_snapshot_real.json.
-Write tests/test_ui_contract.py that loads ui/sample_snapshot.json (if present) or the key list from docs/UI_CONTRACT.md and asserts the real snapshot has every key, with compatible types, recursively.
-Do NOT create or modify ui/app.py, ui/backend.py, ui/backend_stub.py or ui/components — those come from the UI designer.
+Write tests/test_ui_contract.py that reads the sample snapshot JSON from docs/UI_CONTRACT.md and asserts the real snapshot has every key, with compatible types, recursively.
+Only ui/backend.py and ui/backend_real.py are written in this step; the web layer comes in Phase 4.
 ~~~
 
 **Acceptance criteria**
@@ -534,40 +493,63 @@ Do NOT create or modify ui/app.py, ui/backend.py, ui/backend_stub.py or ui/compo
 
 ---
 
-## PHASE 4 — Integrate the designed UI (Builder)
+## PHASE 4 — API and React UI (Builder)
 
-**Before this phase:** copy the UI Designer's `ui/` folder into the repo, but **keep the Builder's `ui/backend_real.py`**.
-
-### Step 4.1 — Wire the designed UI to the real backend
+### Step 4.1 — FastAPI serving the contract
 
 ~~~
-Step 4.1: The ui/ folder now contains the UI designer's files (app.py, backend.py, backend_stub.py, sample_snapshot.json, components/, UI_README.md) plus your ui/backend_real.py.
-1. Read UI_README.md and ui/backend.py. Make sure CASHBRIDGE_UI_BACKEND=real loads ui/backend_real.py, and stub still works.
-2. Run tests/test_ui_contract.py against the designer's sample_snapshot.json. Fix mismatches in backend_real.py, not in the UI. If the UI uses a field not in the contract, list it and ask me before changing anything.
-3. Run `make run` with the real backend and click through every tab and button. Fix only wiring bugs (imports, method names, None handling).
-4. Search ui/ for financial arithmetic; if the UI computes any money value, replace it with a value supplied by backend_real.py.
-Do not redesign anything visually.
+Step 4.1: Implement api/main.py.
+- GET /api/snapshot and POST /api/<method> for simulate, ask_cfo, choose_option, prepare_pack, request_otp, approve, retry_double_financing, tamper_draft, verify_chain, tamper_demo, reset_demo, exactly as in buildplan.md section C.1. One backend instance, calls serialised with a lock.
+- Validation errors return 422 with a readable message; refusals stay in meta.last_error.
+- Serve ui/web/dist at "/" (single-page fallback) when it exists; /docs stays available.
+- Makefile: run = uvicorn api.main:app --port 8000; ui = build the React bundle.
+tests/test_api.py with TestClient: every route returns its contract shape; approve with a wrong code fails; with the real TOTP it submits; unknown route 404.
 ~~~
 
 **Acceptance criteria**
-- [ ] `make run` works in `real` mode with no API key, and `stub` mode still works.
-- [ ] The KPIs show the engine's numbers (cross-check against `ui_snapshot_real.json`).
-- [ ] Every slider changes the forecast and the first-shortfall week.
-- [ ] The full click-through works:
-  - choose factoring,
-  - prepare pack,
-  - wrong OTP shows an error,
-  - the real TOTP is approved,
-  - retry shows `DoubleFinancingBlocked`,
-  - tamper draft is rejected,
-  - verify chain passes,
-  - the tamper demo shows the broken line.
+- [ ] `make run` starts the API with no key and no network, and `/docs` loads.
+- [ ] API tests pass, including OTP error strings and the double-financing block.
+
+### Step 4.2 — React foundation
+
+~~~
+Step 4.2: Create ui/web (Vite + React 18 + TypeScript). Implement the design tokens of instructions.md §5.1, bundled fonts, the typed contract client (src/types.ts mirrors C.2, src/api.ts wraps the 12 methods), the app shell (header with SYNTHETIC and mode badges and Reset, KPI ribbon, sidebar with tier monitor, CFO chat and PII inspector, tab bar), and number/date formatters. No arithmetic on money.
+~~~
+
+**Acceptance criteria**
+- [ ] The shell renders real data from the API; every empty state is tidy.
+
+### Step 4.3 — Anticipate and Prove tabs
+
+~~~
+Step 4.3: Build tab 1 (13-week closing-balance chart in SVG with zero and buffer lines, attribution bars, four what-if sliders calling simulate with before/after first-shortfall week, collections and buyer-risk sections with empty states) and tab 2 (reconciliation table, featured-wire explainer, verification table, alert cards).
+~~~
+
+**Acceptance criteria**
+- [ ] Every slider changes the forecast and the first-shortfall week; the wire explainer shows invoice sum, fee and amount received.
+
+### Step 4.4 — Compare & Choose, Approve and Evidence tabs
+
+~~~
+Step 4.4: Build tab 3 (option cards ranked by APR with cost breakdown, assumptions, formula, "why not cheaper", ineligible options with reason, Choose button), tab 4 (pack stepper, locked metrics, letter, number-check badge, Prepare pack, OTP modal with action_hash and one error message per error string, PDF slot, "Try to finance INV-1030 again", "Tamper the draft") and tab 5 (audit table, Verify chain, Tamper demo on a temporary copy, registry blocks, eval table with empty state).
+~~~
+
+**Acceptance criteria**
+- [ ] The full click-through works: choose factoring, prepare pack, wrong OTP shows an error, the real TOTP is approved, retry shows DoubleFinancingBlocked, tamper draft is rejected, verify chain passes, the tamper demo shows the broken line.
 - [ ] Every UI action appears in the sidebar tier monitor.
-- [ ] Take screenshots of every tab and send them to the UI Designer for UI-2 (optional).
+
+### Step 4.5 — Polish, screenshots and build
+
+~~~
+Step 4.5: Polish spacing, typography and chart readability against §5.1. Search ui/web/src for arithmetic on money. Take Playwright screenshots of every tab into docs/screenshots/, build the bundle (make ui) and commit ui/web/dist.
+~~~
+
+**Acceptance criteria**
+- [ ] No arithmetic on money in the UI; screenshots saved; `make run` on a clean checkout shows the dashboard.
 
 ### ✅ Phase 4 gate
 - [ ] A timed click-through of the §9 story takes under 4 minutes.
-- [ ] Commit: `phase 4: UI integrated`.
+- [ ] Commit: `phase 4: API and React UI`.
 
 ---
 
@@ -638,15 +620,15 @@ Step 6.1: Implement agents/buyer_risk_agent.py per instructions.md §4: concentr
 ~~~
 **Acceptance criteria:** the US buyer triggers the alert, and the buyer-risk section in the UI is populated.
 
-### Step 6.2 — FastAPI
+### Step 6.2 — Extra engine endpoints
 ~~~
-Step 6.2: Implement api/main.py with the endpoints in instructions.md §4, all routed through the gatekeeper, reusing the same coordinator methods as backend_real.py. Tests with TestClient: approve without OTP fails; with valid OTP submits.
+Step 6.2: Add the engine endpoints from instructions.md §4 (/forecast, /reconcile, /funding-options, /packs, /packs/{id}/approve, /audit/verify) to api/main.py, all routed through the coordinator and gatekeeper. Tests with TestClient: approve without OTP fails; with a valid OTP it submits.
 ~~~
-**Acceptance criteria:** `/docs` loads, and the API tests pass.
+**Acceptance criteria:** the engine endpoints appear in `/docs`, and the API tests pass.
 
 ### Step 6.3 — Docker
 ~~~
-Step 6.3: Dockerfile + docker-compose.yml (ui:8501, api:8000), seed on start, no secrets baked in, documented in README.
+Step 6.3: Dockerfile + docker-compose.yml (one service, the FastAPI app serving the built UI on port 8000), seed on start, no secrets baked in, documented in README.
 ~~~
 **Acceptance criteria:** `docker compose up` on a clean machine shows the dashboard.
 
@@ -694,9 +676,8 @@ List anything that fails and fix it.
 
 | Situation | What to do |
 |---|---|
-| The Builder AI edits UI files | Reply: "Revert all changes under ui/ except backend_real.py." |
-| The UI Designer AI adds calculations | Reply: "Remove all arithmetic on money from ui/; display only values from get_snapshot()." |
-| The UI needs a field that isn't in the contract | Add it to section C **and** `docs/UI_CONTRACT.md` first, then ask the Builder to supply it in `backend_real.py`. Never let one side change the contract alone. |
+| The UI computes a money value | Remove all arithmetic on money from ui/web/src; display only values from the snapshot. |
+| The UI needs a field that isn't in the contract | Add it to section C **and** `docs/UI_CONTRACT.md` first, then supply it in `backend_real.py`. Never change one side of the contract alone. |
 | Seed data can't hit week 7 with a $40–47k shortfall | Adjust only the deposit amount and the US invoice on-time probability in the seed. Never touch the engine. |
 | The UI shows different numbers from the tests | Compare against `ui_snapshot_real.json`. The bug is in `backend_real.py` or in UI arithmetic. |
 | Behind schedule on Sunday night | Skip Phase 6, cut Step 5.2 to collections only, and keep 5.3 and 5.4. |

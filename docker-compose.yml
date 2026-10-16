@@ -1,28 +1,9 @@
 services:
-  cashbridge-ui:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: cashbridge-ui
-    ports:
-      - "8501:8501"
-    environment:
-      - STREAMLIT_SERVER_PORT=8501
-      - STREAMLIT_SERVER_HEADLESS=true
-      - LLM_BASE_URL=${LLM_BASE_URL:-}
-      - LLM_MODEL=${LLM_MODEL:-}
-      - LLM_API_KEY=${LLM_API_KEY:-}
-      - OTP_SECRET=${OTP_SECRET:-}
-    volumes:
-      - ./data:/app/data
-    restart: unless-stopped
-
-  cashbridge-api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: cashbridge-api
-    command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    container_name: cashbridge
     ports:
       - "8000:8000"
     environment:
@@ -31,5 +12,5 @@ services:
       - LLM_API_KEY=${LLM_API_KEY:-}
       - OTP_SECRET=${OTP_SECRET:-}
     volumes:
-      - ./data:/app/data
+      - ./data/runtime:/app/data/runtime
     restart: unless-stopped

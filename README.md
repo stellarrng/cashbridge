@@ -2,7 +2,7 @@
 
 > CashBridge turns each export invoice into evidence a lender can verify, and then into cash.
 
-**Status: in progress.** The deterministic core, the security layer and the seed data are built and tested (Phases 0 to 2 and Steps 3.1 to 3.4). The coordinator, agents, API and dashboard are not built yet. See [Built / Not built](#built--not-built).
+**Status: in progress.** The deterministic core, the security layer, the seed data, the coordinator, the API and the React dashboard are built and tested (Phases 0 to 2, Phase 3 and Phase 4: the API and the React dashboard). The agents beyond the minimal collections module, the PDF funding pack, the evaluation harness and the documents are still to do. See [Built / Not built](#built--not-built).
 
 2026 Shenzhen International FinTech Competition, International Track, Topic E: SME Finance Copilot.
 All companies, people, buyers, lenders and APIs in this repository are **SYNTHETIC** or **MOCK**.
@@ -35,11 +35,12 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cp .env.example .env        # optional; leave LLM_API_KEY empty to run offline
 make seed                   # writes SYNTHETIC inputs to data/sandbox_inputs/
-make test                   # 210 tests, no network, no API key
+make test                   # tests, no network, no API key
+make run                    # dashboard and API at http://localhost:8000
 make story                  # the 11-step demo story, offline
 ```
 
-`make story` runs the 11-step demo story headless, offline, and regenerates `data/execution_evidence/` (audit log, registry, `story_summary.md`, `ANCHORS.md`); `make anchor` re-anchors the chain heads. `make eval` and `make run` arrive in later phases (see below).
+`make story` runs the 11-step demo story headless, offline, and regenerates `data/execution_evidence/` (audit log, registry, `story_summary.md`, `ANCHORS.md`); `make anchor` re-anchors the chain heads. `make eval` arrives in a later phase (see below). `make ui` rebuilds the React bundle and needs Node 20+; the built bundle `ui/web/dist` is committed, so `make run` needs no Node.
 
 ## Demo scenario (single source of truth: `instructions.md` section 2)
 
@@ -72,7 +73,8 @@ Add it to any authenticator app (Base32, 30-second codes). Each code works once,
 
 ```mermaid
 flowchart LR
-    UI[Streamlit UI] -->|UI contract only| ADAPTER[ui/backend_real.py]
+    UI[React dashboard] -->|JSON, UI contract only| API[FastAPI api/main.py]
+    API --> ADAPTER[ui/backend_real.py]
     ADAPTER --> COORD[Coordinator state machine]
     COORD --> GUARD[Guard layer: PII mask, injection guard, number check, BEC]
     GUARD --> AGENTS[Agents: CFO, document, collections, buyer risk]
@@ -83,7 +85,7 @@ flowchart LR
     CORE --> EVID[data/execution_evidence]
 ```
 
-Phases 0 to 2 (everything left of the coordinator) are implemented. The coordinator, agents, adapter and UI are planned.
+Everything except the CFO, document and buyer-risk agents is implemented.
 
 ## Repository layout
 
@@ -97,7 +99,9 @@ security/   permission_gatekeeper.py, audit_log.py, otp_verifier.py, pii_masker.
 agents/     llm_client.py, coordinator.py, collections_agent.py (minimal)
 api/        lender_connector_mock.py (MOCK; no real bank API is claimed)
 scripts/    run_demo_story.py, anchor_head.py
-ui/ eval/   (placeholders for later phases)
+api/main.py FastAPI app: the UI contract as JSON plus the built React bundle
+ui/         backend_real.py (the UI contract on the real engines), web/ (React + TypeScript, built bundle in dist/)
+eval/       (placeholder for Phase 5)
 data/       seed_sandbox.py (writes sandbox_inputs/), loader.py (typed readers), execution_evidence/
 docs/       UI_CONTRACT.md (the interface between the UI and the backend)
 tests/      210 tests
@@ -118,7 +122,9 @@ tests/      210 tests
 | LLM client with offline fallback (`agents/llm_client.py`) | Built, tested |
 | Coordinator state machine (`agents/coordinator.py`) and pack metrics | Built, tested |
 | Demo story (`scripts/run_demo_story.py`), anchors, mock lender connector, minimal collections (reminder draft, reply parsing) | Built, tested |
-| UI adapter (`ui/backend_real.py`) | Not built (Step 3.5) |
+| UI contract adapter (`ui/backend_real.py`) | Built, tested against `docs/UI_CONTRACT.md` |
+| FastAPI app (`api/main.py`) serving the contract and the built UI | Built, tested |
+| React dashboard (`ui/web`): 5 tabs, OTP dialog, evidence tab | Built; screenshots in `docs/screenshots/` |
 | Streamlit dashboard | Not built (Phase 4) |
 | CFO assistant, document agent, full collections ladder, PDF funding pack, evaluation harness | Not built (Phase 5) |
 | Buyer risk agent, FastAPI, working Docker image | Not built (Phase 6) |

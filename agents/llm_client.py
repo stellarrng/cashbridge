@@ -118,6 +118,18 @@ class LlmClient:
         """Before/after text of the last masked call, for the UI PII inspector."""
         return self._masker.inspector()
 
+    def preview(
+        self,
+        text: str,
+        directory: Optional[Mapping[str, Iterable[str]]] = None,
+    ) -> Dict[str, str]:
+        """Mask ``text`` exactly as a model call would, without calling any provider.
+
+        Lets the PII inspector show what would leave the machine. Returns the before/after pair.
+        """
+        self._masker.mask(text, directory)
+        return self._masker.inspector()
+
     # ------------------------------------------------------------------- call
     def complete_structured(
         self,

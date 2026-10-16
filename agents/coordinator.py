@@ -229,6 +229,8 @@ class Coordinator:
         if bec.verdict is BecVerdict.BLOCKED:
             alert = bec.to_alert(self._next_alert_id())
             self.blocked_fraud_count += 1
+            # What a cloud model would be shown if it summarised this email: masked and quoted as data.
+            self.llm.preview(f"{email.subject}\n{email.body}", self.contacts.get("staff_directory"))
         elif injection.suspicious:
             alert = {
                 "id": self._next_alert_id(),
@@ -640,7 +642,7 @@ class Coordinator:
         return {
             "ok": verdict.ok,
             "offending": verdict.offending,
-            "message": "Draft rejected: it contains a number that is not in the locked metrics.",
+            "message": "The draft contains a number that is not in the locked metrics, so it cannot be sent.",
         }
 
     def simulate(self, params: ScenarioParams):

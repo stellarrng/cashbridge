@@ -1,0 +1,894 @@
+{
+  "alerts": [
+    {
+      "action_hint": "Verify by phone using the number on file. CashBridge never changes payee details.",
+      "id": "AL-01",
+      "reasons": [
+        "Requests change of bank account",
+        "Lookalike domain of oakline-home.com",
+        "Account not in verified payees"
+      ],
+      "sender": "accounts@oakIine-home.com",
+      "severity": "critical",
+      "subject": "Updated bank details for payment",
+      "type": "BEC"
+    },
+    {
+      "action_hint": "Treated as data. No action taken.",
+      "id": "AL-02",
+      "reasons": [
+        "Instruction-like text detected (override_instructions, action_command)"
+      ],
+      "sender": "noreply@freight-docs.example",
+      "severity": "high",
+      "subject": "Shipment notice",
+      "type": "INJECTION"
+    }
+  ],
+  "buyer_risk": [],
+  "chat": {
+    "history": [
+      {
+        "citations": [
+          {
+            "label": "Forecast run fc-0010",
+            "source_id": "forecast:fc-0010"
+          },
+          {
+            "label": "APR calculation",
+            "source_id": "funding:factoring_inv1030"
+          }
+        ],
+        "mode": "offline-demo",
+        "role": "assistant",
+        "text": "Week 7 is expected to be short by USD 42,227.64. Cheapest option: Factoring INV-1030 (Partner Factor, MOCK) for USD 48,000.00 at about 17.1% a year."
+      }
+    ]
+  },
+  "collections": {
+    "promises": [],
+    "schedule": []
+  },
+  "evidence": {
+    "audit_tail": [
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "confidence 1.0",
+        "seq": 4,
+        "tier": "L2_INTERNAL_WRITE",
+        "time": "07:00:03",
+        "tool": "ledger_write"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 5,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:04",
+        "tool": "reconcile"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "confidence 1.0",
+        "seq": 6,
+        "tier": "L2_INTERNAL_WRITE",
+        "time": "07:00:05",
+        "tool": "ledger_write"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 7,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:06",
+        "tool": "reconcile"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "AWAITING_APPROVAL",
+        "reason": "confidence 0.0: accountant approval needed",
+        "seq": 8,
+        "tier": "L2_INTERNAL_WRITE",
+        "time": "07:00:07",
+        "tool": "ledger_write"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "confidence 1.0",
+        "seq": 9,
+        "tier": "L2_INTERNAL_WRITE",
+        "time": "07:00:08",
+        "tool": "lock_period"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 10,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:09",
+        "tool": "run_forecast"
+      },
+      {
+        "agent": "document_agent",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 11,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:10",
+        "tool": "three_way_match"
+      },
+      {
+        "agent": "document_agent",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 12,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:11",
+        "tool": "three_way_match"
+      },
+      {
+        "agent": "document_agent",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 13,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:12",
+        "tool": "three_way_match"
+      },
+      {
+        "agent": "document_agent",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 14,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:13",
+        "tool": "three_way_match"
+      },
+      {
+        "agent": "document_agent",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 15,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:14",
+        "tool": "three_way_match"
+      },
+      {
+        "agent": "document_agent",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 16,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:15",
+        "tool": "three_way_match"
+      },
+      {
+        "agent": "document_agent",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 17,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:16",
+        "tool": "three_way_match"
+      },
+      {
+        "agent": "document_agent",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 18,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:17",
+        "tool": "three_way_match"
+      },
+      {
+        "agent": "document_agent",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 19,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:18",
+        "tool": "three_way_match"
+      },
+      {
+        "agent": "document_agent",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 20,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:19",
+        "tool": "three_way_match"
+      },
+      {
+        "agent": "document_agent",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 21,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:20",
+        "tool": "three_way_match"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 22,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:21",
+        "tool": "rank_funding_options"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "granted source",
+        "seq": 23,
+        "tier": "L0_READ",
+        "time": "07:00:22",
+        "tool": "read_inbox"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 24,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:23",
+        "tool": "scan_email"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 25,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:24",
+        "tool": "scan_email"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 26,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:25",
+        "tool": "scan_email"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 27,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:26",
+        "tool": "scan_email"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 28,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:27",
+        "tool": "scan_email"
+      }
+    ],
+    "broken_seq": null,
+    "chain_ok": true,
+    "eval": null,
+    "lines_checked": 28,
+    "registry_blocks": []
+  },
+  "forecast": {
+    "attribution": [
+      {
+        "amount_usd": 27600.0,
+        "driver": "30% deposit on PO-2214",
+        "source_ref": "doc:PO-2214"
+      },
+      {
+        "amount_usd": 2210.0,
+        "driver": "INV-1023 (Oakline Home LLC (SYNTHETIC)) likely late, p_on_time 0.90",
+        "source_ref": "inv:INV-1023"
+      },
+      {
+        "amount_usd": 18258.4,
+        "driver": "INV-1026 (Oakline Home LLC (SYNTHETIC)) likely late, p_on_time 0.42",
+        "source_ref": "inv:INV-1026"
+      },
+      {
+        "amount_usd": 8220.0,
+        "driver": "INV-1027 (Oakline Home LLC (SYNTHETIC)) likely late, p_on_time 0.70",
+        "source_ref": "inv:INV-1027"
+      },
+      {
+        "amount_usd": 2105.77,
+        "driver": "INV-1029 (Shenzhen Greenhome Trading Ltd. (SYNTHETIC)) likely late, p_on_time 0.90",
+        "source_ref": "inv:INV-1029"
+      },
+      {
+        "amount_usd": 1400.0,
+        "driver": "INV-1033 (Kyoto Interiors K.K. (SYNTHETIC)) likely late, p_on_time 0.95",
+        "source_ref": "inv:INV-1033"
+      },
+      {
+        "amount_usd": 2948.08,
+        "driver": "INV-1034 (Shenzhen Greenhome Trading Ltd. (SYNTHETIC)) likely late, p_on_time 0.90",
+        "source_ref": "inv:INV-1034"
+      },
+      {
+        "amount_usd": 2600.0,
+        "driver": "INV-1035 (Harbor Living Inc. (SYNTHETIC)) likely late, p_on_time 0.90",
+        "source_ref": "inv:INV-1035"
+      },
+      {
+        "amount_usd": -23114.61,
+        "driver": "Opening cash plus scheduled inflows, net of fixed costs and payroll",
+        "source_ref": "ledger:baseline"
+      }
+    ],
+    "buffer_usd": 10000.0,
+    "weeks": [
+      {
+        "closing": 42000.0,
+        "inflows": 0.0,
+        "opening": 80000.0,
+        "outflows": 38000.0,
+        "start_date": "2026-10-19",
+        "status": "ok",
+        "week": 1
+      },
+      {
+        "closing": 11800.0,
+        "inflows": 22800.0,
+        "opening": 42000.0,
+        "outflows": 53000.0,
+        "start_date": "2026-10-26",
+        "status": "ok",
+        "week": 2
+      },
+      {
+        "closing": 941.34,
+        "inflows": 27141.34,
+        "opening": 11800.0,
+        "outflows": 38000.0,
+        "start_date": "2026-11-02",
+        "status": "at_risk",
+        "week": 3
+      },
+      {
+        "closing": 9431.34,
+        "inflows": 46490.0,
+        "opening": 941.34,
+        "outflows": 38000.0,
+        "start_date": "2026-11-09",
+        "status": "at_risk",
+        "week": 4
+      },
+      {
+        "closing": 16915.95,
+        "inflows": 45484.61,
+        "opening": 9431.34,
+        "outflows": 38000.0,
+        "start_date": "2026-11-16",
+        "status": "ok",
+        "week": 5
+      },
+      {
+        "closing": 16737.55,
+        "inflows": 37821.6,
+        "opening": 16915.95,
+        "outflows": 38000.0,
+        "start_date": "2026-11-23",
+        "status": "ok",
+        "week": 6
+      },
+      {
+        "closing": -42227.64,
+        "inflows": 21634.81,
+        "opening": 16737.55,
+        "outflows": 80600.0,
+        "start_date": "2026-11-30",
+        "status": "shortfall",
+        "week": 7
+      },
+      {
+        "closing": -76617.64,
+        "inflows": 3610.0,
+        "opening": -42227.64,
+        "outflows": 38000.0,
+        "start_date": "2026-12-07",
+        "status": "shortfall",
+        "week": 8
+      },
+      {
+        "closing": -54363.79,
+        "inflows": 60253.85,
+        "opening": -76617.64,
+        "outflows": 38000.0,
+        "start_date": "2026-12-14",
+        "status": "shortfall",
+        "week": 9
+      },
+      {
+        "closing": -71505.39,
+        "inflows": 20858.4,
+        "opening": -54363.79,
+        "outflows": 38000.0,
+        "start_date": "2026-12-21",
+        "status": "shortfall",
+        "week": 10
+      },
+      {
+        "closing": -116285.39,
+        "inflows": 8220.0,
+        "opening": -71505.39,
+        "outflows": 53000.0,
+        "start_date": "2026-12-28",
+        "status": "shortfall",
+        "week": 11
+      },
+      {
+        "closing": -154285.39,
+        "inflows": 0.0,
+        "opening": -116285.39,
+        "outflows": 38000.0,
+        "start_date": "2027-01-04",
+        "status": "shortfall",
+        "week": 12
+      },
+      {
+        "closing": -187485.39,
+        "inflows": 4800.0,
+        "opening": -154285.39,
+        "outflows": 38000.0,
+        "start_date": "2027-01-11",
+        "status": "shortfall",
+        "week": 13
+      }
+    ]
+  },
+  "funding_options": [
+    {
+      "amount_usd": 48000.0,
+      "apr_pct": 17.12,
+      "assumptions": {
+        "advance_pct": 80.0,
+        "days": 60,
+        "fee_pct_of_invoice": 1.2,
+        "interest_pa_pct": 8.0
+      },
+      "cost_breakdown": {
+        "fee_usd": 720.0,
+        "interest_usd": 631.23,
+        "total_usd": 1351.23
+      },
+      "eligible": true,
+      "formula": "APR = total cost / net funds x 365 / days",
+      "id": "factoring_inv1030",
+      "ineligible_reason": null,
+      "name": "Factoring INV-1030 (Partner Factor, MOCK)",
+      "rank": 1,
+      "type": "factoring",
+      "why_not_cheaper": "Cheapest eligible option."
+    },
+    {
+      "amount_usd": 46000.0,
+      "apr_pct": 18.24,
+      "assumptions": {
+        "days": 90,
+        "interest_pa_pct": 14.0,
+        "upfront_fee_pct": 1.0
+      },
+      "cost_breakdown": {
+        "fee_usd": 460.0,
+        "interest_usd": 1587.95,
+        "total_usd": 2047.95
+      },
+      "eligible": true,
+      "formula": "APR = total cost / net funds x 365 / days",
+      "id": "bridge_loan",
+      "ineligible_reason": null,
+      "name": "Working-capital bridge loan (MOCK)",
+      "rank": 2,
+      "type": "loan",
+      "why_not_cheaper": "About 1.1 points a year more expensive than Factoring INV-1030 (Partner Factor, MOCK)."
+    },
+    {
+      "amount_usd": 46000.0,
+      "apr_pct": 37.24,
+      "assumptions": {
+        "discount_days": 10,
+        "discount_pct": 2.0,
+        "net_days": 30
+      },
+      "cost_breakdown": {
+        "discount_usd": 920.0,
+        "total_usd": 920.0
+      },
+      "eligible": true,
+      "formula": "APR = d/(1-d) x 365 / (net days - discount days)",
+      "id": "early_discount",
+      "ineligible_reason": null,
+      "name": "Early-payment discount 2/10 net 30",
+      "rank": 3,
+      "type": "discount",
+      "why_not_cheaper": "About 20.1 points a year more expensive than Factoring INV-1030 (Partner Factor, MOCK)."
+    },
+    {
+      "amount_usd": null,
+      "apr_pct": null,
+      "assumptions": {},
+      "cost_breakdown": {},
+      "eligible": false,
+      "formula": null,
+      "id": "overdraft",
+      "ineligible_reason": "No overdraft facility on file",
+      "name": "Overdraft",
+      "rank": null,
+      "type": "overdraft",
+      "why_not_cheaper": null
+    }
+  ],
+  "kpis": {
+    "blocked_fraud_count": 1,
+    "cash_today_usd": 80000.0,
+    "cash_today_vnd": 2080000000,
+    "ccc": {
+      "ccc": 82.0,
+      "dio": 35.0,
+      "dpo": 28.0,
+      "dso": 75.0
+    },
+    "first_shortfall_week": 7,
+    "shortfall_usd": 42227.64
+  },
+  "meta": {
+    "as_of": "2026-10-19",
+    "case_id": "case-0001",
+    "case_state": "INVOICE_VERIFIED",
+    "company": "Binh Duong Timberworks Co., Ltd. (SYNTHETIC)",
+    "fx_note": "Assumed demo rate USD/VND 26,000",
+    "last_error": null,
+    "mode": "offline-demo",
+    "synthetic": true
+  },
+  "pack": {
+    "action_hash": null,
+    "lender_ref": null,
+    "letter_text": null,
+    "locked_metrics": [],
+    "number_check": null,
+    "pack_id": null,
+    "pdf_path": null,
+    "registry_block": null,
+    "status": "NOT_STARTED"
+  },
+  "pii_inspector": {
+    "after": "Updated bank details for payment\nDear partner, our bank account has changed. Please send all future payments to [ACCT_1]. Kindly confirm by return email.",
+    "before": "Updated bank details for payment\nDear partner, our bank account has changed. Please send all future payments to IBAN GB29 NWBK 6016 1331 9268 19. Kindly confirm by return email.",
+    "note": "Preview only: offline mode, nothing was sent to a cloud model."
+  },
+  "reconciliation": {
+    "featured_wire": {
+      "explanation": "Intermediary bank fee within USD 50 tolerance",
+      "gap": 35.0,
+      "gap_reason": "bank_fee",
+      "invoice_total": 48655.0,
+      "invoices": [
+        {
+          "amount": 15200.0,
+          "id": "INV-1021"
+        },
+        {
+          "amount": 18455.0,
+          "id": "INV-1022"
+        },
+        {
+          "amount": 15000.0,
+          "id": "INV-1024"
+        }
+      ],
+      "received": 48620.0,
+      "txn_id": "TXN-0912"
+    },
+    "rows": [
+      {
+        "amount": 48620.0,
+        "confidence": 1.0,
+        "currency": "USD",
+        "date": "2026-10-19",
+        "gap": 35.0,
+        "gap_reason": "bank_fee",
+        "matched_invoices": [
+          "INV-1021",
+          "INV-1022",
+          "INV-1024"
+        ],
+        "reason": "Gap is within the intermediary bank fee tolerance",
+        "reference": "INV1021 1022 1024",
+        "status": "BOOKED",
+        "tier": 3,
+        "txn_id": "TXN-0912"
+      },
+      {
+        "amount": 9870.0,
+        "confidence": 1.0,
+        "currency": "USD",
+        "date": "2026-10-19",
+        "gap": 0.0,
+        "gap_reason": null,
+        "matched_invoices": [
+          "INV-1025"
+        ],
+        "reason": "Exact match on invoice reference and amount",
+        "reference": "INV-1025",
+        "status": "BOOKED",
+        "tier": 1,
+        "txn_id": "TXN-0913"
+      },
+      {
+        "amount": 1520000.0,
+        "confidence": 0.0,
+        "currency": "JPY",
+        "date": "2026-10-18",
+        "gap": null,
+        "gap_reason": null,
+        "matched_invoices": [],
+        "reason": "No combination of open invoices matches within tolerance",
+        "reference": "PAYMENT OCT",
+        "status": "NEEDS_HUMAN",
+        "tier": null,
+        "txn_id": "TXN-0914"
+      }
+    ]
+  },
+  "scenario_controls": {
+    "deposit_pct": {
+      "default": 30,
+      "max": 50,
+      "min": 0,
+      "step": 5
+    },
+    "dso_change_days": {
+      "default": 0,
+      "max": 30,
+      "min": -30,
+      "step": 5
+    },
+    "fx_change_pct": {
+      "default": 0,
+      "max": 5,
+      "min": -5,
+      "step": 1
+    },
+    "tariff_shared_pct": {
+      "default": 0,
+      "max": 100,
+      "min": 0,
+      "step": 10
+    }
+  },
+  "selected_option_id": null,
+  "tier_monitor": [
+    {
+      "agent": "document_agent",
+      "decision": "ALLOWED",
+      "reason": "analysis",
+      "seq": 19,
+      "tier": "L1_ANALYZE",
+      "time": "07:00:18",
+      "tool": "three_way_match"
+    },
+    {
+      "agent": "document_agent",
+      "decision": "ALLOWED",
+      "reason": "analysis",
+      "seq": 20,
+      "tier": "L1_ANALYZE",
+      "time": "07:00:19",
+      "tool": "three_way_match"
+    },
+    {
+      "agent": "document_agent",
+      "decision": "ALLOWED",
+      "reason": "analysis",
+      "seq": 21,
+      "tier": "L1_ANALYZE",
+      "time": "07:00:20",
+      "tool": "three_way_match"
+    },
+    {
+      "agent": "coordinator",
+      "decision": "ALLOWED",
+      "reason": "analysis",
+      "seq": 22,
+      "tier": "L1_ANALYZE",
+      "time": "07:00:21",
+      "tool": "rank_funding_options"
+    },
+    {
+      "agent": "coordinator",
+      "decision": "ALLOWED",
+      "reason": "granted source",
+      "seq": 23,
+      "tier": "L0_READ",
+      "time": "07:00:22",
+      "tool": "read_inbox"
+    },
+    {
+      "agent": "coordinator",
+      "decision": "ALLOWED",
+      "reason": "analysis",
+      "seq": 24,
+      "tier": "L1_ANALYZE",
+      "time": "07:00:23",
+      "tool": "scan_email"
+    },
+    {
+      "agent": "coordinator",
+      "decision": "ALLOWED",
+      "reason": "analysis",
+      "seq": 25,
+      "tier": "L1_ANALYZE",
+      "time": "07:00:24",
+      "tool": "scan_email"
+    },
+    {
+      "agent": "coordinator",
+      "decision": "ALLOWED",
+      "reason": "analysis",
+      "seq": 26,
+      "tier": "L1_ANALYZE",
+      "time": "07:00:25",
+      "tool": "scan_email"
+    },
+    {
+      "agent": "coordinator",
+      "decision": "ALLOWED",
+      "reason": "analysis",
+      "seq": 27,
+      "tier": "L1_ANALYZE",
+      "time": "07:00:26",
+      "tool": "scan_email"
+    },
+    {
+      "agent": "coordinator",
+      "decision": "ALLOWED",
+      "reason": "analysis",
+      "seq": 28,
+      "tier": "L1_ANALYZE",
+      "time": "07:00:27",
+      "tool": "scan_email"
+    }
+  ],
+  "verification": [
+    {
+      "amount": 22100.0,
+      "buyer": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "differences": [],
+      "due_date": "2026-11-09",
+      "invoice_id": "INV-1023",
+      "registry_status": "NOT_REGISTERED",
+      "status": "ELIGIBLE",
+      "tax_id_valid": true
+    },
+    {
+      "amount": 31480.0,
+      "buyer": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "differences": [],
+      "due_date": "2026-11-24",
+      "invoice_id": "INV-1026",
+      "registry_status": "NOT_REGISTERED",
+      "status": "ELIGIBLE",
+      "tax_id_valid": true
+    },
+    {
+      "amount": 27400.0,
+      "buyer": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "differences": [
+        "B/L packages 118 vs invoice 120"
+      ],
+      "due_date": "2026-12-05",
+      "invoice_id": "INV-1027",
+      "registry_status": "NOT_REGISTERED",
+      "status": "FLAGGED",
+      "tax_id_valid": true
+    },
+    {
+      "amount": 1500000.0,
+      "buyer": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "currency": "JPY",
+      "differences": [],
+      "due_date": "2026-11-02",
+      "invoice_id": "INV-1028",
+      "registry_status": "NOT_REGISTERED",
+      "status": "ELIGIBLE",
+      "tax_id_valid": true
+    },
+    {
+      "amount": 150000.0,
+      "buyer": "Shenzhen Greenhome Trading Ltd. (SYNTHETIC)",
+      "currency": "CNY",
+      "differences": [],
+      "due_date": "2026-11-16",
+      "invoice_id": "INV-1029",
+      "registry_status": "NOT_REGISTERED",
+      "status": "ELIGIBLE",
+      "tax_id_valid": true
+    },
+    {
+      "amount": 60000.0,
+      "buyer": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "currency": "USD",
+      "differences": [],
+      "due_date": "2026-12-18",
+      "invoice_id": "INV-1030",
+      "registry_status": "NOT_REGISTERED",
+      "status": "ELIGIBLE",
+      "tax_id_valid": true
+    },
+    {
+      "amount": 24000.0,
+      "buyer": "Harbor Living Inc. (SYNTHETIC)",
+      "currency": "USD",
+      "differences": [],
+      "due_date": "2026-10-28",
+      "invoice_id": "INV-1031",
+      "registry_status": "NOT_REGISTERED",
+      "status": "ELIGIBLE",
+      "tax_id_valid": true
+    },
+    {
+      "amount": 19500.0,
+      "buyer": "Harbor Living Inc. (SYNTHETIC)",
+      "currency": "USD",
+      "differences": [],
+      "due_date": "2026-11-06",
+      "invoice_id": "INV-1032",
+      "registry_status": "NOT_REGISTERED",
+      "status": "ELIGIBLE",
+      "tax_id_valid": true
+    },
+    {
+      "amount": 28000.0,
+      "buyer": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "currency": "USD",
+      "differences": [],
+      "due_date": "2026-11-12",
+      "invoice_id": "INV-1033",
+      "registry_status": "NOT_REGISTERED",
+      "status": "ELIGIBLE",
+      "tax_id_valid": true
+    },
+    {
+      "amount": 210000.0,
+      "buyer": "Shenzhen Greenhome Trading Ltd. (SYNTHETIC)",
+      "currency": "CNY",
+      "differences": [],
+      "due_date": "2026-11-19",
+      "invoice_id": "INV-1034",
+      "registry_status": "NOT_REGISTERED",
+      "status": "ELIGIBLE",
+      "tax_id_valid": true
+    },
+    {
+      "amount": 26000.0,
+      "buyer": "Harbor Living Inc. (SYNTHETIC)",
+      "currency": "USD",
+      "differences": [],
+      "due_date": "2026-11-26",
+      "invoice_id": "INV-1035",
+      "registry_status": "NOT_REGISTERED",
+      "status": "ELIGIBLE",
+      "tax_id_valid": true
+    }
+  ]
+}
