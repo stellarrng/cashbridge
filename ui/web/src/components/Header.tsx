@@ -33,10 +33,10 @@ export function Header({ meta, guide, tab, go, onReset, busy, railOpen, toggleRa
         <span className={`tag ${live ? "live" : ""}`} title="offline-demo uses fixed templates; live-llm calls the configured model">
           <span className="dot" />{meta.mode}
         </span>
-        <button className="textbtn" onClick={toggleRail}>{railOpen ? "Hide assistant" : "Assistant & activity"}</button>
+        <button className="textbtn" onClick={toggleRail}>{railOpen ? "Close panel" : "Assistant"}</button>
         <button className="textbtn" onClick={onReset} disabled={busy}>Reset demo</button>
       </div>
-      <div className="journey">
+      <div className="journeywrap"><div className="journey">
         <ol aria-label="Progress">
           {guide.steps.map((s) => (
             <li key={s.key} className={s.state}>
@@ -54,7 +54,7 @@ export function Header({ meta, guide, tab, go, onReset, busy, railOpen, toggleRa
         ) : (
           <span className="where">All steps complete.</span>
         )}
-      </div>
+      </div></div>
     </header>
   );
 }

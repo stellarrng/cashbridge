@@ -41,7 +41,7 @@ export function App() {
   const [visited, setVisited] = useState<Set<TabKey>>(new Set([fromHash()]));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [railOpen, setRailOpen] = useState(() => window.innerWidth >= 1280);
+  const [railOpen, setRailOpen] = useState(false);
 
   const go = useCallback((next: TabKey) => {
     window.location.hash = `#/${next}`;
@@ -61,6 +61,7 @@ export function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
+      if (e.key === "Escape") setRailOpen(false);
       if (target.closest("input, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
       const index = Number(e.key) - 1;
       if (index >= 0 && index < TABS.length) go(TABS[index].key);
@@ -115,14 +116,15 @@ export function App() {
         meta={snap.meta} guide={guide} tab={tab} go={go} busy={busy}
         onReset={() => act(api.resetDemo)} railOpen={railOpen} toggleRail={() => setRailOpen(!railOpen)}
       />
-      <div className={`shell ${railOpen ? "" : "closed"}`}>
-        {railOpen && (
-          <aside className="rail" aria-label="Assistant and activity">
-            <Assistant history={snap.chat.history} onAsk={ask} />
-            <Activity rows={snap.tier_monitor} total={snap.evidence.lines_checked} onMore={() => go("evidence")} />
-            <Privacy data={snap.pii_inspector} />
-          </aside>
-        )}
+      {railOpen && <button className="drawer-scrim" aria-label="Close panel" onClick={() => setRailOpen(false)} />}
+      {railOpen && (
+        <aside className="drawer" aria-label="Assistant and activity">
+          <Assistant history={snap.chat.history} onAsk={ask} />
+          <Activity rows={snap.tier_monitor} total={snap.evidence.lines_checked} onMore={() => { setRailOpen(false); go("evidence"); }} />
+          <Privacy data={snap.pii_inspector} />
+        </aside>
+      )}
+      <div className="shell">
         <main className="main">
           {tab === "anticipate" ? (
             <div className="hero">
