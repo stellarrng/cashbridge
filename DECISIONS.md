@@ -38,6 +38,9 @@ Corrections made to the planning documents so the spec and plan agree:
 | 22 | INV-1027 belongs to the same US buyer as INV-1021 to 1026; subset-sum stays unique with it present (checked). Extra open invoices for other buyers (INV-1028 to 1035) give the forecast realistic weekly inflows without touching the wire match. | The six-invoice set in the spec is the buyer's open invoices at wire time. |
 | 23 | TXN-0913 (exact INV-1025) and TXN-0914 (JPY 1,520,000, `PAYMENT OCT`, no match, NEEDS_HUMAN) are included to match the UI sample reconciliation table. | UI contract sample. |
 | 24 | `data/loader.py` is the only reader of `sandbox_inputs/`; engines in `core/` receive typed data. | Keeps `core/` free of I/O. |
+| 25 | After any provider failure (timeout, network, auth) the LLM client stays in `offline-demo` until `reset()`. A schema failure or a number-check rejection falls back for that one call only. | Spec: a failed call sets DEMO_MODE. A single bad model reply should not end live mode. |
+| 26 | `complete_structured` runs the number lock by default with `locked_metrics`; field extraction passes `check_numbers=False` because its numbers come from a document, not from the model. | Spec: free-text output must pass the number lock. |
+| 27 | Replies are unmasked locally after validation; the provider only ever sees masked text. | Spec: tokens are reversible and the map never leaves memory. |
 | 19 | `instructions.md` stays in `.gitignore`, as before. | It was ignored in the original repo. Remove the line to publish it. |
 
 ## Control to file to test

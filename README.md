@@ -35,7 +35,7 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cp .env.example .env        # optional; leave LLM_API_KEY empty to run offline
 make seed                   # writes SYNTHETIC inputs to data/sandbox_inputs/
-make test                   # 139 tests, no network, no API key
+make test                   # 156 tests, no network, no API key
 ```
 
 `make story`, `make eval`, `make run` and `make anchor` are defined but their scripts arrive in later phases (see below).
@@ -96,7 +96,7 @@ security/   permission_gatekeeper.py, audit_log.py, otp_verifier.py, pii_masker.
 agents/ api/ ui/ scripts/ eval/   (placeholders for later phases)
 data/       seed_sandbox.py (writes sandbox_inputs/), loader.py (typed readers), execution_evidence/
 docs/       UI_CONTRACT.md (the interface between the UI and the backend)
-tests/      139 tests
+tests/      156 tests
 ```
 
 ## Built / Not built
@@ -111,7 +111,8 @@ tests/      139 tests
 | Gatekeeper, audit log, action-bound OTP | Built, tested |
 | PII masker, injection guard, number check, BEC detector | Built, tested |
 | Seed sandbox data (`data/seed_sandbox.py`) and loader | Built, tested (CCC 82, week-7 shortfall, wire, INV-1027/1030, BEC all reproduce) |
-| LLM client, coordinator, demo story script, UI adapter | Not built (Steps 3.2 to 3.5) |
+| LLM client with offline fallback (`agents/llm_client.py`) | Built, tested |
+| Coordinator, demo story script, UI adapter | Not built (Steps 3.3 to 3.5) |
 | Streamlit dashboard | Not built (Phase 4) |
 | CFO assistant, document and collections agents, PDF funding pack, evaluation harness | Not built (Phase 5) |
 | Buyer risk agent, FastAPI, working Docker image | Not built (Phase 6) |
