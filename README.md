@@ -2,7 +2,7 @@
 
 > CashBridge turns each export invoice into evidence a lender can verify, and then into cash.
 
-**Status: in progress.** The deterministic core, the security layer and the seed data are built and tested (Phases 0 to 2 and Step 3.1). The coordinator, agents, API and dashboard are not built yet. See [Built / Not built](#built--not-built).
+**Status: in progress.** The deterministic core, the security layer and the seed data are built and tested (Phases 0 to 2 and Steps 3.1 to 3.3). The coordinator, agents, API and dashboard are not built yet. See [Built / Not built](#built--not-built).
 
 2026 Shenzhen International FinTech Competition, International Track, Topic E: SME Finance Copilot.
 All companies, people, buyers, lenders and APIs in this repository are **SYNTHETIC** or **MOCK**.
@@ -35,7 +35,7 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cp .env.example .env        # optional; leave LLM_API_KEY empty to run offline
 make seed                   # writes SYNTHETIC inputs to data/sandbox_inputs/
-make test                   # 156 tests, no network, no API key
+make test                   # 188 tests, no network, no API key
 ```
 
 `make story`, `make eval`, `make run` and `make anchor` are defined but their scripts arrive in later phases (see below).
@@ -90,13 +90,14 @@ Phases 0 to 2 (everything left of the coordinator) are implemented. The coordina
 config/     settings.py (constants), tool_allowlist.py (agent -> tools)
 schemas/    document_schemas.py, forecast_schemas.py, agent_schemas.py (Pydantic v2)
 core/       matching_engine.py, forecasting_engine.py, funding_evaluator.py,
-            invoice_registry.py, period_lock.py        (pure Python, no I/O, no LLM)
+            invoice_registry.py, period_lock.py, metrics.py        (pure Python, no I/O, no LLM)
 security/   permission_gatekeeper.py, audit_log.py, otp_verifier.py, pii_masker.py,
             injection_guard.py, number_check.py, bec_fraud_detector.py
-agents/ api/ ui/ scripts/ eval/   (placeholders for later phases)
+agents/     llm_client.py, coordinator.py
+api/ ui/ scripts/ eval/   (placeholders for later phases)
 data/       seed_sandbox.py (writes sandbox_inputs/), loader.py (typed readers), execution_evidence/
 docs/       UI_CONTRACT.md (the interface between the UI and the backend)
-tests/      156 tests
+tests/      188 tests
 ```
 
 ## Built / Not built
@@ -112,7 +113,8 @@ tests/      156 tests
 | PII masker, injection guard, number check, BEC detector | Built, tested |
 | Seed sandbox data (`data/seed_sandbox.py`) and loader | Built, tested (CCC 82, week-7 shortfall, wire, INV-1027/1030, BEC all reproduce) |
 | LLM client with offline fallback (`agents/llm_client.py`) | Built, tested |
-| Coordinator, demo story script, UI adapter | Not built (Steps 3.3 to 3.5) |
+| Coordinator state machine (`agents/coordinator.py`) and pack metrics | Built, tested |
+| Demo story script, mock lender connector, UI adapter | Not built (Steps 3.4 and 3.5) |
 | Streamlit dashboard | Not built (Phase 4) |
 | CFO assistant, document and collections agents, PDF funding pack, evaluation harness | Not built (Phase 5) |
 | Buyer risk agent, FastAPI, working Docker image | Not built (Phase 6) |

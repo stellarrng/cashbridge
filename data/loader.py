@@ -128,3 +128,12 @@ def forecast_inputs(
         receivables=receivables,
         deposits=deposits,
     )
+
+
+def billings(directory: Path = SANDBOX_INPUTS_DIR) -> List[tuple]:
+    """(issue_date, usd_amount) for each invoice in the 12-month payment history."""
+    out = []
+    for record in read("payment_history.json", directory)["records"]:
+        money = Money.from_amount(Decimal(record["amount"]), Currency(record["currency"]))
+        out.append((date.fromisoformat(record["issue_date"]), money.to_usd()))
+    return out
