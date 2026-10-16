@@ -245,3 +245,18 @@ def test_fx_exposure_is_symmetric_and_in_vnd():
     assert week4.impact_up_usd == -week4.impact_down_usd == Decimal("471.15")
     assert week4.impact_up_vnd == Decimal("471.15") * 26000
     assert sum(r.foreign_inflow_usd for r in rows) == Decimal("23557.69")
+
+
+# ------------------------------------------------------------- promises
+def test_a_dated_promise_moves_the_whole_amount_to_the_promised_week():
+    inputs = base_forecast_inputs()
+    base = forecast_13w(inputs)
+    promised = [
+        r.model_copy(update={"promised_date": date(2026, 11, 20)}) if r.invoice_id == "INV-1026" else r
+        for r in inputs.receivables
+    ]
+    out = forecast_13w(inputs.model_copy(update={"receivables": promised}))
+    assert out.weeks[4].inflows - base.weeks[4].inflows == Decimal("31480.00")  # Nov 20 is week 5
+    assert out.shortfall_usd < base.shortfall_usd
+    assert sum(i.amount_usd for i in out.attribution) == out.shortfall_usd
+    assert not any(i.source_ref == "inv:INV-1026" for i in out.attribution)

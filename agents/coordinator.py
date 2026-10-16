@@ -21,14 +21,16 @@ Case-state rules used here
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from pydantic import BaseModel
 
+from agents import collections_agent
 from agents.llm_client import LlmClient
+from api import lender_connector_mock
 from config.settings import (
     CASES_DIR,
     EXECUTION_EVIDENCE_DIR,
@@ -43,7 +45,7 @@ from core.matching_engine import reconcile, three_way_match
 from core.metrics import monthly_billing_volatility_pct, negative_cash_weeks, top_buyer_share_pct
 from core.period_lock import PeriodLocks
 from data import loader
-from schemas.agent_schemas import CaseFile, CaseState, Decision, GateDecision
+from schemas.agent_schemas import CaseFile, CaseState, Decision, GateDecision, PaymentPromise
 from schemas.document_schemas import (
     BankTxn,
     BillOfLading,
@@ -83,10 +85,6 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _mock_lender_ref(payload: Dict[str, Any]) -> str:
-    return "MOCK-" + sha256_of(payload)[:10].upper()
-
-
 class Coordinator:
     """State machine for one demo case. Paths, clock and LLM client are injectable."""
 
@@ -97,7 +95,7 @@ class Coordinator:
         cases_dir: Path = CASES_DIR,
         clock: Clock = _utc_now,
         llm: Optional[LlmClient] = None,
-        lender_submit: Callable[[Dict[str, Any]], str] = _mock_lender_ref,
+        lender_submit: Callable[[Dict[str, Any]], str] = lender_connector_mock.submit,
     ) -> None:
         self.inputs_dir = Path(inputs_dir)
         self.evidence_dir = Path(evidence_dir)
@@ -146,6 +144,8 @@ class Coordinator:
         self.selected_option_id: Optional[str] = None
         self.alerts: List[Dict[str, Any]] = []
         self.blocked_fraud_count = 0
+        self.promises: List[PaymentPromise] = []
+        self.reminders: List[Dict[str, Any]] = []
         self.pack: Dict[str, Any] = self._empty_pack()
         self._pack_payload: Optional[Dict[str, Any]] = None
         self._bundle_sha: Optional[str] = None
@@ -316,13 +316,22 @@ class Coordinator:
     def _forecast(self) -> None:
         decision = self._gate("coordinator", "run_forecast", Tier.L1_ANALYZE, {"paid": sorted(self.paid)})
         self.forecast_run_id = f"fc-{decision.audit_seq:04d}"
-        self.forecast_inputs = loader.forecast_inputs(self.paid, self.inputs_dir)
+        self.forecast_inputs = self._inputs_with_promises()
         self.forecast = forecast_13w(self.forecast_inputs)
         self.case.move_to(CaseState.FORECASTED)
         if self.forecast.first_shortfall_week is None:
             self.case.move_to(CaseState.CLOSED)
         else:
             self.case.move_to(CaseState.SHORTFALL_DETECTED)
+
+    def _inputs_with_promises(self):
+        inputs = loader.forecast_inputs(self.paid, self.inputs_dir)
+        promised = {p.invoice_id: p.promised_date for p in self.promises}
+        receivables = [
+            r.model_copy(update={"promised_date": promised[r.invoice_id]}) if r.invoice_id in promised else r
+            for r in inputs.receivables
+        ]
+        return inputs.model_copy(update={"receivables": receivables})
 
     def _verify_invoices(self) -> None:
         issuer = frozenset(self.profile["issuer_registry"])
@@ -383,6 +392,75 @@ class Coordinator:
 
     def _next_alert_id(self) -> str:
         return f"AL-{len(self.alerts) + 1:02d}"
+
+    # ------------------------------------------------------------- collections
+    def draft_reminder(self, invoice_no: str) -> Dict[str, Any]:
+        """Draft the gentle reminder for an open invoice. It waits for the accountant, then for OTP to send."""
+        invoice = next((i for i in self.open_invoices() if i.invoice_no == invoice_no), None)
+        if invoice is None:
+            raise ValueError(f"{invoice_no} is not an open invoice")
+        self._gate("collections_agent", "draft_text", Tier.L1_ANALYZE, {"invoice": invoice_no, "stage": "gentle"})
+        text = collections_agent.draft_reminder(invoice)
+        verdict = number_check.check(text, {"amount": float(invoice.amount.amount)})
+        if not verdict.ok:
+            raise ValueError(f"reminder failed the number check: {verdict.offending}")
+        reminder = {
+            "invoice_id": invoice_no,
+            "buyer": invoice.buyer_name,
+            "stage": "gentle",
+            "due_offset_days": -3,
+            "scheduled_date": (invoice.due_date - timedelta(days=3)).isoformat(),
+            "status": "draft",
+            "text": text,
+        }
+        self.reminders.append(reminder)
+        self._save()
+        return reminder
+
+    def approve_draft(self, invoice_no: str, approver: str = "Lan") -> Dict[str, Any]:
+        """The accountant approves a draft. Sending it is a separate L3 action that needs the Director's OTP."""
+        reminder = next((r for r in self.reminders if r["invoice_id"] == invoice_no and r["status"] == "draft"), None)
+        if reminder is None:
+            raise ValueError(f"no draft reminder for {invoice_no}")
+        self.audit.append(
+            case_id=CASE_ID, agent="collections_agent", tool="draft_text", tier=Tier.L1_ANALYZE,
+            decision=Decision.APPROVED, reason=f"draft approved by {approver}; sending needs Director OTP",
+            input_payload={"invoice": invoice_no},
+        )
+        reminder["status"] = "awaiting_approval"
+        self._save()
+        return reminder
+
+    def on_buyer_reply(self, email: Email) -> Optional[Dict[str, Any]]:
+        """Read a buyer reply. A stated payment date becomes a promise and the forecast is rerun.
+
+        The reply is data only: it is guard-scanned first, and it can change a date in the
+        forecast but can never trigger an action.
+        """
+        if self.on_email(email) is not None:
+            return None
+        invoice_no = collections_agent.invoice_in_text(f"{email.subject} {email.body}")
+        invoice = next((i for i in self.open_invoices() if i.invoice_no == invoice_no), None)
+        if invoice is None:
+            return None
+        self._gate("collections_agent", "parse_reply", Tier.L1_ANALYZE, {"email_id": email.email_id})
+        promise = collections_agent.parse_payment_promise(email.body, invoice_no, invoice.buyer_name, self.as_of)
+        if promise is None:
+            return None
+        before = self.forecast
+        self.promises.append(promise)
+        decision = self._gate("coordinator", "run_forecast", Tier.L1_ANALYZE, {"promise": promise.invoice_id})
+        self.forecast_run_id = f"fc-{decision.audit_seq:04d}"
+        self.forecast_inputs = self._inputs_with_promises()
+        self.forecast = forecast_13w(self.forecast_inputs)
+        self._save()
+        return {
+            "promise": promise,
+            "first_shortfall_week_before": before.first_shortfall_week,
+            "first_shortfall_week_after": self.forecast.first_shortfall_week,
+            "shortfall_before_usd": before.shortfall_usd,
+            "shortfall_after_usd": self.forecast.shortfall_usd,
+        }
 
     # --------------------------------------------------------------- UI actions
     def choose_option(self, option_id: str) -> None:
@@ -591,6 +669,14 @@ class Coordinator:
             "options": to_contract(self.options),
             "selected_option_id": self.selected_option_id,
             "alerts": self.alerts,
+            "collections": {
+                "schedule": [{k: v for k, v in r.items() if k != "text"} for r in self.reminders],
+                "promises": [
+                    {"invoice_id": p.invoice_id, "buyer": p.buyer,
+                     "promised_date": p.promised_date.isoformat(), "source_text": p.source_text}
+                    for p in self.promises
+                ],
+            },
             "pack": {k: v for k, v in self.pack.items() if k != "letter_text"},
         }
         self.cases_dir.mkdir(parents=True, exist_ok=True)

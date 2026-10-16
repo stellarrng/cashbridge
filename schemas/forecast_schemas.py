@@ -67,6 +67,9 @@ class OpenReceivable(BaseModel):
     amount: Money
     due_date: date
     p_on_time: float = Field(ge=0.0, le=1.0)
+    promised_date: Optional[date] = Field(
+        default=None, description="Buyer's dated promise to pay; the full amount lands on that date"
+    )
 
 
 class DepositPlan(BaseModel):

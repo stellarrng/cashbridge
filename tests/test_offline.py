@@ -162,3 +162,13 @@ def test_system_message_forbids_arithmetic():
     provider = Recorder({"summary": "ok"})
     live(provider).complete_structured("x", Reply, FALLBACK, check_numbers=False)
     assert "Never calculate" in provider.calls[0][0][0]["content"]
+
+
+# -------------------------------------------------------- the whole story
+def test_full_story_runs_with_no_api_key_and_no_network(tmp_path):
+    """The autouse fixture blocks sockets; the story must still pass all 11 steps."""
+    from scripts import run_demo_story
+
+    assert is_demo_mode({})
+    outcomes = run_demo_story.run(tmp_path, log=lambda _text: None)
+    assert [o.step for o in outcomes] == list(range(1, 12))

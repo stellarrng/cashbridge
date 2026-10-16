@@ -5,6 +5,7 @@ Pure Python, no I/O, no LLM. Money is Decimal USD at cent precision.
 Direct method
   * Expected inflow = invoice value x p_on_time, placed in the invoice's due week.
   * The late remainder (value x (1 - p_on_time)) arrives LATE_PAYMENT_DELAY_WEEKS later.
+  * A buyer's dated promise to pay overrides both: the full value lands in the promised week.
   * Outflows = weekly fixed costs + month-end payroll + supplier deposits.
   * A week is "shortfall" below 0 and "at_risk" below the cash buffer.
 """
@@ -93,8 +94,13 @@ def _invoice_views(inputs: ForecastInputs) -> List[_InvoiceView]:
         raw = rec.amount.to_usd()
         after_fx = _cents(raw * fx_factor) if rec.amount.currency.value != "USD" else raw
         final = _cents(after_fx * (Decimal(1) - tariff_cut)) if rec.market == "US" else after_fx
-        on_time = _cents(final * Decimal(str(rec.p_on_time)))
-        due = rec.due_date + timedelta(days=inputs.dso_shift_days)
+        if rec.promised_date is not None:
+            # A dated promise replaces the probability model: the full amount lands on that date.
+            on_time = final
+            due = rec.promised_date
+        else:
+            on_time = _cents(final * Decimal(str(rec.p_on_time)))
+            due = rec.due_date + timedelta(days=inputs.dso_shift_days)
         views.append(
             _InvoiceView(
                 receivable=rec,

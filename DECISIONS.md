@@ -47,7 +47,13 @@ Corrections made to the planning documents so the spec and plan agree:
 | 31 | Only factoring and bridge-loan options produce a lender pack. An early-payment discount is agreed with the buyer, so `prepare_pack` refuses it. Only factoring writes the invoice to the registry. | A discount does not pledge the invoice to a lender. |
 | 32 | The double-financing pre-check runs after the OTP is verified and before the L3 gate, so a duplicate attempt does not spend the approval. Retrying a financed invoice writes a `BLOCKED` audit line. | Keeps the demo negative test visible in the evidence. |
 | 33 | `reset()` deletes the audit log and registry in the coordinator's evidence folder, builds a fresh gatekeeper and OTP verifier, and reruns the Monday flow. | A clean demo needs a clean chain; a fresh verifier avoids a false "replayed" on the same TOTP code. |
-| 34 | The mock lender reference is injected (`lender_submit`); the default is a deterministic hash. Step 3.4 replaces it with `api/lender_connector_mock.py`. | Step 3.4 owns the connector. |
+| 34 | The lender reference comes from an injected `lender_submit`; the default is now `api/lender_connector_mock.submit`. | The connector is the white-label integration point; it is MOCK and claims no real API. |
+| 35 | Story step 10 needed a reminder and a reply-to-forecast path before Step 5.2, so a minimal real version exists: `agents/collections_agent.py` (gentle reminder template, date parser), `Coordinator.draft_reminder / approve_draft / on_buyer_reply`, and `OpenReceivable.promised_date` in the forecast. Step 5.2 adds the full ladder, JA/ZH templates and the OTP-gated send. | The 11-step story must run end to end now. |
+| 36 | A dated promise replaces the probability model for that invoice: the whole amount lands in the promised week. | A stated date is stronger evidence than a historical rate. |
+| 37 | Lan approving a draft is logged as an `APPROVED` audit line (L1 `draft_text`); the reminder then shows `awaiting_approval` because sending (`send_email`, L3) still needs the Director's OTP. The story does not send it. | Spec: every external email is L3 with OTP. |
+| 38 | The story uses a simulated clock (07:00 UTC, +1 s per call), so audit lines, registry block, anchor and summary are byte-identical on every run. The TOTP is generated from the demo secret on that clock. | Reproducible execution evidence for judges. |
+| 39 | The story's step 6 briefing is a template checked by the number lock (`[source: forecast run ...]` citations); the CFO assistant that writes it arrives in Step 5.1. | Keeps step 6 real without building Step 5.1 early. |
+| 40 | The story also logs a refused L4 `update_payee` and a rejected tampered draft, so the audit log shows all five tiers. | Step 3.4 acceptance: L4-blocked line present. |
 | 19 | `instructions.md` stays in `.gitignore`, as before. | It was ignored in the original repo. Remove the line to publish it. |
 
 ## Control to file to test
