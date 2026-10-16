@@ -33,6 +33,11 @@ Corrections made to the planning documents so the spec and plan agree:
 | 16 | `human_approver` on an L2 call lets a named human (Lan) clear a fuzzy write. | Spec: fuzzy matches need Lan. |
 | 17 | BEC verdicts: any bank-change request, lookalike sender or unverified quoted account is `BLOCKED`; an unknown sender with no signals is `SUSPICIOUS`. | Spec Rule 3. |
 | 18 | `invoice_registry.py` and `period_lock.py` take storage paths and clocks as arguments. | No hidden globals; tests use `tmp_path` and a fixed clock. |
+| 20 | Seed tuning: opening cash USD 80,000, weekly fixed costs USD 38,000, payroll USD 15,000 on month-end weeks, PO-2214 deposit 30% of USD 92,000 in week 7, INV-1026 `p_on_time` 0.42. Result: first negative week 7, shortfall about USD 42.2k, advance USD 48,000 covers it. | Spec section 2.3 targets. The `buildplan.md` sample snapshot values (cash 61,200) are illustrative only. |
+| 21 | `p_on_time` is stored per open invoice in the seed until the buyer risk agent (Step 6.1) estimates it. | The forecast needs it now. |
+| 22 | INV-1027 belongs to the same US buyer as INV-1021 to 1026; subset-sum stays unique with it present (checked). Extra open invoices for other buyers (INV-1028 to 1035) give the forecast realistic weekly inflows without touching the wire match. | The six-invoice set in the spec is the buyer's open invoices at wire time. |
+| 23 | TXN-0913 (exact INV-1025) and TXN-0914 (JPY 1,520,000, `PAYMENT OCT`, no match, NEEDS_HUMAN) are included to match the UI sample reconciliation table. | UI contract sample. |
+| 24 | `data/loader.py` is the only reader of `sandbox_inputs/`; engines in `core/` receive typed data. | Keeps `core/` free of I/O. |
 | 19 | `instructions.md` stays in `.gitignore`, as before. | It was ignored in the original repo. Remove the line to publish it. |
 
 ## Control to file to test

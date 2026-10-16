@@ -1,0 +1,75 @@
+{
+  "_label": "SYNTHETIC DEMO DATA",
+  "staff_directory": {
+    "emails": [
+      "lan.nguyen@timberworks.example",
+      "minh.tran@timberworks.example"
+    ],
+    "names": [
+      "Lan Nguyen",
+      "Minh Tran"
+    ],
+    "phones": [
+      "+84 274 555 0101"
+    ]
+  },
+  "verified_contacts": [
+    {
+      "buyer_id": "B-US-01",
+      "domains": [
+        "oakline-home.com"
+      ],
+      "email": "ar@oakline-home.com",
+      "name": "Oakline Home LLC (SYNTHETIC)",
+      "phone": "+1 310 555 0100"
+    },
+    {
+      "buyer_id": "B-JP-01",
+      "domains": [
+        "kyoto-interiors.example"
+      ],
+      "email": "ops@kyoto-interiors.example",
+      "name": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "phone": "+81 75 555 0142"
+    },
+    {
+      "buyer_id": "B-CN-01",
+      "domains": [
+        "greenhome-trading.example"
+      ],
+      "email": "finance@greenhome-trading.example",
+      "name": "Shenzhen Greenhome Trading Ltd. (SYNTHETIC)",
+      "phone": "+86 755 5550 0188"
+    },
+    {
+      "buyer_id": "B-US-02",
+      "domains": [
+        "harbor-living.example"
+      ],
+      "email": "payables@harbor-living.example",
+      "name": "Harbor Living Inc. (SYNTHETIC)",
+      "phone": "+1 562 555 0177"
+    },
+    {
+      "buyer_id": null,
+      "domains": [
+        "mekong-timber.example"
+      ],
+      "email": "sales@mekong-timber.example",
+      "name": "Mekong Timber Supply Co. (SYNTHETIC)",
+      "phone": "+84 274 555 0123"
+    }
+  ],
+  "verified_payees": [
+    {
+      "account": "VN12 3456 7890 1234",
+      "name": "Mekong Timber Supply Co. (SYNTHETIC)",
+      "swift": "SYNTVNVX"
+    },
+    {
+      "account": "US99 0000 1111 2222 3333",
+      "name": "Oakline Home LLC (SYNTHETIC)",
+      "swift": "SYNTUS33"
+    }
+  ]
+}

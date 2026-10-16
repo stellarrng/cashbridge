@@ -1,0 +1,44 @@
+{
+  "_label": "SYNTHETIC DEMO DATA",
+  "annual_revenue_vnd": "120000000000",
+  "as_of": "2026-10-19",
+  "export_mix_pct": {
+    "CN": 10,
+    "JP": 20,
+    "US": 70
+  },
+  "functional_currency": "VND",
+  "issuer_registry": [
+    "0312345678",
+    "0109876543",
+    "0201234567",
+    "0305551212"
+  ],
+  "ledger": {
+    "avg_inventory_usd": "309800",
+    "avg_payables_usd": "247840",
+    "avg_receivables_usd": "948367",
+    "cogs_usd": "3230770",
+    "period_days": 365,
+    "revenue_usd": "4615385"
+  },
+  "location": "Binh Duong, Vietnam",
+  "name": "Binh Duong Timberworks Co., Ltd. (SYNTHETIC)",
+  "opening_cash_usd": "80000.00",
+  "payroll_usd": "15000.00",
+  "seller_tax_id": "0312345678",
+  "staff": 120,
+  "users": [
+    {
+      "approves": "fuzzy matches, first collection email per buyer",
+      "name": "Lan",
+      "role": "Chief Accountant"
+    },
+    {
+      "approves": "all L3 actions with OTP",
+      "name": "Minh",
+      "role": "Director"
+    }
+  ],
+  "weekly_fixed_costs_usd": "38000.00"
+}

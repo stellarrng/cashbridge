@@ -2,7 +2,7 @@
 
 > CashBridge turns each export invoice into evidence a lender can verify, and then into cash.
 
-**Status: in progress.** The deterministic core and the security layer are built and tested (Phases 0 to 2). The seed data, coordinator, agents, API and dashboard are not built yet. See [Built / Not built](#built--not-built).
+**Status: in progress.** The deterministic core, the security layer and the seed data are built and tested (Phases 0 to 2 and Step 3.1). The coordinator, agents, API and dashboard are not built yet. See [Built / Not built](#built--not-built).
 
 2026 Shenzhen International FinTech Competition, International Track, Topic E: SME Finance Copilot.
 All companies, people, buyers, lenders and APIs in this repository are **SYNTHETIC** or **MOCK**.
@@ -34,10 +34,11 @@ Design rule: *AI reads and writes. Code calculates and decides. Humans approve e
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cp .env.example .env        # optional; leave LLM_API_KEY empty to run offline
-make test                   # 121 tests, no network, no API key
+make seed                   # writes SYNTHETIC inputs to data/sandbox_inputs/
+make test                   # 139 tests, no network, no API key
 ```
 
-`make seed`, `make story`, `make eval`, `make run` and `make anchor` are defined but their scripts arrive in later phases (see below).
+`make story`, `make eval`, `make run` and `make anchor` are defined but their scripts arrive in later phases (see below).
 
 ## Demo scenario (single source of truth: `instructions.md` section 2)
 
@@ -93,9 +94,9 @@ core/       matching_engine.py, forecasting_engine.py, funding_evaluator.py,
 security/   permission_gatekeeper.py, audit_log.py, otp_verifier.py, pii_masker.py,
             injection_guard.py, number_check.py, bec_fraud_detector.py
 agents/ api/ ui/ scripts/ eval/   (placeholders for later phases)
-data/       sandbox_inputs/ and execution_evidence/
+data/       seed_sandbox.py (writes sandbox_inputs/), loader.py (typed readers), execution_evidence/
 docs/       UI_CONTRACT.md (the interface between the UI and the backend)
-tests/      121 tests
+tests/      139 tests
 ```
 
 ## Built / Not built
@@ -109,8 +110,8 @@ tests/      121 tests
 | Invoice registry and period lock (tamper-evident) | Built, tested |
 | Gatekeeper, audit log, action-bound OTP | Built, tested |
 | PII masker, injection guard, number check, BEC detector | Built, tested |
-| Seed sandbox data (`data/seed_sandbox.py`) | Not built (Phase 3) |
-| Coordinator, LLM client, demo story script, UI adapter | Not built (Phase 3) |
+| Seed sandbox data (`data/seed_sandbox.py`) and loader | Built, tested (CCC 82, week-7 shortfall, wire, INV-1027/1030, BEC all reproduce) |
+| LLM client, coordinator, demo story script, UI adapter | Not built (Steps 3.2 to 3.5) |
 | Streamlit dashboard | Not built (Phase 4) |
 | CFO assistant, document and collections agents, PDF funding pack, evaluation harness | Not built (Phase 5) |
 | Buyer risk agent, FastAPI, working Docker image | Not built (Phase 6) |
