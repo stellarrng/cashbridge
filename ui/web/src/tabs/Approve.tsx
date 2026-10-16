@@ -35,7 +35,7 @@ export function Approve({ snap, onSnapshot, onPrepare }: Props) {
           const cls = pack.status === "SUBMITTED" || n < stage ? "done" : n === stage ? "now" : "";
           return (
             <div className={`step ${cls}`} key={title}>
-              <div className="n">0{n}</div>
+              <div className="n">Step {n}</div>
               <div className="t">{title}</div>
             </div>
           );
@@ -47,8 +47,7 @@ export function Approve({ snap, onSnapshot, onPrepare }: Props) {
       {pack.status === "NOT_STARTED" ? (
         <Section title="Funding pack">
           <p className="lede">
-            Preparing the pack locks the metrics, hashes every source document, drafts the cover letter and checks that every number in
-            it is one of the locked metrics.
+            Preparing the pack freezes the figures, fingerprints every source document, drafts the cover letter and checks that every number in it is one of the frozen figures.
           </p>
           {!chosen && <Empty>Choose an option on the Compare and Choose tab first.</Empty>}
           <div className="actions">
@@ -58,7 +57,7 @@ export function Approve({ snap, onSnapshot, onPrepare }: Props) {
       ) : (
         <>
           <div className="grid2" style={{ marginTop: 32 }}>
-            <Section title="Locked metrics" aside={<span className="num muted">{pack.pack_id}</span>}>
+            <Section id="metrics" title="Numbers locked into the pack" aside={<span className="mono muted">{pack.pack_id}</span>}>
               <table>
                 <tbody>
                   {pack.locked_metrics.map((m) => (
@@ -67,7 +66,7 @@ export function Approve({ snap, onSnapshot, onPrepare }: Props) {
                 </tbody>
               </table>
             </Section>
-            <Section title="Cover letter" aside={
+            <Section id="letter" title="Cover letter" aside={
               pack.number_check && (
                 <Status text={pack.number_check.ok ? "Number check passed" : "Number check failed"} tone={pack.number_check.ok ? "pos" : "neg"} solid />
               )
@@ -76,7 +75,7 @@ export function Approve({ snap, onSnapshot, onPrepare }: Props) {
             </Section>
           </div>
 
-          <Section title="Approval">
+          <Section id="approval" title="Approval">
             <table>
               <tbody>
                 <tr><td className="muted">Action hash</td><td className="num right">{pack.action_hash ? head(pack.action_hash, 24) : "n/a"}</td></tr>
@@ -92,14 +91,16 @@ export function Approve({ snap, onSnapshot, onPrepare }: Props) {
                 </div>
               </Notice>
             )}
-            <div className="actions">
-              <Button primary disabled={pack.status !== "AWAITING_APPROVAL"} onClick={() => setDialog(true)}>Approve and submit</Button>
-            </div>
+            {pack.status === "AWAITING_APPROVAL" && (
+              <div className="actions">
+                <Button primary onClick={() => setDialog(true)}>Approve and submit</Button>
+              </div>
+            )}
           </Section>
 
-          <Section title="Safeguards, demonstrated" aside={<span className="micro">Negative tests</span>}>
+          <Section id="safeguards" title="Try to break it" aside={<span className="label">Both attempts are refused and logged</span>}>
             <p className="lede">
-              These two buttons try to do the wrong thing on purpose. Both are refused by code and both leave a line in the audit log.
+              These buttons try to do the wrong thing on purpose, to show the controls working. Neither can succeed, and each leaves a line in the audit log.
             </p>
             <div className="actions" style={{ marginTop: 0 }}>
               <Button onClick={async () => { setRetry(await api.retryDoubleFinancing()); onSnapshot(await api.getSnapshot()); }}>Try to finance INV-1030 again</Button>

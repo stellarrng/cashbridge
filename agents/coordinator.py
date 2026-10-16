@@ -64,6 +64,12 @@ from security.otp_verifier import Challenge, OtpVerifier, action_hash
 from security.permission_gatekeeper import PermissionGatekeeper
 
 CASE_ID = "case-0001"
+INJECTION_REASONS = {
+    "override_instructions": "Tells the reader to ignore its instructions",
+    "role_change": "Tries to change the reader's role",
+    "action_command": "Asks for an action such as sending or approving",
+    "tool_name": "Names an internal tool",
+}
 Clock = Callable[[], datetime]
 
 
@@ -238,7 +244,7 @@ class Coordinator:
                 "severity": "high",
                 "sender": email.sender,
                 "subject": email.subject,
-                "reasons": [f"Instruction-like text detected ({', '.join(injection.hits)})"],
+                "reasons": [INJECTION_REASONS[hit] for hit in injection.hits],
                 "action_hint": "Treated as data. No action taken.",
             }
         elif bec.verdict is BecVerdict.SUSPICIOUS:

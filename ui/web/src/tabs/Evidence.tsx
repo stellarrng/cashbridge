@@ -10,7 +10,7 @@ export function Evidence({ snap }: { snap: Snapshot }) {
   const ev = snap.evidence;
   return (
     <>
-      <Section title="Audit log" aside={<span className="micro">{ev.lines_checked} lines · hash-chained, tamper-evident</span>}>
+      <Section id="audit" title="Audit log" aside={<span className="label">{ev.lines_checked} lines · tamper-evident</span>}>
         <p className="lede">
           Every gatekeeper decision is one line. Each line stores the hash of the line before it, so editing or removing any earlier
           line breaks every line after it.
@@ -49,7 +49,7 @@ export function Evidence({ snap }: { snap: Snapshot }) {
         </p>
       </Section>
 
-      <Section title="Invoice registry" aside={<span className="micro">Prevents financing the same invoice twice</span>}>
+      <Section id="registry" title="Invoice registry" aside={<span className="label">Stops the same invoice being financed twice</span>}>
         {ev.registry_blocks.length === 0 ? (
           <Empty>No invoice has been financed yet. A block is written when a pack is submitted.</Empty>
         ) : (
@@ -70,7 +70,7 @@ export function Evidence({ snap }: { snap: Snapshot }) {
         )}
       </Section>
 
-      <Section title="Evaluation">
+      <Section id="eval" title="Evaluation">
         {ev.eval === null ? (
           <Empty>Task-by-task results against an LLM-only baseline appear here once the evaluation harness has run.</Empty>
         ) : (

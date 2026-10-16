@@ -6,7 +6,7 @@ export function Prove({ snap }: { snap: Snapshot }) {
   const wire = snap.reconciliation.featured_wire;
   return (
     <>
-      <Section title="Reconciliation" aside={<span className="micro">Bank credits matched to invoices</span>}>
+      <Section id="money" title="Money received" aside={<span className="label">Bank credits matched to invoices</span>}>
         <div className="scroll">
           <table>
             <thead>
@@ -35,7 +35,7 @@ export function Prove({ snap }: { snap: Snapshot }) {
       </Section>
 
       <div className="grid2 even">
-        <Section title="How the wire was matched">
+        <Section id="wire" title="How the big wire was matched">
           {wire ? (
             <>
               <p className="lede">
@@ -59,7 +59,7 @@ export function Prove({ snap }: { snap: Snapshot }) {
           )}
         </Section>
 
-        <Section title="Fraud shield" aside={<span className="micro">Inbox, scanned as data</span>}>
+        <Section id="emails" title="Suspicious emails" aside={<span className="label">Read as data, never as instructions</span>}>
           {snap.alerts.length === 0 && <Empty>No alerts. Inbox messages are scanned as data and never as instructions.</Empty>}
           {snap.alerts.map((a) => (
             <Notice key={a.id} tone={a.severity === "critical" ? "bad" : undefined} title={`${a.type === "BEC" ? "Blocked" : "Flagged"}: ${a.subject}`}>
@@ -73,7 +73,7 @@ export function Prove({ snap }: { snap: Snapshot }) {
         </Section>
       </div>
 
-      <Section title="Invoice verification" aside={<span className="micro">PO, invoice and bill of lading</span>}>
+      <Section id="invoices" title="Which invoices are safe to finance" aside={<span className="label">Purchase order, invoice and bill of lading must agree</span>}>
         <div className="scroll">
           <table>
             <thead>

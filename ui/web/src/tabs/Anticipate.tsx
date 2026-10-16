@@ -43,20 +43,20 @@ export function Anticipate({ snap, onAsk }: { snap: Snapshot; onAsk: (text: stri
 
   return (
     <>
-      <Section title="Thirteen weeks of cash" aside={<span className="micro">Closing balance, USD</span>}>
+      <Section id="forecast" title="Thirteen weeks of cash" aside={<span className="label">Cash left at the end of each week, USD</span>}>
         <p className="lede">
-          Expected inflows are invoice value times the probability of on-time payment, placed in the due week; the late remainder
-          arrives four weeks later. Select a week to see its movements.
+          Each bar is the cash left at the end of a week. Expected payments are the invoice value times the chance it is paid on time,
+          counted in the due week; the late share arrives four weeks later. Click a week to see its movements.
         </p>
         <CashChart weeks={snap.forecast.weeks} buffer={snap.forecast.buffer_usd} scenario={result ? result.forecast.weeks : null} />
       </Section>
 
       <div className="grid2">
-        <Section title="Why the shortfall happens" aside={<span className="micro">{result ? "Scenario" : "Base case"}</span>}>
+        <Section id="causes" title="What causes the gap" aside={<span className="label">{result ? "Scenario" : "Base case"}</span>}>
           <AttributionBars items={shown.attribution} shortfall={shownShortfall} />
         </Section>
 
-        <Section title="What if" aside={changed && <button className="linkbtn" onClick={() => setParams(defaults)}>Reset sliders</button>}>
+        <Section id="whatif" title="Try a scenario" aside={changed && <button className="linkbtn" onClick={() => setParams(defaults)}>Reset sliders</button>}>
           {CONTROLS.map(({ key, title, unit, hint }) => {
             const c = snap.scenario_controls[key];
             return (
@@ -93,7 +93,7 @@ export function Anticipate({ snap, onAsk }: { snap: Snapshot; onAsk: (text: stri
           )}
           <div className="ask" style={{ marginTop: 18 }}>
             <input
-              value={question} placeholder="Or ask it in words"
+              value={question} placeholder="Or describe a scenario in words"
               onChange={(e) => setQuestion(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && question.trim()) { onAsk(question.trim()); setQuestion(""); } }}
             />
@@ -102,7 +102,7 @@ export function Anticipate({ snap, onAsk }: { snap: Snapshot; onAsk: (text: stri
         </Section>
       </div>
 
-      <Section title="Collections">
+      <Section id="collections" title="Collections">
         {snap.collections.schedule.length === 0 && snap.collections.promises.length === 0 ? (
           <Empty>No reminders drafted yet. They appear here once the collections agent runs.</Empty>
         ) : (
@@ -128,7 +128,7 @@ export function Anticipate({ snap, onAsk }: { snap: Snapshot; onAsk: (text: stri
         )}
       </Section>
 
-      <Section title="Buyer risk">
+      <Section id="buyerrisk" title="Buyer risk">
         {snap.buyer_risk.length === 0 ? (
           <Empty>Concentration and on-time probability by buyer appear here once the buyer risk agent is enabled.</Empty>
         ) : (

@@ -60,14 +60,14 @@ export function OtpDialog({ onClose, onApproved, onFailed }: Props) {
   return (
     <div className="scrim" role="dialog" aria-modal="true">
       <div className="dialog">
-        <div className="micro">Level 3 action · Director approval</div>
+        <div className="label">Level 3 action · Director approval</div>
         <h2>Submit the funding pack</h2>
         <p className="muted">
           The code is bound to this exact pack. Approving it cannot authorise a different pack, and editing the pack afterwards
           invalidates it. Each code works once.
         </p>
         {challenge && (
-          <div className="hash"><span className="micro">Action hash</span><br />{challenge.action_hash}</div>
+          <div className="hash"><span className="label">Action hash</span><br />{challenge.action_hash}</div>
         )}
         <input
           className="code" inputMode="numeric" maxLength={6} autoFocus placeholder="000000" value={code}
