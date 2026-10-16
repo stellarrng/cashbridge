@@ -11,6 +11,27 @@
 
 ---
 
+## PROGRESS (update after every step)
+
+| Phase | Step | Status |
+|---|---|---|
+| 0 | 0.1 Scaffold, 0.2 Settings and allowlist, 0.3 Schemas | Done |
+| 1 | 1.1 Matching, 1.2 APR, 1.3 Forecast, 1.4 Registry and period lock | Done |
+| 2 | 2.1 Audit log and gatekeeper, 2.2 OTP, 2.3 Guards | Done |
+| 3 | 3.1 Seed data, 3.2 LLM client, 3.3 Coordinator, 3.4 Demo story, 3.5 UI adapter | Done |
+| 4 | 4.1 FastAPI, 4.2 React foundation, 4.3 Anticipate and Prove, 4.4 Compare, Approve and Evidence, 4.5 Polish and screenshots | Done (the timed 4-minute click-through of the Phase 4 gate has not been run) |
+| 5 | 5.1 CFO assistant | **Next.** The chat currently repeats the engine briefing |
+| 5 | 5.2 Document agent and full collections | Partly done early: gentle reminder, reply parsing and `promised_date` exist (needed by the demo story). Missing: document agent, full ladder, JA/ZH templates, OTP-gated send |
+| 5 | 5.3 PDF funding pack | Not started (the UI shows an empty slot) |
+| 5 | 5.4 Evaluation harness | Not started (the Evidence tab shows an empty state) |
+| 6 | 6.1 Buyer risk, 6.2 Extra engine endpoints | Not started |
+| 6 | 6.3 Docker | Dockerfile and compose already written for the single-service layout; not yet tested with `docker compose up` |
+| 7 | 7.1 README (drafted, final pass needed), 7.2 Whitepaper, 7.3 Security self-assessment, 7.4 Final QA | Not started |
+
+Current: 241 tests passing offline. `make story` and `make run` work.
+
+---
+
 ## A. TIMELINE AND WHERE THE UI FITS
 
 | Phase | What | Target finish (VN time) |
@@ -513,7 +534,7 @@ tests/test_api.py with TestClient: every route returns its contract shape; appro
 ### Step 4.2 — React foundation
 
 ~~~
-Step 4.2: Create ui/web (Vite + React 18 + TypeScript). Implement the design tokens of instructions.md §5.1, bundled fonts, the typed contract client (src/types.ts mirrors C.2, src/api.ts wraps the 12 methods), the app shell (header with SYNTHETIC and mode badges and Reset, KPI ribbon, sidebar with tier monitor, CFO chat and PII inspector, tab bar), and number/date formatters. No arithmetic on money.
+Step 4.2: Create ui/web (Vite + React 18 + TypeScript). Implement the design tokens of instructions.md §5.1, bundled fonts, the typed contract client (src/types.ts mirrors C.2, src/api.ts wraps the 12 methods), the app shell (sticky top bar with the five sections, SYNTHETIC and mode badges and Reset; a four-step journey strip with one next action; KPI ribbon; a right-hand drawer, closed by default, holding the CFO chat, permission activity and PII inspector; hash URLs and keys 1 to 5), and number/date formatters. No arithmetic on money.
 ~~~
 
 **Acceptance criteria**
@@ -577,7 +598,7 @@ Do not edit ui/ files except backend_real.py.
 ~~~
 Step 5.2: Implement agents/document_agent.py and agents/collections_agent.py per instructions.md §4.
 - Document agent: extract fields into ExtractedField with confidence/page; < 0.85 → NEEDS_HUMAN; then matching_engine + three_way_match.
-- Collections agent: ladder −3/0/+7/+15/+30 days (gentle/firm/escalation), drafts (EN; JA/ZH templates offline), parse replies into PaymentPromise; first email per buyer requires OTP via coordinator; promise updates the forecast.
+- Collections agent: ladder −3/0/+7/+15/+30 days (gentle/firm/escalation), drafts (EN; JA/ZH templates offline), parse replies into PaymentPromise; first email per buyer requires OTP via coordinator; promise updates the forecast. Extends the minimal version already in agents/collections_agent.py (gentle reminder, reply parser) and Coordinator.draft_reminder / approve_draft / on_buyer_reply.
 - Fill snapshot collections.schedule and collections.promises in backend_real.py using the contract shapes.
 Tests: low confidence → NEEDS_HUMAN; "will pay on Nov 20" → 2026-11-20; send without approval blocked; forecast changes after promise.
 ~~~
@@ -628,7 +649,7 @@ Step 6.2: Add the engine endpoints from instructions.md §4 (/forecast, /reconci
 
 ### Step 6.3 — Docker
 ~~~
-Step 6.3: Dockerfile + docker-compose.yml (one service, the FastAPI app serving the built UI on port 8000), seed on start, no secrets baked in, documented in README.
+Step 6.3: Dockerfile and docker-compose.yml already describe one service (the FastAPI app serving the built UI on port 8000, seeded at build, no secrets baked in). This step is to test `docker compose up` on a clean machine and document it in the README.
 ~~~
 **Acceptance criteria:** `docker compose up` on a clean machine shows the dashboard.
 
@@ -638,7 +659,7 @@ Step 6.3: Dockerfile + docker-compose.yml (one service, the FastAPI app serving 
 
 ### Step 7.1 — README
 ~~~
-Step 7.1: Write the final README.md: pitch; problem with instructions.md §1.1 facts and sources; architecture Mermaid diagram (coordinator, guard layer, agents, core, evidence, UI via contract); quickstart (one command); demo walkthrough matching §9; make seed/test/story/eval/run; OTP instructions for judges; screenshots folder references (docs/screenshots/); "Built / Not built"; limitations; synthetic-data notice; a line "Demo video: <link>" for me to fill.
+Step 7.1: Write the final README.md: pitch; problem with instructions.md §1.1 facts and sources; architecture Mermaid diagram (coordinator, guard layer, agents, core, evidence, UI via contract); quickstart (one command); demo walkthrough matching §9; make seed/test/story/eval/run; OTP instructions for judges; screenshots folder references (docs/screenshots/); limitations and an "Out of scope" list (no progress tracking: that lives in the PROGRESS table of this file); synthetic-data notice; a line "Demo video: <link>" for me to fill.
 ~~~
 **Acceptance criteria:** a teammate can run the demo from the README alone in under 10 minutes.
 

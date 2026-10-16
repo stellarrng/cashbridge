@@ -5,7 +5,7 @@ import { usd } from "../format";
 export function AttributionBars({ items, shortfall }: { items: Attribution[]; shortfall: number | null }) {
   if (items.length === 0) return <div className="empty">No shortfall in this scenario, so there is nothing to attribute.</div>;
   const largest = Math.max(...items.map((i) => Math.abs(i.amount_usd)));
-  const ordered = [...items].sort((a, b) => b.amount_usd - a.amount_usd);
+  const ordered = [...items].sort((a, b) => (a.amount_usd === b.amount_usd ? 0 : a.amount_usd < b.amount_usd ? 1 : -1)); // comparison only
   return (
     <div className="bars">
       {ordered.map((item) => (
