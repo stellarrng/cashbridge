@@ -64,6 +64,7 @@ make run                    # dashboard and API at http://localhost:8000
 | `make test` | Runs the test suite |
 | `make run` | Serves the dashboard and API on port 8000 |
 | `make story` | Runs the 11-step demo story headless and regenerates `data/execution_evidence/` |
+| `make eval` | Runs 20 evaluation tasks and writes `data/execution_evidence/eval_report.md`; with an API key it also scores an LLM-only baseline |
 | `make anchor` | Appends the audit-log and registry head hashes to `data/execution_evidence/ANCHORS.md` |
 | `make ui` | Rebuilds the React bundle in `ui/web/dist` (needs Node 20 or newer) |
 
@@ -96,12 +97,12 @@ Open http://localhost:8000. The top bar holds the five sections (keys 1 to 5 als
 | Section | What you do there |
 |---|---|
 | Anticipate | Read the 13-week chart, see what causes the gap, move the sliders to try scenarios |
-| Prove | Check the reconciliation, the wire explanation, blocked emails and invoice checks |
+| Prove | Check the reconciliation, the wire explanation, blocked emails, what the document agent read from scanned documents, and invoice checks |
 | Compare | Choose a funding option |
-| Approve | Prepare the pack, enter the code, and try the two safeguard demos (financing the same invoice twice, tampering with the draft) |
-| Evidence | Verify the audit chain, run the tamper demo on a temporary copy, see the invoice registry |
+| Approve | Prepare the pack, download the PDF funding pack, enter the code, and try the two safeguard demos (financing the same invoice twice, tampering with the draft) |
+| Evidence | Verify the audit chain, run the tamper demo on a temporary copy, see the invoice registry and the evaluation results |
 
-The **Assistant** button opens a drawer with the CFO chat, a log of every permission decision, and a privacy check showing masked text. **Reset demo** starts a fresh session.
+The **Assistant** button opens a drawer with the CFO chat (ask about the shortfall, the cheapest funding, the cash conversion cycle, a slower-collections, tariff or FX scenario, or which buyer is most at risk; every answer lists where its numbers come from), a log of every permission decision, and a privacy check showing masked text. **Reset demo** starts a fresh session.
 
 ## Architecture
 
@@ -137,20 +138,24 @@ The dashboard never calculates a money value. It renders what the backend return
 - **Prompt-injection guard.** Emails and documents are data, never instructions.
 - **Business-email-compromise detection.** Lookalike domains, bank-detail change requests and unverified accounts are blocked, and payee details are never updated automatically.
 - **Number lock.** Model-written text is rejected if it contains any number that is not a locked figure.
+- **Verifiable Funding Pack.** A PDF with the cover letter, locked metrics, a 3-way match summary, the SHA-256 of every source document and of the whole bundle, the registry reference and an appendix of formulas, so a lender can recompute the figures.
+- **Document reading with confidence.** Scanned documents are read field by field; anything below 0.85 confidence is left for a person instead of guessed.
+- **Collections ladder.** Reminders 3 days before the due date, on it, and 7, 15 and 30 days after, drafted in English, Japanese or Chinese by buyer market. Nothing is sent without the Director's one-time code.
 
 ## Repository layout
 
 ```text
 config/     settings.py (constants), tool_allowlist.py (which agent may use which tool)
 schemas/    Pydantic v2 data contracts
-core/       matching, forecasting, funding evaluator, invoice registry, period lock, pack metrics
-            (pure Python: no I/O, no LLM)
+core/       matching, forecasting, funding evaluator, invoice registry, period lock, pack metrics, PDF compiler
+            (pure Python: no LLM)
 security/   permission gatekeeper, audit log, OTP, PII masker, injection guard, number check, BEC detector
-agents/     LLM client, coordinator, collections agent
+agents/     LLM client, coordinator, CFO assistant, document agent, collections agent
 api/        FastAPI app and the MOCK lender connector
 ui/         backend_real.py (the UI contract on the real engines) and web/ (React + TypeScript)
 data/       seed_sandbox.py, loader.py, sandbox_inputs/, execution_evidence/
 scripts/    run_demo_story.py, anchor_head.py, export_ui_snapshot.py
+eval/       tasks.yaml and run_eval.py (CashBridge against an LLM-only baseline)
 docs/       UI_CONTRACT.md, screenshots/
 tests/      pytest suite
 ```

@@ -29,6 +29,7 @@ from typing import Any, Callable, Dict, List, Optional
 from pydantic import BaseModel
 
 from agents import collections_agent
+from agents.document_agent import DocumentAgent, Extraction
 from agents.llm_client import LlmClient
 from api import lender_connector_mock
 from config.settings import (
@@ -40,9 +41,10 @@ from config.settings import (
 from core.forecasting_engine import compute_ccc, forecast_13w
 from core.forecasting_engine import simulate as run_simulation
 from core.funding_evaluator import FundingRequest, rank_options
-from core.invoice_registry import DoubleFinancingBlocked, InvoiceRegistry
+from core.invoice_registry import DoubleFinancingBlocked, InvoiceRegistry, invoice_key
 from core.matching_engine import reconcile, three_way_match
 from core.metrics import monthly_billing_volatility_pct, negative_cash_weeks, top_buyer_share_pct
+from core.pdf_compiler import DocSummary, PackData, bundle_sha256, compile_pack
 from core.period_lock import PeriodLocks
 from data import loader
 from schemas.agent_schemas import CaseFile, CaseState, Decision, GateDecision, PaymentPromise
@@ -127,6 +129,7 @@ class Coordinator:
         self.txns: List[BankTxn] = loader.bank_txns(d)
         self.emails: List[Email] = loader.emails(d)
         self.billings = loader.billings(d)
+        self.scanned = loader.scanned_documents(d)
         self.as_of = date.fromisoformat(self.profile["as_of"])
         self.cash_today = Decimal(self.profile["opening_cash_usd"])
         self.ledger = LedgerSnapshot(**self.profile["ledger"])
@@ -150,11 +153,17 @@ class Coordinator:
         self.selected_option_id: Optional[str] = None
         self.alerts: List[Dict[str, Any]] = []
         self.blocked_fraud_count = 0
+        self.docs = DocumentAgent(self.llm)
+        self.scans: List[Dict[str, Any]] = []
+        self.scan_checks: Dict[str, List[str]] = {}
+        self.outbox: List[Dict[str, Any]] = []
+        self._send_pending: Optional[Dict[str, Any]] = None
         self.promises: List[PaymentPromise] = []
         self.reminders: List[Dict[str, Any]] = []
         self.pack: Dict[str, Any] = self._empty_pack()
         self._pack_payload: Optional[Dict[str, Any]] = None
         self._bundle_sha: Optional[str] = None
+        self._pack_generated_at = self._clock()
         self._challenge: Optional[Challenge] = None
 
     @staticmethod
@@ -190,6 +199,7 @@ class Coordinator:
         self._start_session()
         try:
             self._read_sources()
+            self._scan_documents()
             self._reconcile_all()
             self.case.move_to(CaseState.RECONCILED)
             self._forecast()
@@ -341,6 +351,77 @@ class Coordinator:
         ]
         return inputs.model_copy(update={"receivables": receivables})
 
+    def _scan_documents(self) -> None:
+        """Read every scanned document, compare it with the system record and run the 3-way match on full sets."""
+        built: Dict[str, Dict[str, Any]] = {}
+        for scan in self.scanned:
+            self._gate("document_agent", "read_documents", Tier.L0_READ, {"doc_id": scan["doc_id"]})
+            extraction = self.docs.extract(scan["text"], scan["doc_type"])
+            model = {"invoice": self.docs.build_invoice, "purchase_order": self.docs.build_po, "bill_of_lading": self.docs.build_bl}[
+                scan["doc_type"]
+            ](extraction)
+            differences = self._differences(scan, model) if model is not None else []
+            problems = list(differences)
+            if extraction.needs_human:
+                problems.append(f"low confidence: {extraction.reason}")
+            self.scan_checks.setdefault(scan["invoice_no"], []).extend(problems)
+            built.setdefault(scan["invoice_no"], {})[scan["doc_type"]] = model
+            self.scans.append(
+                {
+                    "doc_id": scan["doc_id"],
+                    "doc_type": scan["doc_type"],
+                    "invoice_no": scan["invoice_no"],
+                    "status": "NEEDS_HUMAN" if extraction.needs_human else "READ",
+                    "min_confidence": extraction.min_confidence,
+                    "reason": extraction.reason,
+                    "matches_record": None if extraction.needs_human or model is None else not differences,
+                    "differences": differences,
+                    "low_fields": [
+                        {"name": n, "value": None if f.value is None else str(f.value), "confidence": f.confidence, "page": f.page}
+                        for n, f in extraction.fields.items() if f.confidence < self.docs.threshold
+                    ],
+                    "fields_read": len(extraction.fields),
+                }
+            )
+            if differences:
+                self.alerts.append(
+                    {"id": self._next_alert_id(), "type": "DOCUMENT", "severity": "high", "sender": scan["doc_id"],
+                     "subject": f"Scanned {scan['doc_type'].replace('_', ' ')} differs from the record",
+                     "reasons": differences, "action_hint": "A person must compare the scan with the original before it is used."}
+                )
+        for invoice_no, docs in built.items():
+            if all(docs.get(k) is not None for k in ("invoice", "purchase_order", "bill_of_lading")):
+                self._gate("document_agent", "three_way_match", Tier.L1_ANALYZE, {"invoice": invoice_no, "source": "scans"})
+                result = three_way_match(docs["purchase_order"], docs["invoice"], docs["bill_of_lading"])
+                for row in self.scans:
+                    if row["invoice_no"] == invoice_no and row["doc_type"] == "invoice":
+                        row["three_way"] = result.status.value
+                if result.status is not MatchStatus.ELIGIBLE:
+                    self.scan_checks.setdefault(invoice_no, []).extend(result.differences)
+
+    def _differences(self, scan: Dict[str, Any], model: Any) -> List[str]:
+        """How a scanned document disagrees with the system record of the same document."""
+        record: Any
+        if scan["doc_type"] == "invoice":
+            record = next((i for i in self.all_invoices if i.invoice_no == scan["invoice_no"]), None)
+            keys = ("amount", "currency", "buyer_id", "quantity", "package_count", "issue_date", "due_date")
+        elif scan["doc_type"] == "purchase_order":
+            invoice = next((i for i in self.all_invoices if i.invoice_no == scan["invoice_no"]), None)
+            record = self.pos.get(invoice.po_number) if invoice else None
+            keys = ("amount", "currency", "buyer_id", "quantity", "package_count")
+        else:
+            record = self.bls.get(scan["invoice_no"])
+            keys = ("buyer_id", "quantity", "package_count", "port_of_loading", "port_of_discharge")
+        if record is None:
+            return []
+        out = []
+        for key in keys:
+            a, b = getattr(model, key), getattr(record, key)
+            if a != b:
+                shown = lambda x: x.display() if hasattr(x, "display") else str(getattr(x, "value", x))  # noqa: E731
+                out.append(f"{scan['doc_type'].replace('_', ' ')} {key.replace('_', ' ')}: scan {shown(a)} vs record {shown(b)}")
+        return out
+
     def _verify_invoices(self) -> None:
         issuer = frozenset(self.profile["issuer_registry"])
         for invoice in sorted(self.open_invoices(), key=lambda i: i.invoice_no):
@@ -391,6 +472,10 @@ class Coordinator:
         if self.registry.is_registered(self.nominee):
             self.case.move_to(CaseState.NEEDS_HUMAN, f"{self.nominee.invoice_no} is already registered")
             return
+        problems = self.scan_checks.get(self.nominee.invoice_no, [])
+        if problems:
+            self.case.move_to(CaseState.NEEDS_HUMAN, "scanned documents need a human: " + "; ".join(problems))
+            return
         self.case.move_to(CaseState.INVOICE_VERIFIED)
 
     def _process_inbox(self) -> None:
@@ -402,31 +487,56 @@ class Coordinator:
         return f"AL-{len(self.alerts) + 1:02d}"
 
     # ------------------------------------------------------------- collections
+    def collection_schedule(self) -> List[Dict[str, Any]]:
+        """Next reminder for every open invoice. Invoices with a drafted reminder show that draft's status."""
+        drafted = {r["invoice_id"]: r for r in self.reminders}
+        rows: List[Dict[str, Any]] = []
+        for invoice in sorted(self.open_invoices(), key=lambda i: i.invoice_no):
+            if invoice.invoice_no in drafted:
+                rows.append({k: v for k, v in drafted[invoice.invoice_no].items() if k != "text"})
+                continue
+            rung = collections_agent.next_rung(invoice, self.as_of)
+            rows.append(
+                {"invoice_id": invoice.invoice_no, "buyer": invoice.buyer_name, "stage": rung.stage,
+                 "due_offset_days": rung.offset_days, "scheduled_date": rung.scheduled_date.isoformat(), "status": "scheduled",
+                 "language": collections_agent.language_for(invoice)}
+            )
+        return rows
+
     def draft_reminder(self, invoice_no: str) -> Dict[str, Any]:
-        """Draft the gentle reminder for an open invoice. It waits for the accountant, then for OTP to send."""
+        """Draft the next rung of the ladder in the buyer's language.
+
+        The first email to a buyer waits for the accountant to approve the draft; every send needs the Director's OTP.
+        """
         invoice = next((i for i in self.open_invoices() if i.invoice_no == invoice_no), None)
         if invoice is None:
             raise ValueError(f"{invoice_no} is not an open invoice")
-        self._gate("collections_agent", "draft_text", Tier.L1_ANALYZE, {"invoice": invoice_no, "stage": "gentle"})
-        text = collections_agent.draft_reminder(invoice)
-        verdict = number_check.check(text, {"amount": float(invoice.amount.amount)})
+        self._gate("collections_agent", "draft_text", Tier.L1_ANALYZE, {"invoice": invoice_no})
+        rung = collections_agent.next_rung(invoice, self.as_of)
+        text = collections_agent.draft_reminder(invoice, rung)
+        locked = {"amount": float(invoice.amount.amount), "days": rung.offset_days}
+        verdict = number_check.check(text, locked)
         if not verdict.ok:
             raise ValueError(f"reminder failed the number check: {verdict.offending}")
+        first = invoice.buyer_id not in {r["buyer_id"] for r in self.outbox}
         reminder = {
             "invoice_id": invoice_no,
             "buyer": invoice.buyer_name,
-            "stage": "gentle",
-            "due_offset_days": -3,
-            "scheduled_date": (invoice.due_date - timedelta(days=3)).isoformat(),
-            "status": "draft",
+            "buyer_id": invoice.buyer_id,
+            "stage": rung.stage,
+            "due_offset_days": rung.offset_days,
+            "scheduled_date": rung.scheduled_date.isoformat(),
+            "status": "draft" if first else "awaiting_approval",
+            "language": collections_agent.language_for(invoice),
+            "first_for_buyer": first,
             "text": text,
         }
-        self.reminders.append(reminder)
+        self.reminders = [r for r in self.reminders if r["invoice_id"] != invoice_no] + [reminder]
         self._save()
         return reminder
 
     def approve_draft(self, invoice_no: str, approver: str = "Lan") -> Dict[str, Any]:
-        """The accountant approves a draft. Sending it is a separate L3 action that needs the Director's OTP."""
+        """The accountant approves a first-email draft. Sending it is a separate L3 action that needs the Director's OTP."""
         reminder = next((r for r in self.reminders if r["invoice_id"] == invoice_no and r["status"] == "draft"), None)
         if reminder is None:
             raise ValueError(f"no draft reminder for {invoice_no}")
@@ -438,6 +548,38 @@ class Coordinator:
         reminder["status"] = "awaiting_approval"
         self._save()
         return reminder
+
+    def request_send_reminder(self, invoice_no: str) -> Dict[str, Any]:
+        """Ask for the Director's OTP to send an approved reminder. The code is bound to this exact email."""
+        reminder = next((r for r in self.reminders if r["invoice_id"] == invoice_no and r["status"] == "awaiting_approval"), None)
+        if reminder is None:
+            raise ValueError(f"no approved reminder waiting to be sent for {invoice_no}")
+        payload = {"invoice_no": invoice_no, "stage": reminder["stage"], "buyer_id": reminder["buyer_id"],
+                   "body_sha256": sha256_of(reminder["text"])}
+        self._gate("coordinator", "send_email", Tier.L3_EXTERNAL, payload)  # logged AWAITING_APPROVAL
+        challenge = self.otp.issue_challenge("send_email", payload)
+        self._send_pending = {"payload": payload, "challenge": challenge, "invoice_no": invoice_no}
+        return {"action_hash": challenge.action_hash, "expires_at": challenge.expires_at.isoformat(), "instructions": challenge.instructions}
+
+    def approve_send_reminder(self, code: str) -> Dict[str, Any]:
+        """Verify the OTP and, only then, send (the mock outbox records the email)."""
+        if self._send_pending is None:
+            raise ValueError("request approval before entering a code")
+        pending = self._send_pending
+        result = self.otp.verify(pending["challenge"], code, action_type="send_email", payload=pending["payload"])
+        self.gate.record_approval(CASE_ID, result.approval, result.error, tool="send_email")
+        if not result.ok:
+            return {"ok": False, "error": result.error}
+        decision = self._gate("coordinator", "send_email", Tier.L3_EXTERNAL, pending["payload"], approval=result.approval)
+        if decision.decision is not Decision.ALLOWED:
+            return {"ok": False, "error": decision.reason}
+        reminder = next(r for r in self.reminders if r["invoice_id"] == pending["invoice_no"])
+        reminder["status"] = "sent"
+        self.outbox.append({"invoice_id": reminder["invoice_id"], "buyer_id": reminder["buyer_id"], "stage": reminder["stage"],
+                            "language": reminder["language"], "body_sha256": pending["payload"]["body_sha256"]})
+        self._send_pending = None
+        self._save()
+        return {"ok": True, "error": None}
 
     def on_buyer_reply(self, email: Email) -> Optional[Dict[str, Any]]:
         """Read a buyer reply. A stated payment date becomes a promise and the forecast is rerun.
@@ -494,7 +636,7 @@ class Coordinator:
         metrics = self._locked_metrics(option)
         locked = {m["key"]: m["value"] for m in metrics}
         docs = self._document_hashes()
-        bundle_sha = sha256_of({"documents": docs, "metrics": locked})
+        bundle_sha = bundle_sha256(docs, locked)
         letter = self._draft_letter(option, locked)
         check = number_check.check(letter, locked)
         if not check.ok:
@@ -511,6 +653,7 @@ class Coordinator:
         self.case.move_to(CaseState.PACK_DRAFTED)
         self.case.move_to(CaseState.AWAITING_APPROVAL)
         self._pack_payload, self._bundle_sha, self._challenge = payload, bundle_sha, None
+        self._pack_generated_at = self._clock()
         self.pack = {
             **self._empty_pack(),
             "status": "AWAITING_APPROVAL",
@@ -522,6 +665,7 @@ class Coordinator:
             "document_hashes": docs,
             "bundle_sha256": bundle_sha,
         }
+        self._write_pdf(option)
         self._save()
         return {"ok": True}
 
@@ -542,6 +686,71 @@ class Coordinator:
             ("days_outstanding", "Days until the invoice is due", (self.nominee.due_date - self.as_of).days, "days"),
         ]
         return [{"key": k, "label": l, "value": float(v) if isinstance(v, (Decimal, float)) else v, "unit": u} for k, l, v, u in items]
+
+    @property
+    def pack_pdf_file(self) -> Optional[Path]:
+        """The Verifiable Funding Pack PDF for the current pack, if one has been written."""
+        return self.evidence_dir / self.pack["pdf_path"] if self.pack.get("pdf_path") else None
+
+    def _write_pdf(self, option: LiquidityOption) -> None:
+        """Compile the pack PDF (again after submission, so it also carries the registry block and lender reference)."""
+        invoice = self.nominee
+        po, bl = self.pos[invoice.po_number], self.bls[invoice.invoice_no]
+        match = three_way_match(po, invoice, bl)
+        block = self.pack.get("registry_block")
+        docs = [
+            DocSummary(title="Commercial invoice", rows=[
+                ["Invoice no", invoice.invoice_no], ["Buyer", invoice.buyer_name], ["Amount", invoice.amount.display()],
+                ["Issued", invoice.issue_date.isoformat()], ["Due", invoice.due_date.isoformat()],
+                ["Quantity / packages", f"{invoice.quantity} / {invoice.package_count}"],
+                ["Route", f"{invoice.port_of_loading} to {invoice.port_of_discharge}"]]),
+            DocSummary(title="Purchase order", rows=[["PO number", po.po_number], ["Amount", po.amount.display()],
+                                                     ["Quantity / packages", f"{po.quantity} / {po.package_count}"]]),
+            DocSummary(title="Bill of lading", rows=[["B/L number", bl.bl_number], ["Quantity / packages", f"{bl.quantity} / {bl.package_count}"],
+                                                     ["Route", f"{bl.port_of_loading} to {bl.port_of_discharge}"],
+                                                     ["Shipped on board", bl.shipped_on_board_date.isoformat()]]),
+        ]
+        scan_lines = [
+            f"{s['doc_id']}: {'read' if s['status'] == 'READ' else 'needs a person'}, lowest confidence {s['min_confidence']:.2f}"
+            + (", matches the record" if s["matches_record"] else "")
+            for s in self.scans if s["invoice_no"] == invoice.invoice_no
+        ]
+        ccc = compute_ccc(self.ledger)
+        formulas = [
+            ["Cash conversion cycle", f"CCC = DIO + DSO - DPO = {ccc.dio:g} + {ccc.dso:g} - {ccc.dpo:g} = {ccc.ccc:g} days (from the ledger)"],
+            ["Annualised cost", f"APR = total cost / net funds received x 365 / days outstanding. This product: total cost USD "
+                                f"{option.cost_breakdown['total_usd']:,.2f}, funds USD {option.amount_usd:,.2f}, {(invoice.due_date - self.as_of).days} days, "
+                                f"APR {option.apr_pct:.2f}%. Net funds are the amount received after any upfront fee."],
+            ["13-week forecast", "Expected inflow = invoice value x chance of on-time payment, in the due week; the late share arrives four weeks "
+                                 "later. Closing = opening + inflows - outflows. First shortfall = first week with closing below zero."],
+            ["3-way match", "Invoice and purchase order amounts within 0.01; quantity, package count, ports and buyer must agree."],
+            ["Registry key", "SHA-256 of seller tax ID | invoice no | buyer | currency | amount in minor units | issue date."],
+            ["Bundle hash", "SHA-256 of canonical JSON {documents: document hashes, metrics: locked metrics}, keys sorted, no spaces."],
+        ]
+        data = PackData(
+            pack_id=self.pack["pack_id"], company=self.profile["name"], lender=self.lender_name, product=option.name,
+            generated_at=self._pack_generated_at, forecast_run=self.forecast_run_id or "n/a", invoice_no=invoice.invoice_no,
+            amount_requested=f"USD {option.amount_usd:,.2f}", letter_text=self.pack["letter_text"],
+            locked_metrics=[[m["label"], formatted] for m, formatted in ((m, self._metric_text(m)) for m in self.pack["locked_metrics"])],
+            documents=docs, three_way_status=match.status.value, three_way_differences=match.differences, scan_lines=scan_lines,
+            document_hashes=self.pack["document_hashes"], bundle_sha256=self._bundle_sha, action_hash=self.pack["action_hash"],
+            registry_check=(f"Registered in block {block['block_index']}" if block else "No entry for this invoice key at preparation"),
+            registry_key=invoice_key(invoice), registry_head=(block["previous_block_hash"] if block else self.registry.head_hash()),
+            registry_block=block, lender_ref=self.pack.get("lender_ref"),
+            attribution=[[a.driver, f"USD {a.amount_usd:,.2f}"] for a in self.forecast.attribution], formulas=formulas,
+        )
+        relative = Path("packs") / f"{self.pack['pack_id']}.pdf"
+        compile_pack(data, self.evidence_dir / relative)
+        self.pack["pdf_path"] = str(relative)
+
+    @staticmethod
+    def _metric_text(metric: Dict[str, Any]) -> str:
+        unit, value = metric["unit"], metric["value"]
+        if unit == "USD":
+            return f"USD {value:,.2f}"
+        if unit == "%":
+            return f"{value:.1f}%"
+        return f"Week {value:g}" if unit == "week" else f"{value:g} {unit}"
 
     def _document_hashes(self) -> Dict[str, str]:
         invoice = self.nominee
@@ -613,6 +822,7 @@ class Coordinator:
             block = self.registry.register(self.nominee, self._bundle_sha, lender_ref)
         self.case.move_to(CaseState.SUBMITTED)
         self.pack.update(status="SUBMITTED", lender_ref=lender_ref, registry_block=block)
+        self._write_pdf(self.selected_option())
         self._challenge = None
         self._save()
         return {"ok": True, "error": None, "lender_ref": lender_ref}
@@ -678,7 +888,7 @@ class Coordinator:
             "selected_option_id": self.selected_option_id,
             "alerts": self.alerts,
             "collections": {
-                "schedule": [{k: v for k, v in r.items() if k != "text"} for r in self.reminders],
+                "schedule": self.collection_schedule(),
                 "promises": [
                     {"invoice_id": p.invoice_id, "buyer": p.buyer,
                      "promised_date": p.promised_date.isoformat(), "source_text": p.source_text}

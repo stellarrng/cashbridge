@@ -196,3 +196,8 @@ def test_tax_id_format_and_registry():
     assert not is_valid_vn_tax_id("12345") and not is_valid_vn_tax_id("03123456789")
     assert is_valid_vn_tax_id("0312345678", frozenset({"0312345678"}))
     assert not is_valid_vn_tax_id("0312345679", frozenset({"0312345678"}))
+
+
+def test_a_minus_sign_is_formatting_not_a_different_number():
+    assert check("Lowest balance USD -187,485.", {"low": -187485.39}).ok
+    assert not check("Lowest balance USD -187,486.", {"low": -187485.39}).ok

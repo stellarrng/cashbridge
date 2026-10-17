@@ -70,7 +70,7 @@ export function Evidence({ snap }: { snap: Snapshot }) {
         )}
       </Section>
 
-      <Section id="eval" title="Evaluation">
+      <Section id="eval" title="Evaluation" aside={ev.eval && <span className="label">{ev.eval.passed} of {ev.eval.total} passed · baseline {ev.eval.baseline ?? "skipped"}</span>}>
         {ev.eval === null ? (
           <Empty>Task-by-task results against an LLM-only baseline appear here once the evaluation harness has run.</Empty>
         ) : (

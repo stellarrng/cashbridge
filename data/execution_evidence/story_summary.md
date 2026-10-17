@@ -6,23 +6,23 @@ The OTP code was generated from the public demo secret inside the script (demo a
 
 | Step | What happened | Outcome |
 |---|---|---|
-| 1 | 07:00 trigger: reconcile the USD 48,620 wire | Tier 1 failed; Tier 3 subset-sum matched INV-1021, INV-1022, INV-1024; gap USD 35 booked as bank fee; L2 ledger write logged (audit line 4). |
+| 1 | 07:00 trigger: reconcile the USD 48,620 wire | Tier 1 failed; Tier 3 subset-sum matched INV-1021, INV-1022, INV-1024; gap USD 35 booked as bank fee; L2 ledger write logged (audit line 9). |
 | 2 | Forecast reruns: week 7 shortfall | First negative week 7, shortfall USD 42,227.64; main drivers: 30% deposit on PO-2214 (USD 27,600.00); INV-1026 (Oakline Home LLC (SYNTHETIC)) likely late, p_on_time 0.42 (USD 18,258.40); 6 smaller late-invoice drivers. State SHORTFALL_DETECTED. |
 | 3 | Funding evaluator ranks the liquidity menu | Factoring INV-1030 (Partner Factor, MOCK) 17.1% < Working-capital bridge loan (MOCK) 18.2% < Early-payment discount 2/10 net 30 37.2%; overdraft not eligible (No overdraft facility on file). State OPTIONS_RANKED. |
 | 4 | Verification: 3-way match and registry check | INV-1030 ELIGIBLE (registry has no entry); INV-1027 FLAGGED (B/L packages 118 vs invoice 120), excluded. State INVOICE_VERIFIED. |
-| 5 | Inbox: BEC email blocked | accounts@oakIine-home.com BLOCKED (Requests change of bank account; Lookalike domain of oakline-home.com; Account not in verified payees); critical alert raised. A payee change (L4) is refused by the gatekeeper (audit line 29). 1 injection email treated as data. |
-| 6 | CFO assistant briefs Minh; Minh prepares the pack | "Week 7 is expected to be short by USD 42,227.64. Cheapest option: Factoring INV-1030 (Partner Factor, MOCK) for USD 48,000.00 at about 17.1% a year. [source: forecast run fc-0010] [source: funding:factoring_inv1030]" Pack PACK-83F09418: metrics locked, documents hashed, letter passed the number check. State AWAITING_APPROVAL. |
+| 5 | Inbox: BEC email blocked | accounts@oakIine-home.com BLOCKED (Requests change of bank account; Lookalike domain of oakline-home.com; Account not in verified payees); critical alert raised. A payee change (L4) is refused by the gatekeeper (audit line 34). 1 injection email treated as data. |
+| 6 | CFO assistant briefs Minh; Minh prepares the pack | "Week 7 is expected to be short by USD 42,227.64. Cheapest option: Factoring INV-1030 (Partner Factor, MOCK) for USD 48,000.00 at about 17.1% a year. [source: forecast run fc-0015] [source: funding:factoring_inv1030]" Pack PACK-83F09418: metrics locked, documents hashed, letter passed the number check. State AWAITING_APPROVAL. |
 | 7 | Negative test: tampered draft | Draft with an invented number was rejected by the number check (USD 52,000). |
-| 8 | Minh approves with OTP; pack submitted to the mock lender | A wrong code was refused (invalid_code). OTP bound to action_hash 9c80ee3826d5... accepted; submit_pack allowed (audit line 35); lender ref MOCK-FCD6D55581; registry block 0 written for INV-1030. State SUBMITTED. |
+| 8 | Minh approves with OTP; pack submitted to the mock lender | A wrong code was refused (invalid_code). OTP bound to action_hash 9c80ee3826d5... accepted; submit_pack allowed (audit line 40); lender ref MOCK-FCD6D55581; registry block 0 written for INV-1030. State SUBMITTED. |
 | 9 | Negative test: finance INV-1030 a second time | DoubleFinancingBlocked raised; registry still has 1 block. |
 | 10 | Collections: reminder drafted, buyer promises a date | Gentle reminder for INV-1026 drafted (scheduled 2026-11-21) and approved by Lan (status awaiting_approval; sending needs the Director's OTP). Reply "Thank you for the reminder. We will pay on Nov 20." became a promise for 2026-11-20; week-7 shortfall USD 42,227.64 -> USD 23,969.24. |
-| 11 | Audit chain verified and anchored | verify_chain passed over 41 lines; tiers logged: L0_READ, L1_ANALYZE, L2_INTERNAL_WRITE, L3_EXTERNAL, L4_MONEY_MOVEMENT; head hashes written to ANCHORS.md. |
+| 11 | Audit chain verified and anchored | verify_chain passed over 46 lines; tiers logged: L0_READ, L1_ANALYZE, L2_INTERNAL_WRITE, L3_EXTERNAL, L4_MONEY_MOVEMENT; head hashes written to ANCHORS.md. |
 
 ## Evidence produced
 
-- `sandbox_operation_logs.jsonl`: 41 hash-chained lines (tamper-evident), one per gatekeeper decision.
-- `invoice_registry.json`: 1 block, head `e5ba095e6269a50343acb0971246be38e15bdf5500bc3336a7970b12e2006a91`.
-- `ANCHORS.md`: | 2026-10-19 07:00:00 | 41 | `c4d25a5b372294a3cc33489ff3a7515f5584c7985a7c04899dfcfc8352683591` | 1 | `e5ba095e6269a50343acb0971246be38e15bdf5500bc3336a7970b12e2006a91` |
+- `sandbox_operation_logs.jsonl`: 46 hash-chained lines (tamper-evident), one per gatekeeper decision.
+- `invoice_registry.json`: 1 block, head `b77f9c2ba99df9c594b706cb7403c8af72d5edaf6de7016785039e4b3d2c6f7f`.
+- `ANCHORS.md`: | 2026-10-19 07:00:00 | 46 | `6314b32f6a754d751523e02ac38461e696b2bc69c8378119f3e82b2f37901fa3` | 1 | `b77f9c2ba99df9c594b706cb7403c8af72d5edaf6de7016785039e4b3d2c6f7f` |
 - Pack `PACK-83F09418`: action hash `9c80ee3826d5513902d27f9a7e59666fc2cfea261d54cd5bbe0c113d1d23fb73`, bundle SHA-256 `83f09418c1bd9ae4cf31e9c740701561a409055c9f07f58f027236d9e8a923f6`.
 
 Honest limits: the registry lives inside one SME installation, so it cannot stop the same invoice

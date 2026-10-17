@@ -73,6 +73,47 @@ export function Prove({ snap }: { snap: Snapshot }) {
         </Section>
       </div>
 
+      <Section id="scans" title="Scanned documents" aside={<span className="label">Read by the document agent</span>}>
+        {snap.scans.length === 0 ? (
+          <Empty>No scanned documents have arrived.</Empty>
+        ) : (
+          <>
+            <p className="lede">
+              Each scan is read field by field with a confidence score. Anything below 0.85 is left for a person: the system does not guess.
+            </p>
+            <div className="scroll">
+              <table>
+                <thead><tr><th>Document</th><th>Type</th><th className="num">Lowest confidence</th><th>Against our records</th></tr></thead>
+                <tbody>
+                  {snap.scans.map((s) => (
+                    <tr key={s.doc_id}>
+                      <td className="num" style={{ textAlign: "left" }}>{s.doc_id}</td>
+                      <td>{label(s.doc_type)}</td>
+                      <td className="num">{amount(s.min_confidence, true)}</td>
+                      <td>
+                        {s.status === "NEEDS_HUMAN" ? (
+                          <>
+                            <Status text="Needs a person" tone="neg" />
+                            <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>{s.reason}</div>
+                          </>
+                        ) : s.differences.length > 0 ? (
+                          <>
+                            <Status text="Differs" tone="neg" />
+                            {s.differences.map((d) => <div key={d} className="neg" style={{ fontSize: 12.5 }}>{d}</div>)}
+                          </>
+                        ) : (
+                          <Status text={s.three_way ? `Matches; three-way ${label(s.three_way).toLowerCase()}` : "Matches"} tone="pos" solid />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </Section>
+
       <Section id="invoices" title="Which invoices are safe to finance" aside={<span className="label">Purchase order, invoice and bill of lading must agree</span>}>
         <div className="scroll">
           <table>

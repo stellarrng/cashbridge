@@ -81,7 +81,8 @@ def test_snapshot_carries_the_real_story_numbers(backend):
     wire = snap["reconciliation"]["featured_wire"]
     assert wire["gap"] == 35 and wire["invoice_total"] - wire["received"] == 35
     assert [i["id"] for i in wire["invoices"]] == ["INV-1021", "INV-1022", "INV-1024"]
-    assert snap["buyer_risk"] == [] and snap["evidence"]["eval"] is None
+    assert snap["buyer_risk"] == []
+    assert snap["evidence"]["eval"]["passed"] == snap["evidence"]["eval"]["total"] >= 15
 
 
 def test_every_week_row_adds_up(backend):
@@ -112,7 +113,7 @@ def test_full_click_through(backend):
     assert snap["selected_option_id"] == "factoring_inv1030" and snap["meta"]["last_error"] is None
     snap = backend.prepare_pack()
     assert snap["pack"]["status"] == "AWAITING_APPROVAL" and snap["pack"]["number_check"]["ok"]
-    assert snap["pack"]["pdf_path"] is None
+    assert snap["pack"]["pdf_path"] == f"packs/{snap['pack']['pack_id']}.pdf"
     challenge = backend.request_otp()
     assert set(challenge) == {"action_hash", "expires_at", "instructions"}
     assert challenge["action_hash"] == snap["pack"]["action_hash"]
@@ -153,7 +154,7 @@ def test_reset_returns_a_fresh_snapshot(backend):
 
 
 def test_ask_cfo_returns_a_cited_message(backend):
-    reply = backend.ask_cfo("What is my biggest risk?")
+    reply = backend.ask_cfo("When will I run out of cash?")
     assert reply["role"] == "assistant" and reply["citations"] and reply["mode"] == "offline-demo"
     assert len(backend.get_snapshot()["chat"]["history"]) == 3
 

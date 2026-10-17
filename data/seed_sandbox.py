@@ -262,6 +262,58 @@ def trade_documents() -> Dict[str, Any]:
     )
 
 
+def _scan_text(doc_type: str, fields: List[tuple]) -> str:
+    """Simulated OCR output: labelled lines, with page breaks as a scanner would report them."""
+    title = {"invoice": "COMMERCIAL INVOICE", "purchase_order": "PURCHASE ORDER", "bill_of_lading": "BILL OF LADING"}[doc_type]
+    lines, page = [title], 0
+    for field_page, label, value in fields:
+        if field_page != page:
+            page = field_page
+            lines.append(f"--- page {page} ---")
+        lines.append(f"{label}: {value}")
+    return "\n".join(lines)
+
+
+def scanned_documents() -> Dict[str, Any]:
+    """Simulated scans for INV-1030 (clean) and one poor scan that a human must read."""
+    no, buyer, ccy, amount, issued, due, qty, pkgs, _ = next(r for r in _INVOICES if r[0] == "INV-1030")
+    name, market, discharge = _BUYERS[buyer]
+    digits = no[-4:]
+    shown = f"{Decimal(amount):,.2f}"
+    common = [("Seller Tax ID", SELLER_TAX_ID), ("Buyer ID", buyer)]
+    invoice = [(1, "Invoice No", no), (1, "PO Number", f"PO-{digits}")] + [(1, k, v) for k, v in common] + [
+        (1, "Buyer", name), (1, "Market", market), (1, "Currency", ccy),
+        (2, "Total Amount", shown), (2, "Quantity", qty), (2, "Packages", pkgs),
+        (2, "Port of Loading", "Cat Lai"), (2, "Port of Discharge", discharge),
+        (2, "Issue Date", issued.isoformat()), (2, "Due Date", due.isoformat()),
+    ]
+    po = [(1, "PO Number", f"PO-{digits}")] + [(1, k, v) for k, v in common] + [
+        (1, "Buyer", name), (1, "Currency", ccy), (1, "Total Amount", shown), (2, "Quantity", qty),
+        (2, "Packages", pkgs), (2, "Port of Loading", "Cat Lai"), (2, "Port of Discharge", discharge),
+        (2, "Issue Date", (issued - timedelta(days=30)).isoformat()),
+    ]
+    bl = [(1, "B/L No", f"BL-{digits}"), (1, "Invoice No", no)] + [(1, k, v) for k, v in common] + [
+        (1, "Quantity", qty), (1, "Packages", pkgs), (1, "Port of Loading", "Cat Lai"),
+        (1, "Port of Discharge", discharge), (1, "Shipped On Board", (issued - timedelta(days=1)).isoformat()),
+    ]
+    poor = [
+        (1, "Invoice No", "INV-1036"), (1, "PO Number", "PO-1036"), (1, "Seller Tax ID", SELLER_TAX_ID),
+        (1, "Buyer ID", "B-US-01"), (1, "Buyer", "Oakline Home LLC (SYNTHETIC)"), (1, "Market", "US"), (1, "Currency", "USD"),
+        (2, "Total Amount", "1O,5OO.OO"), (2, "Quantity", "55"), (2, "Packages", "l2"),
+        (2, "Port of Loading", "Cat Lai"), (2, "Port of Discharge", "Los Angeles"), (2, "Issue Date", "2026-10-12"),
+    ]
+    return _label(
+        {
+            "documents": [
+                {"doc_id": f"SCAN-INV-{digits}", "doc_type": "invoice", "invoice_no": no, "text": _scan_text("invoice", invoice)},
+                {"doc_id": f"SCAN-PO-{digits}", "doc_type": "purchase_order", "invoice_no": no, "text": _scan_text("purchase_order", po)},
+                {"doc_id": f"SCAN-BL-{digits}", "doc_type": "bill_of_lading", "invoice_no": no, "text": _scan_text("bill_of_lading", bl)},
+                {"doc_id": "SCAN-INV-1036", "doc_type": "invoice", "invoice_no": "INV-1036", "text": _scan_text("invoice", poor)},
+            ]
+        }
+    )
+
+
 def bank_statements() -> Dict[str, Any]:
     return _label(
         {
@@ -413,6 +465,7 @@ FILES = {
     "company_profile.json": company_profile,
     "contacts.json": contacts,
     "trade_documents.json": trade_documents,
+    "scanned_documents.json": scanned_documents,
     "bank_statements.json": bank_statements,
     "emails_inbox.json": emails_inbox,
     "payment_history.json": payment_history,

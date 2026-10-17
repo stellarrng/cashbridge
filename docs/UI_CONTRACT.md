@@ -4,7 +4,7 @@ The UI talks to the backend only through the methods below.
 - `ui/backend_real.py` implements them on the real engines (Step 3.5); `ui/backend.py` exposes `get_backend()`.
 - `api/main.py` publishes them over HTTP: `GET /api/snapshot` for `get_snapshot()` and `POST /api/<method>` (JSON body = the method's arguments) for every other method. Responses are exactly the return shapes below.
 - There is no stub backend. Design-time sample data is the JSON in section C.2, and `tests/test_ui_contract.py` checks that the real snapshot has every key of it.
-- Additions made while building: `meta.last_error` (a refused action's message, otherwise null) and `pii_inspector.note`. Extra keys are allowed; renaming or removing keys is not.
+- Additions made while building: `meta.last_error` (a refused action's message, otherwise null), `pii_inspector.note` and `scans` (what the document agent read from each scanned document). Extra keys are allowed; renaming or removing keys is not.
 
 ### C.1 Actions (method signatures)
 
@@ -81,6 +81,13 @@ The numbers below are **illustrative placeholders** for design. Real values come
     {"invoice_id": "INV-1027", "buyer": "Oakline Home LLC (SYNTHETIC)", "amount": 27400, "currency": "USD", "due_date": "2026-12-05",
      "status": "FLAGGED", "differences": ["B/L packages 118 vs invoice 120"], "registry_status": "NOT_REGISTERED", "tax_id_valid": true}
   ],
+  "scans": [
+    {"doc_id": "SCAN-INV-1030", "doc_type": "invoice", "invoice_no": "INV-1030", "status": "READ", "min_confidence": 0.97, "reason": null,
+     "matches_record": true, "differences": [], "low_fields": [], "fields_read": 14},
+    {"doc_id": "SCAN-INV-1036", "doc_type": "invoice", "invoice_no": "INV-1036", "status": "NEEDS_HUMAN", "min_confidence": 0.6,
+     "reason": "amount (0.60: read '1O,5OO.OO' as 10500.00)", "matches_record": null, "differences": [],
+     "low_fields": [{"name": "amount", "value": null, "confidence": 0.6, "page": 2}], "fields_read": 14}
+  ],
   "alerts": [
     {"id": "AL-01", "type": "BEC", "severity": "critical", "sender": "accounts@oakIine-home.com", "subject": "Updated bank details for payment",
      "reasons": ["Requests change of bank account", "Lookalike domain of oakline-home.com (I vs l)", "Account not in verified payees"],
@@ -142,7 +149,7 @@ The numbers below are **illustrative placeholders** for design. Real values come
 | `buyer_risk` | Step 6.1 |
 
 Shapes of those fields:
-- `collections.schedule[]`: `{invoice_id, buyer, stage: "gentle"|"firm"|"escalation", due_offset_days, scheduled_date, status: "draft"|"awaiting_approval"|"sent"}`
+- `collections.schedule[]`: `{invoice_id, buyer, stage: "gentle"|"firm"|"escalation", due_offset_days, scheduled_date, status: "scheduled"|"draft"|"awaiting_approval"|"sent"}` (extra keys: `language`, `buyer_id`, `first_for_buyer`)
 - `collections.promises[]`: `{invoice_id, buyer, promised_date, source_text}`
 - `buyer_risk[]`: `{buyer, share_of_receivables_pct, avg_days_late, p_on_time, concentration_alert}`
 - `evidence.eval`: `{passed, total, rows: [{task, cashbridge_pass, baseline_pass, invented_numbers}]}`

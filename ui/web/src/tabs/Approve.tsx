@@ -79,7 +79,7 @@ export function Approve({ snap, onSnapshot, onPrepare }: Props) {
             <table>
               <tbody>
                 <tr><td className="muted">Action hash</td><td className="num right">{pack.action_hash ? head(pack.action_hash, 24) : "n/a"}</td></tr>
-                <tr><td className="muted">PDF funding pack</td><td className="right">{pack.pdf_path ?? <span className="muted">Available once the PDF compiler is enabled</span>}</td></tr>
+                <tr><td className="muted">PDF funding pack</td><td className="right">{pack.pdf_path ? <a className="textbtn" href="/api/pack/pdf" target="_blank" rel="noreferrer">Download the PDF</a> : <span className="muted">Created when the pack is prepared</span>}</td></tr>
                 {pack.lender_ref && <tr><td className="muted">Lender reference (MOCK)</td><td className="num right">{pack.lender_ref}</td></tr>}
               </tbody>
             </table>

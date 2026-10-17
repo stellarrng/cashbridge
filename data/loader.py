@@ -76,6 +76,11 @@ def emails(directory: Path = SANDBOX_INPUTS_DIR) -> List[Email]:
     return [Email(**r) for r in read("emails_inbox.json", directory)["emails"]]
 
 
+def scanned_documents(directory: Path = SANDBOX_INPUTS_DIR) -> List[Dict[str, Any]]:
+    """Simulated OCR text of scanned documents."""
+    return read("scanned_documents.json", directory)["documents"]
+
+
 def lender_catalog(directory: Path = SANDBOX_INPUTS_DIR) -> LenderCatalog:
     raw = {k: v for k, v in read("lender_catalog.json", directory).items() if k in LenderCatalog.model_fields}
     return LenderCatalog(**raw)

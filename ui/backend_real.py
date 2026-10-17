@@ -16,8 +16,10 @@ from typing import Any, Callable, Dict, List, Optional
 
 from pydantic import ValidationError
 
+from agents.cfo_assistant import CfoAssistant
 from agents.coordinator import Coordinator
-from config.settings import FX_NOTE, RUNTIME_DIR, SANDBOX_INPUTS_DIR, USD_VND
+from agents.llm_client import LlmClient
+from config.settings import EXECUTION_EVIDENCE_DIR, FX_NOTE, RUNTIME_DIR, SANDBOX_INPUTS_DIR, USD_VND
 from core.forecasting_engine import compute_ccc
 from schemas.forecast_schemas import ForecastResult, ScenarioParams, to_contract
 from security import number_check
@@ -43,10 +45,12 @@ class RealBackend:
         coordinator: Optional[Coordinator] = None,
         runtime_dir: Path = RUNTIME_DIR,
         clock: Optional[Callable[[], datetime]] = None,
+        eval_path: Path = EXECUTION_EVIDENCE_DIR / "eval_results.json",
     ) -> None:
+        self._eval_path = Path(eval_path)
         if coordinator is None:
             runtime = Path(runtime_dir)
-            kwargs: Dict[str, Any] = {}
+            kwargs: Dict[str, Any] = {"llm": LlmClient()}  # offline unless LLM_API_KEY is set
             if clock is not None:
                 kwargs["clock"] = clock
             coordinator = Coordinator(
@@ -64,6 +68,7 @@ class RealBackend:
     def _start(self) -> None:
         """Every server start is a fresh demo session: the previous session's audit log and registry are cleared."""
         self.coord.reset()
+        self.assistant = CfoAssistant(self.coord)
         self._chat = [self._briefing()]
 
     def _briefing(self) -> Dict[str, Any]:
@@ -104,13 +109,14 @@ class RealBackend:
             "pii_inspector": self._pii_inspector(),
             "chat": {"history": list(self._chat)},
             "collections": {
-                "schedule": [{k: v for k, v in r.items() if k != "text"} for r in c.reminders],
+                "schedule": c.collection_schedule(),
                 "promises": [
                     {"invoice_id": p.invoice_id, "buyer": p.buyer,
                      "promised_date": p.promised_date.isoformat(), "source_text": p.source_text}
                     for p in c.promises
                 ],
             },
+            "scans": c.scans,
             "buyer_risk": [],
             "evidence": self._evidence(),
         }
@@ -187,7 +193,23 @@ class RealBackend:
             "lines_checked": checked,
             "audit_tail": c.audit.tail(25),
             "registry_blocks": c.registry.blocks(),
-            "eval": None,
+            "eval": self._eval_results(),
+        }
+
+    def _eval_results(self) -> Optional[Dict[str, Any]]:
+        """Results of the last `make eval`, in the contract shape, or None if it has not been run."""
+        if not self._eval_path.exists():
+            return None
+        data = json.loads(self._eval_path.read_text(encoding="utf-8"))
+        return {
+            "passed": data["passed"],
+            "total": data["total"],
+            "baseline": data.get("baseline", "skipped"),
+            "rows": [
+                {"task": r["task"], "cashbridge_pass": r["cashbridge_pass"], "baseline_pass": r["baseline_pass"],
+                 "invented_numbers": r["invented_numbers"], "category": r["category"], "answer": r["answer"]}
+                for r in data["rows"]
+            ],
         }
 
     # ---------------------------------------------------------------- actions
@@ -204,10 +226,7 @@ class RealBackend:
         }
 
     def ask_cfo(self, text: str) -> Dict[str, Any]:
-        reply = self._message(
-            self._chat[0]["text"] + " Free-text questions are not enabled in this build yet.",
-            self._chat[0]["citations"],
-        )
+        reply = self.assistant.ask(text)
         self._chat += [{"role": "user", "text": text, "citations": [], "mode": reply["mode"]}, reply]
         return reply
 
@@ -228,6 +247,10 @@ class RealBackend:
     def approve(self, code: str) -> Dict[str, Any]:
         result = self.coord.approve(code)
         return {"ok": result["ok"], "error": result["error"], "snapshot": self.get_snapshot()}
+
+    def pack_pdf(self) -> Optional[Path]:
+        """Path of the current pack's PDF, or None (served by the API as /api/pack/pdf)."""
+        return self.coord.pack_pdf_file
 
     def retry_double_financing(self) -> Dict[str, Any]:
         return self.coord.retry_double_financing()

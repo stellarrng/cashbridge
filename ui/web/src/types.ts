@@ -163,7 +163,21 @@ export interface Evidence {
   lines_checked: number;
   audit_tail: TierRow[];
   registry_blocks: Record<string, string | number>[];
-  eval: null | { passed: number; total: number; rows: { task: string; cashbridge_pass: boolean; baseline_pass: boolean | null; invented_numbers: number }[] };
+  eval: null | { passed: number; total: number; baseline?: string; rows: { task: string; cashbridge_pass: boolean; baseline_pass: boolean | null; invented_numbers: number }[] };
+}
+
+export interface ScanRow {
+  doc_id: string;
+  doc_type: string;
+  invoice_no: string;
+  status: "READ" | "NEEDS_HUMAN";
+  min_confidence: number;
+  reason: string | null;
+  matches_record: boolean | null;
+  differences: string[];
+  low_fields: { name: string; value: string | null; confidence: number; page: number | null }[];
+  fields_read: number;
+  three_way?: string;
 }
 
 export interface Snapshot {
@@ -173,6 +187,7 @@ export interface Snapshot {
   scenario_controls: Record<ScenarioKey, Control>;
   reconciliation: { rows: ReconRow[]; featured_wire: FeaturedWire | null };
   verification: VerificationRow[];
+  scans: ScanRow[];
   alerts: Alert[];
   funding_options: FundingOption[];
   selected_option_id: string | null;

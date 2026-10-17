@@ -49,6 +49,7 @@ def _flatten(value: Any) -> Iterable[Decimal]:
         return
     elif isinstance(value, (int, float, Decimal)):
         yield Decimal(str(value))
+        yield abs(Decimal(str(value)))  # a minus sign is formatting: "USD -187,485" is the locked -187,485.39
 
 
 def _decimals_of(text: str) -> int:

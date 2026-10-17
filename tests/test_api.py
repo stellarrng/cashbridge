@@ -69,7 +69,7 @@ def test_a_refused_option_is_reported_in_meta(client):
 
 
 def test_ask_cfo_and_reset(client):
-    reply = client.post("/api/ask_cfo", json={"text": "How are we doing?"}).json()
+    reply = client.post("/api/ask_cfo", json={"text": "When will I run out of cash?"}).json()
     assert reply["citations"] and reply["role"] == "assistant"
     client.post("/api/choose_option", json={"option_id": "bridge_loan"})
     assert client.post("/api/reset_demo").json()["selected_option_id"] is None

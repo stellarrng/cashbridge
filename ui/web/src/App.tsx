@@ -20,7 +20,7 @@ const SECTIONS: Record<TabKey, { id: string; label: string }[]> = {
   ],
   prove: [
     { id: "money", label: "Money received" }, { id: "wire", label: "How the wire matched" },
-    { id: "emails", label: "Suspicious emails" }, { id: "invoices", label: "Invoice checks" },
+    { id: "emails", label: "Suspicious emails" }, { id: "scans", label: "Scanned documents" }, { id: "invoices", label: "Invoice checks" },
   ],
   compare: [],
   approve: [
@@ -105,7 +105,7 @@ export function App() {
     );
   }
 
-  const ask = async (text: string) => { await api.askCfo(text); await refresh(); };
+  const ask = async (text: string) => { await api.askCfo(text); await refresh(); setRailOpen(true); };
   const short = snap.kpis.first_shortfall_week !== null && snap.kpis.shortfall_usd !== null;
   const info = TABS.find((t) => t.key === tab)!;
   const sections = tab === "approve" && snap.pack.status === "NOT_STARTED" ? [] : SECTIONS[tab];

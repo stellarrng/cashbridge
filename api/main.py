@@ -83,6 +83,13 @@ def create_app(backend_provider: Callable[[], Any] = get_backend, dist_dir: Path
     def approve(body: ApproveBody) -> Dict[str, Any]:
         return call(lambda b: b.approve(body.code))
 
+    @app.get("/api/pack/pdf")
+    def pack_pdf() -> FileResponse:
+        path = call(lambda b: b.pack_pdf())
+        if path is None or not Path(path).exists():
+            raise HTTPException(status_code=404, detail="No pack has been prepared yet")
+        return FileResponse(path, media_type="application/pdf", filename=Path(path).name)
+
     @app.post("/api/retry_double_financing")
     def retry_double_financing() -> Dict[str, Any]:
         return call(lambda b: b.retry_double_financing())
