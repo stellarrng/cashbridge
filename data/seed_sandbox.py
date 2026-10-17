@@ -40,23 +40,10 @@ SELLER_TAX_ID = "0312345678"
 # ------------------------------------------------------------------ TUNING
 OPENING_CASH_USD = "80000.00"  # bank balance after today's credits
 WEEKLY_FIXED_COSTS_USD = "38000.00"
-PAYROLL_USD = "15000.00"
+PAYROLL_USD = "10000.00"
 DEPOSIT_PO_VALUE_USD = "92000.00"  # PO-2214, 30% timber deposit paid in week 7
 DEPOSIT_PCT = "30"
 DEPOSIT_DATE = date(2026, 12, 1)
-P_ON_TIME = {  # seed-provided until the buyer risk agent (Step 6.1) estimates them
-    "INV-1023": 0.90,
-    "INV-1026": 0.42,
-    "INV-1027": 0.70,
-    "INV-1028": 0.95,
-    "INV-1029": 0.90,
-    "INV-1030": 0.92,
-    "INV-1031": 0.95,
-    "INV-1032": 0.90,
-    "INV-1033": 0.95,
-    "INV-1034": 0.90,
-    "INV-1035": 0.90,
-}
 
 REVENUE_USD = (Decimal(120_000_000_000) / USD_VND).quantize(Decimal(1), rounding=ROUND_HALF_UP)
 COGS_SHARE = Decimal("0.70")
@@ -187,6 +174,8 @@ _INVOICES = [
     ("INV-1033", "B-JP-01", "USD", "28000.00", date(2026, 9, 28), date(2026, 11, 12), 130, 130, 130),
     ("INV-1034", "B-CN-01", "CNY", "210000.00", date(2026, 10, 4), date(2026, 11, 19), 85, 85, 85),
     ("INV-1035", "B-US-02", "USD", "26000.00", date(2026, 10, 11), date(2026, 11, 26), 115, 115, 115),
+    ("INV-1037", "B-US-01", "USD", "59000.00", date(2026, 10, 16), date(2027, 1, 8), 260, 260, 260),
+    ("INV-1038", "B-US-01", "USD", "26000.00", date(2026, 10, 12), date(2026, 12, 22), 115, 115, 115),
 ]
 
 
@@ -226,8 +215,6 @@ def trade_documents() -> Dict[str, Any]:
             "issue_date": issued.isoformat(),
             "due_date": due.isoformat(),
         }
-        if no in P_ON_TIME:
-            invoice["p_on_time"] = P_ON_TIME[no]
         invoices.append(invoice)
         bls.append(
             {
@@ -399,10 +386,12 @@ def emails_inbox() -> Dict[str, Any]:
 
 # -------------------------------------------------------- payment history
 _HISTORY_BUYERS = [
-    # buyer_id, currency, invoices per year, typical amount, mean days late, spread
-    ("B-US-01", "USD", 20, 22000, 12, 7),
-    ("B-JP-01", "USD", 8, 45000, 2, 3),
-    ("B-CN-01", "CNY", 8, 120000, 8, 5),
+    # buyer_id, currency, invoices a year, typical amount, base days late, extra days late per x of usual size, noise (days)
+    # Days late = base + extra x (amount / buyer's usual amount) + noise. An invoice much bigger than a buyer's
+    # usual one is paid later; the model has to find that.
+    ("B-US-01", "USD", 20, 22000, -12.0, 12.0, 2.0),
+    ("B-JP-01", "USD", 8, 45000, -3.0, 0.0, 3.0),
+    ("B-CN-01", "CNY", 8, 120000, -2.0, 0.0, 4.0),
 ]
 
 
@@ -410,13 +399,13 @@ def payment_history() -> Dict[str, Any]:
     rng = random.Random(HISTORY_SEED)
     records: List[Dict[str, Any]] = []
     serial = 100
-    for buyer, ccy, count, typical, mean_late, spread in _HISTORY_BUYERS:
+    for buyer, ccy, count, typical, base, per_usual, noise in _HISTORY_BUYERS:
         for n in range(count):
             serial += 1
             issued = AS_OF - timedelta(days=365 - int(n * 330 / count) - rng.randint(0, 8))
             due = issued + timedelta(days=rng.choice((45, 60, 75, 90)))
-            late = max(-3, int(round(rng.gauss(mean_late, spread))))
             amount = int(typical * rng.uniform(0.5, 1.5))
+            late = int(round(base + per_usual * (amount / typical) + rng.gauss(0, noise)))
             records.append(
                 {
                     "invoice_no": f"INV-0{serial}",

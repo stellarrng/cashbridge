@@ -12,5 +12,8 @@ services:
       - LLM_API_KEY=${LLM_API_KEY:-}
       - OTP_SECRET=${OTP_SECRET:-}
     volumes:
-      - ./data/runtime:/app/data/runtime
+      - runtime:/app/data/runtime
     restart: unless-stopped
+
+volumes:
+  runtime:

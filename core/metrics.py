@@ -66,3 +66,14 @@ def late_exposure_by_buyer(receivables: Sequence[OpenReceivable]) -> List[Tuple[
         for buyer in open_usd
     ]
     return sorted(rows, key=lambda r: (-r[3], r[0]))
+
+
+def receivable_shares_pct(receivables: Sequence[OpenReceivable]) -> Dict[str, Decimal]:
+    """Each buyer's share of open receivables (USD), in percent to 1 decimal place."""
+    open_usd: Dict[str, Decimal] = defaultdict(Decimal)
+    for item in receivables:
+        open_usd[item.buyer_id] += item.amount.to_usd()
+    total = sum(open_usd.values(), Decimal(0))
+    if total <= 0:
+        return {buyer: Decimal("0.0") for buyer in open_usd}
+    return {buyer: (usd / total * 100).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP) for buyer, usd in open_usd.items()}

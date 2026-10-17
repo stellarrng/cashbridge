@@ -96,13 +96,17 @@ Open http://localhost:8000. The top bar holds the five sections (keys 1 to 5 als
 
 | Section | What you do there |
 |---|---|
-| Anticipate | Read the 13-week chart, see what causes the gap, move the sliders to try scenarios |
+| Anticipate | Read the 13-week chart, see what causes the gap, move the sliders to try scenarios, and see which buyers are most likely to pay late |
 | Prove | Check the reconciliation, the wire explanation, blocked emails, what the document agent read from scanned documents, and invoice checks |
 | Compare | Choose a funding option |
 | Approve | Prepare the pack, download the PDF funding pack, enter the code, and try the two safeguard demos (financing the same invoice twice, tampering with the draft) |
 | Evidence | Verify the audit chain, run the tamper demo on a temporary copy, see the invoice registry and the evaluation results |
 
 The **Assistant** button opens a drawer with the CFO chat (ask about the shortfall, the cheapest funding, the cash conversion cycle, a slower-collections, tariff or FX scenario, or which buyer is most at risk; every answer lists where its numbers come from), a log of every permission decision, and a privacy check showing masked text. **Reset demo** starts a fresh session.
+
+### API
+
+The dashboard uses `/api/...`. For integrations, the same engines are exposed as `GET /forecast` (optionally with `dso_change_days`, `deposit_pct`, `tariff_shared_pct`, `fx_change_pct`), `GET /reconcile`, `GET /funding-options`, `POST /packs`, `POST /packs/{id}/request-approval`, `POST /packs/{id}/approve` and `GET /audit/verify`. Interactive documentation is at http://localhost:8000/docs. Approving a pack still needs the one-time code, and every call goes through the same permission checks.
 
 ## Architecture
 
@@ -140,6 +144,7 @@ The dashboard never calculates a money value. It renders what the backend return
 - **Number lock.** Model-written text is rejected if it contains any number that is not a locked figure.
 - **Verifiable Funding Pack.** A PDF with the cover letter, locked metrics, a 3-way match summary, the SHA-256 of every source document and of the whole bundle, the registry reference and an appendix of formulas, so a lender can recompute the figures.
 - **Document reading with confidence.** Scanned documents are read field by field; anything below 0.85 confidence is left for a person instead of guessed.
+- **Buyer risk model.** The chance each invoice is paid on time comes from a logistic regression fitted on the company's own payment history, with its coefficients shown. A buyer holding more than 40% of open invoices is flagged as a concentration risk.
 - **Collections ladder.** Reminders 3 days before the due date, on it, and 7, 15 and 30 days after, drafted in English, Japanese or Chinese by buyer market. Nothing is sent without the Director's one-time code.
 
 ## Repository layout
@@ -150,7 +155,7 @@ schemas/    Pydantic v2 data contracts
 core/       matching, forecasting, funding evaluator, invoice registry, period lock, pack metrics, PDF compiler
             (pure Python: no LLM)
 security/   permission gatekeeper, audit log, OTP, PII masker, injection guard, number check, BEC detector
-agents/     LLM client, coordinator, CFO assistant, document agent, collections agent
+agents/     LLM client, coordinator, CFO assistant, document agent, collections agent, buyer risk agent
 api/        FastAPI app and the MOCK lender connector
 ui/         backend_real.py (the UI contract on the real engines) and web/ (React + TypeScript)
 data/       seed_sandbox.py, loader.py, sandbox_inputs/, execution_evidence/

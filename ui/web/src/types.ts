@@ -196,7 +196,14 @@ export interface Snapshot {
   pii_inspector: { before: string; after: string; note?: string };
   chat: { history: ChatMessage[] };
   collections: Collections;
-  buyer_risk: { buyer: string; share_of_receivables_pct: number; avg_days_late: number; p_on_time: number; concentration_alert: boolean }[];
+  buyer_risk: {
+    buyer: string; buyer_id: string; share_of_receivables_pct: number; avg_days_late: number; p_on_time: number;
+    concentration_alert: boolean; has_history: boolean;
+  }[];
+  risk_model: {
+    method: string; on_time_definition: string; training_rows: number; on_time_rate_pct: number; intercept: number;
+    coefficients: { name: string; coefficient: number }[];
+  };
   evidence: Evidence;
 }
 

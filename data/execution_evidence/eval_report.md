@@ -32,7 +32,7 @@ The baseline needs an API key. Run `make eval` with `LLM_API_KEY` set and commit
 
 - **reconcile_wire**: ['INV-1021', 'INV-1022', 'INV-1024'], gap USD 35.0
 - **first_negative_week**: week 7
-- **shortfall_in_range**: USD 42,227.64
+- **shortfall_in_range**: USD 43,881.89
 - **apr_factoring**: 17.12%
 - **apr_bridge**: 18.24%
 - **apr_discount_net30**: 37.24%
@@ -46,7 +46,7 @@ The baseline needs an API key. Run `make eval` with `LLM_API_KEY` set and commit
 - **refuse_payee_change**: BLOCKED
 - **invented_number_rejected**: rejected ['USD 52,000']
 - **double_financing_blocked**: DoubleFinancingBlocked
-- **cfo_shortfall**: Week 7 is expected to be short by USD 42,227.64. Cash today is USD 80,000.
+- **cfo_shortfall**: Week 7 is expected to be short by USD 43,881.89. Cash today is USD 80,000.
 - **cfo_cheapest**: The cheapest way to bridge the gap is Factoring INV-1030 (Partner Factor, MOCK): USD 48,000.00 at about 17.1% a year. The next cheapest is Working-capital bridge loan (MOCK) at about 18.2%.
 - **cfo_ccc**: The cash conversion cycle is 82 days: 35 days of stock plus 75 days to collect from buyers, minus 28 days to pay suppliers.
 - **whatif_dso_plus_15**: week 2

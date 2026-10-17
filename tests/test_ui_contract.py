@@ -81,7 +81,10 @@ def test_snapshot_carries_the_real_story_numbers(backend):
     wire = snap["reconciliation"]["featured_wire"]
     assert wire["gap"] == 35 and wire["invoice_total"] - wire["received"] == 35
     assert [i["id"] for i in wire["invoices"]] == ["INV-1021", "INV-1022", "INV-1024"]
-    assert snap["buyer_risk"] == []
+    risk = {r["buyer_id"]: r for r in snap["buyer_risk"]}
+    assert risk["B-US-01"]["concentration_alert"] is True and risk["B-US-01"]["share_of_receivables_pct"] > 40
+    assert not any(r["concentration_alert"] for k, r in risk.items() if k != "B-US-01")
+    assert snap["risk_model"]["training_rows"] >= 30 and snap["risk_model"]["coefficients"]
     assert snap["evidence"]["eval"]["passed"] == snap["evidence"]["eval"]["total"] >= 15
 
 

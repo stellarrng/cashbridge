@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,6 +24,10 @@ from ui.backend import get_backend
 
 DIST_DIR = BASE_DIR / "ui" / "web" / "dist"
 DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+
+class PackBody(BaseModel):
+    option_id: str
 
 
 class SimulateBody(BaseModel):
@@ -89,6 +93,50 @@ def create_app(backend_provider: Callable[[], Any] = get_backend, dist_dir: Path
         if path is None or not Path(path).exists():
             raise HTTPException(status_code=404, detail="No pack has been prepared yet")
         return FileResponse(path, media_type="application/pdf", filename=Path(path).name)
+
+    # ---- engine endpoints (Step 6.2): thin wrappers over the same coordinator methods, all gatekept
+    def lookup(action: Callable[[Any], Any]) -> Any:
+        try:
+            return call(action)
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @app.get("/forecast", tags=["engine"])
+    def forecast(
+        dso_change_days: Optional[int] = None, deposit_pct: Optional[float] = None,
+        tariff_shared_pct: Optional[float] = None, fx_change_pct: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        given = {k: v for k, v in {"dso_change_days": dso_change_days, "deposit_pct": deposit_pct,
+                                   "tariff_shared_pct": tariff_shared_pct, "fx_change_pct": fx_change_pct}.items() if v is not None}
+        return call(lambda b: b.forecast_view(given), refusal_status=422)
+
+    @app.get("/reconcile", tags=["engine"])
+    def reconcile() -> Dict[str, Any]:
+        return call(lambda b: b.reconciliation_view())
+
+    @app.get("/funding-options", tags=["engine"])
+    def funding_options() -> Any:
+        return call(lambda b: b.funding_options())
+
+    @app.post("/packs", tags=["engine"], status_code=201)
+    def create_pack(body: PackBody) -> Dict[str, Any]:
+        return call(lambda b: b.create_pack(body.option_id))
+
+    @app.post("/packs/{pack_id}/request-approval", tags=["engine"])
+    def request_pack_approval(pack_id: str) -> Dict[str, Any]:
+        return lookup(lambda b: b.request_pack_approval(pack_id))
+
+    @app.post("/packs/{pack_id}/approve", tags=["engine"])
+    def approve_pack(pack_id: str, body: ApproveBody) -> JSONResponse:
+        result = lookup(lambda b: b.approve_pack(pack_id, body.code))
+        if result["ok"]:
+            return JSONResponse(result)
+        status = 409 if result["error"] == "DoubleFinancingBlocked" else 403
+        return JSONResponse(result, status_code=status)
+
+    @app.get("/audit/verify", tags=["engine"])
+    def audit_verify() -> Dict[str, Any]:
+        return call(lambda b: b.verify_chain())
 
     @app.post("/api/retry_double_financing")
     def retry_double_financing() -> Dict[str, Any]:

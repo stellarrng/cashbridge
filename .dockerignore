@@ -1,0 +1,13 @@
+# Keep secrets, local environments and build junk out of the image.
+.env
+.venv/
+venv/
+.git/
+.gitignore
+__pycache__/
+*.pyc
+.pytest_cache/
+ui/web/node_modules/
+data/runtime/
+data/cases/
+.DS_Store

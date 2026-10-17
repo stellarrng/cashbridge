@@ -29,6 +29,7 @@ from typing import Any, Callable, Dict, List, Optional
 from pydantic import BaseModel
 
 from agents import collections_agent
+from agents.buyer_risk_agent import BuyerRiskAgent
 from agents.document_agent import DocumentAgent, Extraction
 from agents.llm_client import LlmClient
 from api import lender_connector_mock
@@ -43,7 +44,7 @@ from core.forecasting_engine import simulate as run_simulation
 from core.funding_evaluator import FundingRequest, rank_options
 from core.invoice_registry import DoubleFinancingBlocked, InvoiceRegistry, invoice_key
 from core.matching_engine import reconcile, three_way_match
-from core.metrics import monthly_billing_volatility_pct, negative_cash_weeks, top_buyer_share_pct
+from core.metrics import monthly_billing_volatility_pct, negative_cash_weeks, receivable_shares_pct, top_buyer_share_pct
 from core.pdf_compiler import DocSummary, PackData, bundle_sha256, compile_pack
 from core.period_lock import PeriodLocks
 from data import loader
@@ -130,6 +131,8 @@ class Coordinator:
         self.emails: List[Email] = loader.emails(d)
         self.billings = loader.billings(d)
         self.scanned = loader.scanned_documents(d)
+        self.risk = BuyerRiskAgent(loader.read("payment_history.json", d)["records"])
+        self.p_on_time = {inv.invoice_no: self.risk.p_on_time(inv) for inv in self.all_invoices}
         self.as_of = date.fromisoformat(self.profile["as_of"])
         self.cash_today = Decimal(self.profile["opening_cash_usd"])
         self.ledger = LedgerSnapshot(**self.profile["ledger"])
@@ -199,6 +202,7 @@ class Coordinator:
         self._start_session()
         try:
             self._read_sources()
+            self._score_buyers()
             self._scan_documents()
             self._reconcile_all()
             self.case.move_to(CaseState.RECONCILED)
@@ -343,13 +347,23 @@ class Coordinator:
             self.case.move_to(CaseState.SHORTFALL_DETECTED)
 
     def _inputs_with_promises(self):
-        inputs = loader.forecast_inputs(self.paid, self.inputs_dir)
+        inputs = loader.forecast_inputs(self.paid, self.inputs_dir, p_on_time=self.p_on_time)
         promised = {p.invoice_id: p.promised_date for p in self.promises}
         receivables = [
             r.model_copy(update={"promised_date": promised[r.invoice_id]}) if r.invoice_id in promised else r
             for r in inputs.receivables
         ]
         return inputs.model_copy(update={"receivables": receivables})
+
+    def _score_buyers(self) -> None:
+        """Read the payment history and fit the on-time model; its probabilities drive the forecast."""
+        self._gate("buyer_risk_agent", "read_payment_history", Tier.L0_READ, {"months": 12})
+        self._gate("buyer_risk_agent", "score_buyer_risk", Tier.L1_ANALYZE, {"invoices": len(self.p_on_time)})
+
+    def buyer_risk_rows(self) -> List[Dict[str, Any]]:
+        """Contract rows for the buyer risk panel, from the receivables the forecast uses."""
+        receivables = self.forecast_inputs.receivables if self.forecast_inputs else []
+        return self.risk.table(receivables, receivable_shares_pct(receivables))
 
     def _scan_documents(self) -> None:
         """Read every scanned document, compare it with the system record and run the 3-way match on full sets."""

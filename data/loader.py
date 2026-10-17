@@ -10,8 +10,9 @@ import json
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
+from agents.buyer_risk_agent import BuyerRiskAgent
 from config.settings import SANDBOX_INPUTS_DIR
 from core.forecasting_engine import compute_ccc
 from core.funding_evaluator import LenderCatalog
@@ -91,15 +92,26 @@ def ledger_ccc(directory: Path = SANDBOX_INPUTS_DIR) -> CCCMetrics:
     return compute_ccc(LedgerSnapshot(**company(directory)["ledger"]))
 
 
+def on_time_probabilities(directory: Path = SANDBOX_INPUTS_DIR) -> Dict[str, float]:
+    """On-time probability for every invoice, from the model fitted on the payment history."""
+    agent = BuyerRiskAgent(read("payment_history.json", directory)["records"])
+    return {inv.invoice_no: agent.p_on_time(inv) for inv in invoices(directory)}
+
+
 def forecast_inputs(
-    reconciled_invoice_nos: Iterable[str] = (), directory: Path = SANDBOX_INPUTS_DIR
+    reconciled_invoice_nos: Iterable[str] = (),
+    directory: Path = SANDBOX_INPUTS_DIR,
+    p_on_time: Optional[Dict[str, float]] = None,
 ) -> ForecastInputs:
-    """Build forecast inputs. Invoices already paid (reconciled) are left out."""
+    """Build forecast inputs. Invoices already paid (reconciled) are left out.
+
+    On-time probabilities come from the buyer risk model unless a map is passed in.
+    """
     profile = company(directory)
     docs = read("trade_documents.json", directory)
     paid = set(reconciled_invoice_nos)
     start = date.fromisoformat(profile["as_of"])
-    p_on_time = {r["invoice_no"]: r["p_on_time"] for r in docs["invoices"] if "p_on_time" in r}
+    p_on_time = p_on_time if p_on_time is not None else on_time_probabilities(directory)
     receivables = [
         OpenReceivable(
             invoice_id=inv.invoice_no,

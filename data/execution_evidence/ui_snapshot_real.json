@@ -26,14 +26,51 @@
       "type": "INJECTION"
     }
   ],
-  "buyer_risk": [],
+  "buyer_risk": [
+    {
+      "avg_days_late": 2.2,
+      "buyer": "Oakline Home LLC (SYNTHETIC)",
+      "buyer_id": "B-US-01",
+      "concentration_alert": true,
+      "has_history": true,
+      "p_on_time": 0.44,
+      "share_of_receivables_pct": 43.2
+    },
+    {
+      "avg_days_late": 0.8,
+      "buyer": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "buyer_id": "B-JP-01",
+      "concentration_alert": false,
+      "has_history": true,
+      "p_on_time": 0.83,
+      "share_of_receivables_pct": 25.5
+    },
+    {
+      "avg_days_late": 0.0,
+      "buyer": "Harbor Living Inc. (SYNTHETIC)",
+      "buyer_id": "B-US-02",
+      "concentration_alert": false,
+      "has_history": false,
+      "p_on_time": 0.84,
+      "share_of_receivables_pct": 18.1
+    },
+    {
+      "avg_days_late": 0.8,
+      "buyer": "Shenzhen Greenhome Trading Ltd. (SYNTHETIC)",
+      "buyer_id": "B-CN-01",
+      "concentration_alert": false,
+      "has_history": true,
+      "p_on_time": 0.71,
+      "share_of_receivables_pct": 13.2
+    }
+  ],
   "chat": {
     "history": [
       {
         "citations": [
           {
-            "label": "Forecast run fc-0015",
-            "source_id": "forecast:fc-0015"
+            "label": "Forecast run fc-0017",
+            "source_id": "forecast:fc-0017"
           },
           {
             "label": "APR calculation",
@@ -42,7 +79,7 @@
         ],
         "mode": "offline-demo",
         "role": "assistant",
-        "text": "Week 7 is expected to be short by USD 42,227.64. Cheapest option: Factoring INV-1030 (Partner Factor, MOCK) for USD 48,000.00 at about 17.1% a year."
+        "text": "Week 7 is expected to be short by USD 43,881.89. Cheapest option: Factoring INV-1030 (Partner Factor, MOCK) for USD 48,000.00 at about 17.1% a year."
       }
     ]
   },
@@ -147,6 +184,24 @@
         "scheduled_date": "2026-11-23",
         "stage": "gentle",
         "status": "scheduled"
+      },
+      {
+        "buyer": "Oakline Home LLC (SYNTHETIC)",
+        "due_offset_days": -3,
+        "invoice_id": "INV-1037",
+        "language": "en",
+        "scheduled_date": "2027-01-05",
+        "stage": "gentle",
+        "status": "scheduled"
+      },
+      {
+        "buyer": "Oakline Home LLC (SYNTHETIC)",
+        "due_offset_days": -3,
+        "invoice_id": "INV-1038",
+        "language": "en",
+        "scheduled_date": "2026-12-19",
+        "stage": "gentle",
+        "status": "scheduled"
       }
     ]
   },
@@ -156,42 +211,6 @@
         "agent": "coordinator",
         "decision": "ALLOWED",
         "reason": "confidence 1.0",
-        "seq": 9,
-        "tier": "L2_INTERNAL_WRITE",
-        "time": "07:00:10",
-        "tool": "ledger_write"
-      },
-      {
-        "agent": "coordinator",
-        "decision": "ALLOWED",
-        "reason": "analysis",
-        "seq": 10,
-        "tier": "L1_ANALYZE",
-        "time": "07:00:11",
-        "tool": "reconcile"
-      },
-      {
-        "agent": "coordinator",
-        "decision": "ALLOWED",
-        "reason": "confidence 1.0",
-        "seq": 11,
-        "tier": "L2_INTERNAL_WRITE",
-        "time": "07:00:12",
-        "tool": "ledger_write"
-      },
-      {
-        "agent": "coordinator",
-        "decision": "ALLOWED",
-        "reason": "analysis",
-        "seq": 12,
-        "tier": "L1_ANALYZE",
-        "time": "07:00:13",
-        "tool": "reconcile"
-      },
-      {
-        "agent": "coordinator",
-        "decision": "AWAITING_APPROVAL",
-        "reason": "confidence 0.0: accountant approval needed",
         "seq": 13,
         "tier": "L2_INTERNAL_WRITE",
         "time": "07:00:14",
@@ -200,38 +219,38 @@
       {
         "agent": "coordinator",
         "decision": "ALLOWED",
-        "reason": "confidence 1.0",
+        "reason": "analysis",
         "seq": 14,
-        "tier": "L2_INTERNAL_WRITE",
+        "tier": "L1_ANALYZE",
         "time": "07:00:15",
+        "tool": "reconcile"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "AWAITING_APPROVAL",
+        "reason": "confidence 0.0: accountant approval needed",
+        "seq": 15,
+        "tier": "L2_INTERNAL_WRITE",
+        "time": "07:00:16",
+        "tool": "ledger_write"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "confidence 1.0",
+        "seq": 16,
+        "tier": "L2_INTERNAL_WRITE",
+        "time": "07:00:17",
         "tool": "lock_period"
       },
       {
         "agent": "coordinator",
         "decision": "ALLOWED",
         "reason": "analysis",
-        "seq": 15,
-        "tier": "L1_ANALYZE",
-        "time": "07:00:16",
-        "tool": "run_forecast"
-      },
-      {
-        "agent": "document_agent",
-        "decision": "ALLOWED",
-        "reason": "analysis",
-        "seq": 16,
-        "tier": "L1_ANALYZE",
-        "time": "07:00:17",
-        "tool": "three_way_match"
-      },
-      {
-        "agent": "document_agent",
-        "decision": "ALLOWED",
-        "reason": "analysis",
         "seq": 17,
         "tier": "L1_ANALYZE",
         "time": "07:00:18",
-        "tool": "three_way_match"
+        "tool": "run_forecast"
       },
       {
         "agent": "document_agent",
@@ -315,40 +334,40 @@
         "tool": "three_way_match"
       },
       {
-        "agent": "coordinator",
+        "agent": "document_agent",
         "decision": "ALLOWED",
         "reason": "analysis",
         "seq": 27,
         "tier": "L1_ANALYZE",
         "time": "07:00:28",
-        "tool": "rank_funding_options"
+        "tool": "three_way_match"
       },
       {
-        "agent": "coordinator",
+        "agent": "document_agent",
         "decision": "ALLOWED",
-        "reason": "granted source",
+        "reason": "analysis",
         "seq": 28,
-        "tier": "L0_READ",
+        "tier": "L1_ANALYZE",
         "time": "07:00:29",
-        "tool": "read_inbox"
+        "tool": "three_way_match"
       },
       {
-        "agent": "coordinator",
+        "agent": "document_agent",
         "decision": "ALLOWED",
         "reason": "analysis",
         "seq": 29,
         "tier": "L1_ANALYZE",
         "time": "07:00:30",
-        "tool": "scan_email"
+        "tool": "three_way_match"
       },
       {
-        "agent": "coordinator",
+        "agent": "document_agent",
         "decision": "ALLOWED",
         "reason": "analysis",
         "seq": 30,
         "tier": "L1_ANALYZE",
         "time": "07:00:31",
-        "tool": "scan_email"
+        "tool": "three_way_match"
       },
       {
         "agent": "coordinator",
@@ -357,16 +376,16 @@
         "seq": 31,
         "tier": "L1_ANALYZE",
         "time": "07:00:32",
-        "tool": "scan_email"
+        "tool": "rank_funding_options"
       },
       {
         "agent": "coordinator",
         "decision": "ALLOWED",
-        "reason": "analysis",
+        "reason": "granted source",
         "seq": 32,
-        "tier": "L1_ANALYZE",
+        "tier": "L0_READ",
         "time": "07:00:33",
-        "tool": "scan_email"
+        "tool": "read_inbox"
       },
       {
         "agent": "coordinator",
@@ -375,6 +394,42 @@
         "seq": 33,
         "tier": "L1_ANALYZE",
         "time": "07:00:34",
+        "tool": "scan_email"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 34,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:35",
+        "tool": "scan_email"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 35,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:36",
+        "tool": "scan_email"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 36,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:37",
+        "tool": "scan_email"
+      },
+      {
+        "agent": "coordinator",
+        "decision": "ALLOWED",
+        "reason": "analysis",
+        "seq": 37,
+        "tier": "L1_ANALYZE",
+        "time": "07:00:38",
         "tool": "scan_email"
       }
     ],
@@ -401,7 +456,7 @@
           "task": "first_negative_week"
         },
         {
-          "answer": "USD 42,227.64",
+          "answer": "USD 43,881.89",
           "baseline_pass": null,
           "cashbridge_pass": true,
           "category": "forecast",
@@ -513,7 +568,7 @@
           "task": "double_financing_blocked"
         },
         {
-          "answer": "Week 7 is expected to be short by USD 42,227.64. Cash today is USD 80,000.",
+          "answer": "Week 7 is expected to be short by USD 43,881.89. Cash today is USD 80,000.",
           "baseline_pass": null,
           "cashbridge_pass": true,
           "category": "cfo",
@@ -547,7 +602,7 @@
       ],
       "total": 20
     },
-    "lines_checked": 33,
+    "lines_checked": 37,
     "registry_blocks": []
   },
   "forecast": {
@@ -558,42 +613,42 @@
         "source_ref": "doc:PO-2214"
       },
       {
-        "amount_usd": 2210.0,
-        "driver": "INV-1023 (Oakline Home LLC (SYNTHETIC)) likely late, p_on_time 0.90",
+        "amount_usd": 5304.0,
+        "driver": "INV-1023 (Oakline Home LLC (SYNTHETIC)) is likely late: 76% chance of on-time payment",
         "source_ref": "inv:INV-1023"
       },
       {
-        "amount_usd": 18258.4,
-        "driver": "INV-1026 (Oakline Home LLC (SYNTHETIC)) likely late, p_on_time 0.42",
+        "amount_usd": 14166.0,
+        "driver": "INV-1026 (Oakline Home LLC (SYNTHETIC)) is likely late: 55% chance of on-time payment",
         "source_ref": "inv:INV-1026"
       },
       {
-        "amount_usd": 8220.0,
-        "driver": "INV-1027 (Oakline Home LLC (SYNTHETIC)) likely late, p_on_time 0.70",
+        "amount_usd": 9864.0,
+        "driver": "INV-1027 (Oakline Home LLC (SYNTHETIC)) is likely late: 64% chance of on-time payment",
         "source_ref": "inv:INV-1027"
       },
       {
-        "amount_usd": 2105.77,
-        "driver": "INV-1029 (Shenzhen Greenhome Trading Ltd. (SYNTHETIC)) likely late, p_on_time 0.90",
+        "amount_usd": 3579.81,
+        "driver": "INV-1029 (Shenzhen Greenhome Trading Ltd. (SYNTHETIC)) is likely late: 83% chance of on-time payment",
         "source_ref": "inv:INV-1029"
       },
       {
-        "amount_usd": 1400.0,
-        "driver": "INV-1033 (Kyoto Interiors K.K. (SYNTHETIC)) likely late, p_on_time 0.95",
+        "amount_usd": 1120.0,
+        "driver": "INV-1033 (Kyoto Interiors K.K. (SYNTHETIC)) is likely late: 96% chance of on-time payment",
         "source_ref": "inv:INV-1033"
       },
       {
-        "amount_usd": 2948.08,
-        "driver": "INV-1034 (Shenzhen Greenhome Trading Ltd. (SYNTHETIC)) likely late, p_on_time 0.90",
+        "amount_usd": 11202.69,
+        "driver": "INV-1034 (Shenzhen Greenhome Trading Ltd. (SYNTHETIC)) is likely late: 62% chance of on-time payment",
         "source_ref": "inv:INV-1034"
       },
       {
-        "amount_usd": 2600.0,
-        "driver": "INV-1035 (Harbor Living Inc. (SYNTHETIC)) likely late, p_on_time 0.90",
+        "amount_usd": 4160.0,
+        "driver": "INV-1035 (Harbor Living Inc. (SYNTHETIC)) is likely late: 84% chance of on-time payment",
         "source_ref": "inv:INV-1035"
       },
       {
-        "amount_usd": -23114.61,
+        "amount_usd": -33114.61,
         "driver": "Opening cash plus scheduled inflows, net of fixed costs and payroll",
         "source_ref": "ledger:baseline"
       }
@@ -610,108 +665,108 @@
         "week": 1
       },
       {
-        "closing": 11800.0,
-        "inflows": 22800.0,
+        "closing": 14160.0,
+        "inflows": 20160.0,
         "opening": 42000.0,
-        "outflows": 53000.0,
+        "outflows": 48000.0,
         "start_date": "2026-10-26",
         "status": "ok",
         "week": 2
       },
       {
-        "closing": 941.34,
-        "inflows": 27141.34,
-        "opening": 11800.0,
+        "closing": 2434.23,
+        "inflows": 26274.23,
+        "opening": 14160.0,
         "outflows": 38000.0,
         "start_date": "2026-11-02",
         "status": "at_risk",
         "week": 3
       },
       {
-        "closing": 9431.34,
-        "inflows": 46490.0,
-        "opening": 941.34,
+        "closing": 8110.23,
+        "inflows": 43676.0,
+        "opening": 2434.23,
         "outflows": 38000.0,
         "start_date": "2026-11-09",
         "status": "at_risk",
         "week": 4
       },
       {
-        "closing": 16915.95,
-        "inflows": 45484.61,
-        "opening": 9431.34,
+        "closing": 5866.19,
+        "inflows": 35755.96,
+        "opening": 8110.23,
         "outflows": 38000.0,
         "start_date": "2026-11-16",
-        "status": "ok",
+        "status": "at_risk",
         "week": 5
       },
       {
-        "closing": 16737.55,
-        "inflows": 37821.6,
-        "opening": 16915.95,
+        "closing": 10860.19,
+        "inflows": 42994.0,
+        "opening": 5866.19,
         "outflows": 38000.0,
         "start_date": "2026-11-23",
         "status": "ok",
         "week": 6
       },
       {
-        "closing": -42227.64,
-        "inflows": 21634.81,
-        "opening": 16737.55,
-        "outflows": 80600.0,
+        "closing": -43881.89,
+        "inflows": 20857.92,
+        "opening": 10860.19,
+        "outflows": 75600.0,
         "start_date": "2026-11-30",
         "status": "shortfall",
         "week": 7
       },
       {
-        "closing": -76617.64,
-        "inflows": 3610.0,
-        "opening": -42227.64,
+        "closing": -75457.89,
+        "inflows": 6424.0,
+        "opening": -43881.89,
         "outflows": 38000.0,
         "start_date": "2026-12-07",
         "status": "shortfall",
         "week": 8
       },
       {
-        "closing": -54363.79,
-        "inflows": 60253.85,
-        "opening": -76617.64,
+        "closing": -53675.39,
+        "inflows": 59782.5,
+        "opening": -75457.89,
         "outflows": 38000.0,
         "start_date": "2026-12-14",
         "status": "shortfall",
         "week": 9
       },
       {
-        "closing": -71505.39,
-        "inflows": 20858.4,
-        "opening": -54363.79,
+        "closing": -56189.39,
+        "inflows": 35486.0,
+        "opening": -53675.39,
         "outflows": 38000.0,
         "start_date": "2026-12-21",
         "status": "shortfall",
         "week": 10
       },
       {
-        "closing": -116285.39,
-        "inflows": 8220.0,
-        "opening": -71505.39,
-        "outflows": 53000.0,
+        "closing": -94325.39,
+        "inflows": 9864.0,
+        "opening": -56189.39,
+        "outflows": 48000.0,
         "start_date": "2026-12-28",
         "status": "shortfall",
         "week": 11
       },
       {
-        "closing": -154285.39,
-        "inflows": 0.0,
-        "opening": -116285.39,
+        "closing": -128195.39,
+        "inflows": 4130.0,
+        "opening": -94325.39,
         "outflows": 38000.0,
         "start_date": "2027-01-04",
         "status": "shortfall",
         "week": 12
       },
       {
-        "closing": -187485.39,
-        "inflows": 4800.0,
-        "opening": -154285.39,
+        "closing": -151195.39,
+        "inflows": 15000.0,
+        "opening": -128195.39,
         "outflows": 38000.0,
         "start_date": "2027-01-11",
         "status": "shortfall",
@@ -812,7 +867,7 @@
       "dso": 75.0
     },
     "first_shortfall_week": 7,
-    "shortfall_usd": 42227.64
+    "shortfall_usd": 43881.89
   },
   "meta": {
     "as_of": "2026-10-19",
@@ -913,6 +968,35 @@
         "txn_id": "TXN-0914"
       }
     ]
+  },
+  "risk_model": {
+    "coefficients": [
+      {
+        "coefficient": 0.217,
+        "name": "buyer B-CN-01"
+      },
+      {
+        "coefficient": 0.583,
+        "name": "buyer B-JP-01"
+      },
+      {
+        "coefficient": -0.814,
+        "name": "buyer B-US-01"
+      },
+      {
+        "coefficient": -0.119,
+        "name": "terms_30_days"
+      },
+      {
+        "coefficient": -2.387,
+        "name": "size_vs_usual"
+      }
+    ],
+    "intercept": 4.345,
+    "method": "Logistic regression (L2, C=10) on past invoices",
+    "on_time_definition": "Paid within 3 days of the due date",
+    "on_time_rate_pct": 77.8,
+    "training_rows": 36
   },
   "scans": [
     {
@@ -1016,64 +1100,28 @@
       "agent": "document_agent",
       "decision": "ALLOWED",
       "reason": "analysis",
-      "seq": 24,
-      "tier": "L1_ANALYZE",
-      "time": "07:00:25",
-      "tool": "three_way_match"
-    },
-    {
-      "agent": "document_agent",
-      "decision": "ALLOWED",
-      "reason": "analysis",
-      "seq": 25,
-      "tier": "L1_ANALYZE",
-      "time": "07:00:26",
-      "tool": "three_way_match"
-    },
-    {
-      "agent": "document_agent",
-      "decision": "ALLOWED",
-      "reason": "analysis",
-      "seq": 26,
-      "tier": "L1_ANALYZE",
-      "time": "07:00:27",
-      "tool": "three_way_match"
-    },
-    {
-      "agent": "coordinator",
-      "decision": "ALLOWED",
-      "reason": "analysis",
-      "seq": 27,
-      "tier": "L1_ANALYZE",
-      "time": "07:00:28",
-      "tool": "rank_funding_options"
-    },
-    {
-      "agent": "coordinator",
-      "decision": "ALLOWED",
-      "reason": "granted source",
       "seq": 28,
-      "tier": "L0_READ",
+      "tier": "L1_ANALYZE",
       "time": "07:00:29",
-      "tool": "read_inbox"
+      "tool": "three_way_match"
     },
     {
-      "agent": "coordinator",
+      "agent": "document_agent",
       "decision": "ALLOWED",
       "reason": "analysis",
       "seq": 29,
       "tier": "L1_ANALYZE",
       "time": "07:00:30",
-      "tool": "scan_email"
+      "tool": "three_way_match"
     },
     {
-      "agent": "coordinator",
+      "agent": "document_agent",
       "decision": "ALLOWED",
       "reason": "analysis",
       "seq": 30,
       "tier": "L1_ANALYZE",
       "time": "07:00:31",
-      "tool": "scan_email"
+      "tool": "three_way_match"
     },
     {
       "agent": "coordinator",
@@ -1082,16 +1130,16 @@
       "seq": 31,
       "tier": "L1_ANALYZE",
       "time": "07:00:32",
-      "tool": "scan_email"
+      "tool": "rank_funding_options"
     },
     {
       "agent": "coordinator",
       "decision": "ALLOWED",
-      "reason": "analysis",
+      "reason": "granted source",
       "seq": 32,
-      "tier": "L1_ANALYZE",
+      "tier": "L0_READ",
       "time": "07:00:33",
-      "tool": "scan_email"
+      "tool": "read_inbox"
     },
     {
       "agent": "coordinator",
@@ -1100,6 +1148,42 @@
       "seq": 33,
       "tier": "L1_ANALYZE",
       "time": "07:00:34",
+      "tool": "scan_email"
+    },
+    {
+      "agent": "coordinator",
+      "decision": "ALLOWED",
+      "reason": "analysis",
+      "seq": 34,
+      "tier": "L1_ANALYZE",
+      "time": "07:00:35",
+      "tool": "scan_email"
+    },
+    {
+      "agent": "coordinator",
+      "decision": "ALLOWED",
+      "reason": "analysis",
+      "seq": 35,
+      "tier": "L1_ANALYZE",
+      "time": "07:00:36",
+      "tool": "scan_email"
+    },
+    {
+      "agent": "coordinator",
+      "decision": "ALLOWED",
+      "reason": "analysis",
+      "seq": 36,
+      "tier": "L1_ANALYZE",
+      "time": "07:00:37",
+      "tool": "scan_email"
+    },
+    {
+      "agent": "coordinator",
+      "decision": "ALLOWED",
+      "reason": "analysis",
+      "seq": 37,
+      "tier": "L1_ANALYZE",
+      "time": "07:00:38",
       "tool": "scan_email"
     }
   ],
@@ -1223,6 +1307,28 @@
       "differences": [],
       "due_date": "2026-11-26",
       "invoice_id": "INV-1035",
+      "registry_status": "NOT_REGISTERED",
+      "status": "ELIGIBLE",
+      "tax_id_valid": true
+    },
+    {
+      "amount": 59000.0,
+      "buyer": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "differences": [],
+      "due_date": "2027-01-08",
+      "invoice_id": "INV-1037",
+      "registry_status": "NOT_REGISTERED",
+      "status": "ELIGIBLE",
+      "tax_id_valid": true
+    },
+    {
+      "amount": 26000.0,
+      "buyer": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "differences": [],
+      "due_date": "2026-12-22",
+      "invoice_id": "INV-1038",
       "registry_status": "NOT_REGISTERED",
       "status": "ELIGIBLE",
       "tax_id_valid": true

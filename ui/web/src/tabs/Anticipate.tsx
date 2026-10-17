@@ -3,8 +3,8 @@ import { api } from "../api";
 import type { ScenarioKey, ScenarioParams, SimulateResult, Snapshot } from "../types";
 import { AttributionBars } from "../components/AttributionBars";
 import { CashChart } from "../components/CashChart";
-import { Empty, Section } from "../components/common";
-import { amount, dayMonth, usd } from "../format";
+import { Empty, Section, Status } from "../components/common";
+import { amount, dayMonth, days, label, pct, usd } from "../format";
 
 const CONTROLS: { key: ScenarioKey; title: string; unit: string; hint: string }[] = [
   { key: "dso_change_days", title: "Collection time (DSO)", unit: "days", hint: "Positive means buyers pay later" },
@@ -112,13 +112,13 @@ export function Anticipate({ snap, onAsk }: { snap: Snapshot; onAsk: (text: stri
               <tbody>
                 {snap.collections.schedule.map((r) => (
                   <tr key={r.invoice_id + r.stage}>
-                    <td className="num">{r.invoice_id}</td><td>{r.buyer}</td><td>{r.stage}</td>
-                    <td>{dayMonth(r.scheduled_date)}</td><td>{r.status.replace("_", " ")}</td>
+                    <td className="num" style={{ textAlign: "left" }}>{r.invoice_id}</td><td>{r.buyer}</td><td>{label(r.stage)}</td>
+                    <td>{dayMonth(r.scheduled_date)}</td><td>{label(r.status)}</td>
                   </tr>
                 ))}
                 {snap.collections.promises.map((p) => (
                   <tr key={p.invoice_id + p.promised_date}>
-                    <td className="num">{p.invoice_id}</td><td>{p.buyer}</td><td>Buyer promise</td>
+                    <td className="num" style={{ textAlign: "left" }}>{p.invoice_id}</td><td>{p.buyer}</td><td>Buyer promise</td>
                     <td>{dayMonth(p.promised_date)}</td><td className="muted">“{p.source_text}”</td>
                   </tr>
                 ))}
@@ -128,22 +128,51 @@ export function Anticipate({ snap, onAsk }: { snap: Snapshot; onAsk: (text: stri
         )}
       </Section>
 
-      <Section id="buyerrisk" title="Buyer risk">
+      <Section id="buyerrisk" title="Buyer risk" aside={<span className="label">Who is most likely to pay late</span>}>
         {snap.buyer_risk.length === 0 ? (
-          <Empty>Concentration and on-time probability by buyer appear here once the buyer risk agent is enabled.</Empty>
+          <Empty>There are no open invoices to assess.</Empty>
         ) : (
-          <table>
-            <thead><tr><th>Buyer</th><th className="num">Share of receivables</th><th className="num">Avg days late</th><th className="num">P(on time)</th><th>Alert</th></tr></thead>
-            <tbody>
-              {snap.buyer_risk.map((b) => (
-                <tr key={b.buyer}>
-                  <td>{b.buyer}</td><td className="num">{amount(b.share_of_receivables_pct, true)}%</td>
-                  <td className="num">{amount(b.avg_days_late, true)}</td><td className="num">{amount(b.p_on_time, true)}</td>
-                  <td className={b.concentration_alert ? "neg" : ""}>{b.concentration_alert ? "Concentration" : "None"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <p className="lede">
+              The chance each buyer pays on time is estimated from this company's own payment history. A buyer holding more than 40% of
+              open invoices is a concentration risk, because one late payer can open a cash gap.
+            </p>
+            <div className="scroll">
+              <table>
+                <thead>
+                  <tr><th>Buyer</th><th className="num">Share of open invoices</th><th className="num">Average days late</th><th className="num">Chance of on-time payment</th><th>Flag</th></tr>
+                </thead>
+                <tbody>
+                  {snap.buyer_risk.map((b) => (
+                    <tr key={b.buyer_id}>
+                      <td>{b.buyer}{!b.has_history && <div className="muted" style={{ fontSize: 12.5 }}>No payment history yet: scored as the portfolio average</div>}</td>
+                      <td className="num">{pct(b.share_of_receivables_pct)}</td>
+                      <td className="num">{b.has_history ? days(b.avg_days_late) : "n/a"}</td>
+                      <td className="num">{amount(b.p_on_time * 100)}%</td>
+                      <td>{b.concentration_alert ? <Status text="Over 40% of open invoices" tone="neg" solid /> : <span className="muted">None</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <details style={{ marginTop: 18 }}>
+              <summary className="textbtn" style={{ cursor: "pointer", display: "inline-block" }}>How is this estimated?</summary>
+              <p className="lede">
+                {snap.risk_model.method}, fitted on {snap.risk_model.training_rows} invoices ({amount(snap.risk_model.on_time_rate_pct, true)}% were paid on time).
+                {" "}{snap.risk_model.on_time_definition}. A negative number lowers the chance of paying on time; "size vs usual" is how big the
+                invoice is compared with that buyer's usual invoice.
+              </p>
+              <table>
+                <thead><tr><th>Input</th><th className="num">Weight</th></tr></thead>
+                <tbody>
+                  <tr><td className="muted">Baseline</td><td className="num">{amount(snap.risk_model.intercept, true)}</td></tr>
+                  {snap.risk_model.coefficients.map((c) => (
+                    <tr key={c.name}><td>{c.name.replace("size_vs_usual", "size vs usual").replace("terms_30_days", "payment terms (per 30 days)")}</td><td className="num">{amount(c.coefficient, true)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          </>
         )}
       </Section>
     </>

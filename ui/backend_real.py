@@ -117,7 +117,8 @@ class RealBackend:
                 ],
             },
             "scans": c.scans,
-            "buyer_risk": [],
+            "buyer_risk": c.buyer_risk_rows(),
+            "risk_model": c.risk.model.describe(),
             "evidence": self._evidence(),
         }
 
@@ -247,6 +248,40 @@ class RealBackend:
     def approve(self, code: str) -> Dict[str, Any]:
         result = self.coord.approve(code)
         return {"ok": result["ok"], "error": result["error"], "snapshot": self.get_snapshot()}
+
+    # ----------------------------------------------- engine endpoints (api/main.py, Step 6.2)
+    def forecast_view(self, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """The 13-week forecast, optionally under what-if controls."""
+        if params:
+            return self.simulate({**{k: c["default"] for k, c in SCENARIO_CONTROLS.items()}, **params})
+        return {"forecast": self._forecast_block(self.coord.forecast), "kpis": self._kpis(self.coord.forecast)}
+
+    def reconciliation_view(self) -> Dict[str, Any]:
+        return {"rows": self.coord.recon_rows, "featured_wire": self._featured_wire()}
+
+    def funding_options(self) -> List[Dict[str, Any]]:
+        return to_contract(self.coord.options)
+
+    def create_pack(self, option_id: str) -> Dict[str, Any]:
+        """Choose an option and draft its pack. A refusal is raised as ValueError."""
+        self.coord.choose_option(option_id)
+        outcome = self.coord.prepare_pack()
+        if not outcome.get("ok"):
+            raise ValueError(outcome.get("error", "the pack could not be prepared"))
+        return {k: self.coord.pack[k] for k in PACK_KEYS}
+
+    def _require_pack(self, pack_id: str) -> None:
+        if self.coord.pack.get("pack_id") != pack_id:
+            raise LookupError(f"unknown pack '{pack_id}'")
+
+    def request_pack_approval(self, pack_id: str) -> Dict[str, Any]:
+        self._require_pack(pack_id)
+        return self.coord.request_approval()
+
+    def approve_pack(self, pack_id: str, code: str) -> Dict[str, Any]:
+        self._require_pack(pack_id)
+        result = self.coord.approve(code)
+        return {**result, "pack": {k: self.coord.pack[k] for k in PACK_KEYS}}
 
     def pack_pdf(self) -> Optional[Path]:
         """Path of the current pack's PDF, or None (served by the API as /api/pack/pdf)."""

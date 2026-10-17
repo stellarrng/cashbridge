@@ -238,7 +238,7 @@ def shortfall_attribution(
             rec = view.receivable
             drivers.append(
                 ShortfallAttribution(
-                    driver=f"{rec.invoice_id} ({rec.buyer_name}) likely late, p_on_time {rec.p_on_time:.2f}",
+                    driver=f"{rec.invoice_id} ({rec.buyer_name}) is likely late: {round(rec.p_on_time * 100)}% chance of on-time payment",
                     amount_usd=view.late,
                     source_ref=f"inv:{rec.invoice_id}",
                 )

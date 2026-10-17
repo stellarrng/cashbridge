@@ -4,7 +4,7 @@ The UI talks to the backend only through the methods below.
 - `ui/backend_real.py` implements them on the real engines (Step 3.5); `ui/backend.py` exposes `get_backend()`.
 - `api/main.py` publishes them over HTTP: `GET /api/snapshot` for `get_snapshot()` and `POST /api/<method>` (JSON body = the method's arguments) for every other method. Responses are exactly the return shapes below.
 - There is no stub backend. Design-time sample data is the JSON in section C.2, and `tests/test_ui_contract.py` checks that the real snapshot has every key of it.
-- Additions made while building: `meta.last_error` (a refused action's message, otherwise null), `pii_inspector.note` and `scans` (what the document agent read from each scanned document). Extra keys are allowed; renaming or removing keys is not.
+- Additions made while building: `meta.last_error` (a refused action's message, otherwise null), `pii_inspector.note`, `scans` (what the document agent read from each scanned document) and `risk_model` (the fitted on-time model). Extra keys are allowed; renaming or removing keys is not.
 
 ### C.1 Actions (method signatures)
 
@@ -133,7 +133,11 @@ The numbers below are **illustrative placeholders** for design. Real values come
      "citations": [{"label": "Forecast run fc-0007", "source_id": "forecast:fc-0007"}, {"label": "APR calc", "source_id": "funding:factoring_inv1030"}], "mode": "offline-demo"}
   ]},
   "collections": {"schedule": [], "promises": []},
-  "buyer_risk": [],
+  "buyer_risk": [
+    {"buyer": "Oakline Home LLC (SYNTHETIC)", "buyer_id": "B-US-01", "share_of_receivables_pct": 43.2, "avg_days_late": 2.2, "p_on_time": 0.4, "concentration_alert": true, "has_history": true}
+  ],
+  "risk_model": {"method": "Logistic regression (L2, C=10) on past invoices", "on_time_definition": "Paid within 3 days of the due date", "training_rows": 36, "on_time_rate_pct": 77.8, "intercept": 1.2,
+                 "coefficients": [{"name": "buyer B-US-01", "coefficient": -0.8}, {"name": "size_vs_usual", "coefficient": -2.4}]},
   "evidence": {"chain_ok": true, "broken_seq": null, "lines_checked": 44, "audit_tail": [], "registry_blocks": [], "eval": null}
 }
 ```
@@ -146,12 +150,12 @@ The numbers below are **illustrative placeholders** for design. Real values come
 | `collections` | Step 5.2 |
 | `pack.pdf_path` | Step 5.3 |
 | `evidence.eval` | Step 5.4 |
-| `buyer_risk` | Step 6.1 |
+| `buyer_risk` | Step 6.1 (done) |
 
 Shapes of those fields:
 - `collections.schedule[]`: `{invoice_id, buyer, stage: "gentle"|"firm"|"escalation", due_offset_days, scheduled_date, status: "scheduled"|"draft"|"awaiting_approval"|"sent"}` (extra keys: `language`, `buyer_id`, `first_for_buyer`)
 - `collections.promises[]`: `{invoice_id, buyer, promised_date, source_text}`
-- `buyer_risk[]`: `{buyer, share_of_receivables_pct, avg_days_late, p_on_time, concentration_alert}`
+- `buyer_risk[]`: `{buyer, share_of_receivables_pct, avg_days_late, p_on_time, concentration_alert}` (extra keys: `buyer_id`, `has_history`); `risk_model` carries the fitted coefficients
 - `evidence.eval`: `{passed, total, rows: [{task, cashbridge_pass, baseline_pass, invented_numbers}]}`
 - `pack.locked_metrics[]`: `{key, label, value, unit}`
 - `pack.number_check`: `{ok, offending: []}`
