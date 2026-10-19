@@ -34,6 +34,8 @@ TOOL_TIERS: Dict[str, Tier] = {
     # L2: internal writes
     "ledger_write": Tier.L2_INTERNAL_WRITE,
     "lock_period": Tier.L2_INTERNAL_WRITE,
+    # L2 written by a named human at the lender, never by an agent
+    "record_credit_decision": Tier.L2_INTERNAL_WRITE,
     # L3: leaves the system, OTP from the Director every time
     "submit_pack": Tier.L3_EXTERNAL,
     "send_email": Tier.L3_EXTERNAL,
@@ -71,6 +73,8 @@ TOOL_ALLOWLIST: Dict[str, FrozenSet[str]] = {
         {"read_payment_history", "schedule_reminders", "draft_text", "parse_reply"}
     ),
     "buyer_risk_agent": frozenset({"read_payment_history", "score_buyer_risk"}),
+    # The lender's human reviewer (bank portal). Reads the submitted pack, records a decision.
+    "bank_reviewer": frozenset({"read_documents", "record_credit_decision"}),
 }
 
 

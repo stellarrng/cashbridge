@@ -3,13 +3,14 @@ from io import BytesIO
 from docx import Document
 from fastapi.testclient import TestClient
 from api.main import create_app
+from tests.authed import RoleClient
 from ui.backend_real import RealBackend
 from scripts.run_demo_story import StoryClock
 
 
 def test_docx_export_returns_unsigned_valid_word_document(tmp_path):
     backend=RealBackend(runtime_dir=tmp_path/'runtime',clock=StoryClock())
-    client=TestClient(create_app(lambda:backend,dist_dir=tmp_path/'none'))
+    client=RoleClient(create_app(lambda:backend,dist_dir=tmp_path/'none'))
     response=client.post('/api/contracts/draft-docx', json={'data':{
         'supplier':'Synthetic Supplier', 'customer':'Synthetic Customer',
         'scope':'Deliver 20 synthetic sample desks', 'amount':200000, 'contract_type':'supply'}})
@@ -26,7 +27,7 @@ def test_docx_export_returns_unsigned_valid_word_document(tmp_path):
 
 def test_docx_export_rejects_invalid_payment_percentages(tmp_path):
     backend=RealBackend(runtime_dir=tmp_path/'runtime',clock=StoryClock())
-    client=TestClient(create_app(lambda:backend,dist_dir=tmp_path/'none'))
+    client=RoleClient(create_app(lambda:backend,dist_dir=tmp_path/'none'))
     r=client.post('/api/contracts/draft-docx',json={'data':{
         'supplier':'X','customer':'Y','scope':'Test','amount':1000,
         'milestones':[{'event':'only deposit','percentage':99}]}})

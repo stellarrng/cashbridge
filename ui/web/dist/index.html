@@ -1,5 +1,179 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>CashBridge | SME & Bank Intelligence</title><meta name="ui-distribution" content="zero-build-fallback"><link rel="stylesheet" href="/assets/demo.css"/></head>
-<body><header><div class="top"><div><span class="logo">CashBridge<span class="logo-dot">.</span></span><span class="tag">FinTechathon · Synthetic demo</span></div><div class="top-actions"><label class="role-label">Workspace <select id="role"><option value="sme">SME · financial copilot</option><option value="bank">Bank · reviewer preview</option></select></label><button id="reset" class="secondary">Reset</button></div></div><nav id="nav" aria-label="Sections"></nav></header>
-<div class="frame"><aside class="aside"><div class="aside-top"><small>AI ORCHESTRATION</small><h2>Ask CashBridge</h2><p>Grounded in deterministic engines and synthetic evidence.</p></div><div id="chat" class="chat" aria-live="polite"></div><form id="chat-form"><input id="chat-input" placeholder="Ask about contract risk, marketing budget, DSCR…" required/><button type="submit">Ask</button></form><p class="aside-note">Offline assistant uses rules and verified calculations. Does not move money.</p></aside>
-<main><div id="notice" aria-live="polite"></div><div id="page"></div><footer>CashBridge · SYNTHETIC DEMO · Drafts and indicators require independent human review. No verified bank identity, live financial integration or lending approval.</footer></main></div>
-<script src="/assets/demo.js" defer></script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CashBridge: SME cash-gap copilot</title>
+<meta name="description" content="CashBridge forecasts an SME's 13-week cash, finds the week it goes negative, prices every way to bridge it and prepares a funding pack the Director approves and the lender re-verifies. Synthetic demo for the 2026 Shenzhen FinTechathon, Topic E.">
+<meta name="theme-color" content="#16181a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2316181a'/%3E%3Cpath d='M5 22h4v-5M27 22h-4v-5M9 17c3.5-6 10.5-6 14 0' stroke='%23c5a059' stroke-width='2.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<script src="/assets/i18n.js"></script>
+<link rel="stylesheet" href="/assets/base.css">
+<link rel="stylesheet" href="/assets/landing.css">
+</head>
+<body>
+<a class="sr-only" href="#main">Skip to content</a>
+<header class="nav" id="nav">
+  <div class="wrap nav-row">
+    <a class="logo" href="#top" aria-label="CashBridge home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="currentColor"/><path d="M5 22h4v-5M27 22h-4v-5M9 17c3.5-6 10.5-6 14 0" stroke="var(--bridge)" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>
+      CashBridge
+    </a>
+    <nav class="nav-links" aria-label="Page sections">
+      <a href="#flow" data-i18n="nav.flow">How a case runs</a>
+      <a href="#portals" data-i18n="nav.portals">Two portals</a>
+      <a href="#trust" data-i18n="land.trust">Measured trust</a>
+    </nav>
+    <div class="nav-tools">
+      <div id="langSwitch"></div>
+      <button class="icon-btn" type="button" id="themeBtn"></button>
+      <button class="btn small ghost" type="button" data-open-auth="sme" data-i18n="nav.signin">Sign in</button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero wrap" id="top">
+    <div class="hero-copy">
+      <p class="kicker" data-i18n="hero.kicker">For export SMEs and the banks that fund them</p>
+      <h1 data-i18n="hero.title">Know the week your cash runs out. Bridge it with evidence a bank can check.</h1>
+      <p class="lede" data-i18n="hero.lede">CashBridge reads your bank feed, invoices and shipping documents, forecasts 13 weeks of cash, prices every way to cover the gap, and drafts a funding pack. Your Director approves it with a one-time code; your lender re-verifies every hash.</p>
+      <div class="cta">
+        <button class="btn bridge" type="button" data-open-auth="sme" data-i18n="hero.sme">Open SME workspace</button>
+        <button class="btn ghost" type="button" data-open-auth="bank" data-i18n="hero.bank">Open bank review</button>
+      </div>
+      <p class="fineprint" data-i18n="hero.fine">All companies, people, lenders and bank feeds in this demo are synthetic or mocked.</p>
+    </div>
+    <figure class="hero-chart" aria-labelledby="chartCaption">
+      <div class="chart-head">
+        <div>
+          <span class="chart-company" id="chartCompany">Binh Duong Timberworks (synthetic)</span>
+          <span class="chart-title" data-i18n="chart.title">13-week cash forecast</span>
+        </div>
+        <div class="legend">
+          <span><i class="sw base"></i><span data-i18n="chart.base">Without funding</span></span>
+          <span><i class="sw bridged"></i><span data-i18n="chart.bridged">With the recommended advance</span></span>
+        </div>
+      </div>
+      <svg id="cashChart" viewBox="0 0 640 360" role="img" aria-label="Weekly closing cash for 13 weeks"></svg>
+      <figcaption id="chartCaption" class="chart-notes">
+        <div><b id="noteGap">Week 7: −$43,882</b><span data-i18n="chart.gap">first negative week, found by the forecast</span></div>
+        <div><b id="noteBridge">$48,000 at 17.1% a year</b><span data-i18n="chart.bridge">cheapest option that covers it</span></div>
+        <div><b id="noteResidual">−$152,547 by week 13</b><span data-i18n="chart.residual">what the advance does not fix; the agent says so</span></div>
+      </figcaption>
+    </figure>
+  </section>
+
+  <section class="band" id="flow">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 data-i18n="flow.title">How a case runs</h2>
+        <p data-i18n="flow.lede">One loop, five steps. The agent does the reading and arithmetic; people make the two decisions that matter.</p>
+      </div>
+      <ol class="steps">
+        <li><span class="who agent" data-i18n="who.agent">Agent</span><h3 data-i18n="s1.t">Anticipate</h3><p data-i18n="s1.d">Forecasts 13 weeks from open invoices, deposits and payroll, and names what causes the first negative week.</p></li>
+        <li><span class="who agent" data-i18n="who.agent">Agent</span><h3 data-i18n="s2.t">Prove</h3><p data-i18n="s2.d">Matches bank credits to invoices, checks each invoice against its purchase order and bill of lading, and blocks lookalike-domain payment emails.</p></li>
+        <li><span class="who agent" data-i18n="who.agent">Agent</span><h3 data-i18n="s3.t">Compare</h3><p data-i18n="s3.d">Prices factoring, a bridge loan and early-payment discounts as a true annual cost, then stress-tests the choice week by week.</p></li>
+        <li><span class="who person" data-i18n="who.director">Director</span><h3 data-i18n="s4.t">Approve</h3><p data-i18n="s4.d">Reviews the pack the accountant prepared and releases it with a one-time code bound to that exact pack. The preparer cannot approve.</p></li>
+        <li><span class="who person" data-i18n="who.lender">Lender</span><h3 data-i18n="s5.t">Verify</h3><p data-i18n="s5.d">Sees only what was released, recomputes every document hash and the audit chain, and records the credit decision.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="wrap portals" id="portals">
+    <div class="section-head">
+      <h2 data-i18n="portals.title">Two portals, one evidence trail</h2>
+      <p data-i18n="portals.lede">Each side signs in separately. Permissions are enforced by the server, so hiding a button grants nothing.</p>
+    </div>
+    <div class="split">
+      <article class="portal sme">
+        <h3 data-i18n="p.sme.t">SME workspace</h3>
+        <p class="portal-who" data-i18n="p.sme.who">Chief accountant prepares. Director approves.</p>
+        <ul class="can">
+          <li data-i18n="p.sme.c1">Run the Autopilot from cash gap to a drafted funding pack</li>
+          <li data-i18n="p.sme.c2">See every figure tagged verified, calculated, estimated, assumed or missing</li>
+          <li data-i18n="p.sme.c3">Test what-ifs: slower buyers, smaller deposits, FX moves</li>
+          <li data-i18n="p.sme.c4">Review contracts, bids, budgets and green-investment evidence</li>
+        </ul>
+        <ul class="cannot">
+          <li data-i18n="p.sme.x1">The agent cannot submit a pack or move money</li>
+          <li data-i18n="p.sme.x2">The person who prepares a pack cannot approve it</li>
+        </ul>
+        <button class="btn bridge" type="button" data-open-auth="sme" data-i18n="p.sme.b">Sign in to the SME workspace</button>
+      </article>
+      <article class="portal bank">
+        <h3 data-i18n="p.bank.t">Bank review</h3>
+        <p class="portal-who" data-i18n="p.bank.who">Credit reviewer at the partner lender.</p>
+        <ul class="can">
+          <li data-i18n="p.bank.c1">Receive packs only after the SME Director releases them</li>
+          <li data-i18n="p.bank.c2">Recompute document, bundle and approval hashes independently</li>
+          <li data-i18n="p.bank.c3">Read the agent's reasoning, its assumptions and what it could not check</li>
+          <li data-i18n="p.bank.c4">Approve, decline or request information, with the decision logged</li>
+        </ul>
+        <ul class="cannot">
+          <li data-i18n="p.bank.x1">No access to the SME's inbox, contacts or unreleased drafts</li>
+          <li data-i18n="p.bank.x2">No automated credit decision: a named person decides</li>
+        </ul>
+        <button class="btn" type="button" data-open-auth="bank" data-i18n="p.bank.b">Sign in to bank review</button>
+      </article>
+    </div>
+  </section>
+
+  <section class="band" id="trust">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 data-i18n="trust.title">Trust you can measure</h2>
+        <p data-i18n="trust.lede">Run <code>make trust</code> to reproduce these numbers. They come from the same code that serves this page.</p>
+      </div>
+      <div class="scores" id="scores">
+        <div class="score"><b id="scSec">20/20</b><span data-i18n="trust.sec">adversarial requests refused or detected: forged sessions, self-approval, replayed codes, double financing, tampered documents, prompt injection</span></div>
+        <div class="score"><b id="scAgent">5/5</b><span data-i18n="trust.agent">Autopilot scenarios end correctly, including the ones where the right move is to stop or hand over to a person</span></div>
+        <div class="score"><b id="scModel">0.201 vs 0.214</b><span data-i18n="trust.model">Brier score of the buyer payment model against the historical-rate baseline, walk-forward on 18 synthetic invoices: indicative only</span></div>
+      </div>
+      <div class="claims">
+        <div><h3 data-i18n="cl.works">Working in this demo</h3><p data-i18n="cl.works.d">Forecast, matching, APR, coverage and stress engines; OTP-bound approval; hash-chained audit log and invoice registry; server-side roles for both portals.</p></div>
+        <div><h3 data-i18n="cl.mock">Mocked</h3><p data-i18n="cl.mock.d">Bank feeds, the lender connector and its price list, buyer KYC. The data set is synthetic.</p></div>
+        <div><h3 data-i18n="cl.not">Not claimed</h3><p data-i18n="cl.not.d">Cross-lender duplicate checks, production identity management, legal review of contracts, credit approval, green taxonomy certification.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <span class="logo small">CashBridge</span>
+  <span data-i18n="foot">Built for the 2026 Shenzhen International FinTechathon, Topic E: SME Finance Copilot. Synthetic data only; not a bank, not financial advice.</span>
+  <a href="/docs" data-i18n="foot.api">API reference</a>
+</footer>
+
+<div class="auth" id="auth" role="dialog" aria-modal="true" aria-labelledby="authTitle" hidden>
+  <div class="auth-box">
+    <aside class="auth-side" id="authSide">
+      <div class="seg big" role="tablist" aria-label="Portal">
+        <button type="button" role="tab" id="tabSme" data-portal="sme" aria-selected="true" data-i18n="auth.sme">SME workspace</button>
+        <button type="button" role="tab" id="tabBank" data-portal="bank" aria-selected="false" data-i18n="auth.bank">Bank review</button>
+      </div>
+      <h2 id="authTitle" data-i18n="auth.sme.title">Sign in to your company's workspace</h2>
+      <p id="authLede" data-i18n="auth.sme.lede">The Chief accountant prepares funding packs; the Director approves them. Pick a demo account to see each side.</p>
+      <svg class="auth-art" viewBox="0 0 300 120" aria-hidden="true"><path d="M10 96h60V70M290 96h-60V70M70 70c40-58 120-58 160 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M80 96v-14M110 96V62M150 96V52M190 96V62M220 96v-14" stroke="currentColor" stroke-width="1.5" opacity=".5"/></svg>
+    </aside>
+    <div class="auth-main">
+      <button class="close" type="button" id="authClose" aria-label="Close sign-in">×</button>
+      <h3 data-i18n="auth.demo">Demo accounts</h3>
+      <p class="muted small-text" data-i18n="auth.demo.d">One click signs you in. Passcodes are public because the data is synthetic.</p>
+      <div class="accounts" id="accounts"><p class="muted" data-i18n="auth.loading">Loading accounts…</p></div>
+      <form class="login" id="loginForm" autocomplete="on">
+        <h3 data-i18n="auth.form">Or sign in with a passcode</h3>
+        <label class="field"><span data-i18n="auth.user">Account ID</span><input id="loginUser" name="username" autocomplete="username" required placeholder="sme.lan"></label>
+        <label class="field"><span data-i18n="auth.pass">Passcode</span><input id="loginPass" name="password" type="password" autocomplete="current-password" required></label>
+        <p class="err" id="loginErr" role="alert"></p>
+        <button class="btn bridge" type="submit" id="loginBtn" data-i18n="auth.submit">Sign in</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/config.js"></script>
+<script src="/assets/api.js"></script>
+<script src="/assets/landing.js"></script>
+</body>
+</html>

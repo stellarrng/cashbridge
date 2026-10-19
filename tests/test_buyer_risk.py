@@ -142,3 +142,18 @@ def test_a_history_with_only_one_outcome_falls_back_to_a_smoothed_rate(history, 
 def test_an_empty_history_gives_a_neutral_probability(invoices):
     agent = BuyerRiskAgent([])
     assert agent.p_on_time(invoices["INV-1026"]) == 0.5 and agent.table([], {}) == []
+
+
+
+def test_numpy_fallback_matches_scikit_learn():
+    """The lean serverless build (no scikit-learn) must give the same probabilities."""
+    import numpy as np
+    from agents.buyer_risk_agent import BuyerRiskAgent, NumpyLogisticRegression, _terms_days, _usd
+    from data import loader
+
+    agent = BuyerRiskAgent(loader.read("payment_history.json")["records"])
+    rows = np.array([agent._vector(r["buyer_id"], _terms_days(r), _usd(r)) for r in agent.history])
+    labels = np.array([1 if r["days_late"] <= 3 else 0 for r in agent.history])
+    ours = NumpyLogisticRegression(C=10.0).fit(rows, labels)
+    theirs = agent.model.classifier
+    assert np.allclose(ours.predict_proba(rows)[:, 1], theirs.predict_proba(rows)[:, 1], atol=2e-3)

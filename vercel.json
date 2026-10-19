@@ -1,0 +1,38 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "vercel_app.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "250mb",
+        "excludeFiles": "{tests/**,docs/**,ui/web/src/**,ui/web/node_modules/**,data/runtime/**,data/cases/**,.venv/**,**/__pycache__/**}"
+      }
+    },
+    { "src": "ui/web/dist/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    {
+      "src": "/assets/(.*)",
+      "dest": "/ui/web/dist/assets/$1",
+      "headers": { "Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff" }
+    },
+    {
+      "src": "/",
+      "dest": "/ui/web/dist/index.html",
+      "headers": {
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+        "X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer"
+      }
+    },
+    {
+      "src": "/app(/.*)?",
+      "dest": "/ui/web/dist/app.html",
+      "headers": {
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+        "X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer"
+      }
+    },
+    { "src": "/(.*)", "dest": "/vercel_app.py" }
+  ]
+}

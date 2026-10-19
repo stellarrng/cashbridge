@@ -1,0 +1,122 @@
+/* CashBridge design tokens. System fonts only: the UI works offline and loads nothing external. */
+/* Palette carried over from the first CashBridge dashboard: graphite surfaces, one gold accent,
+ * green / amber / red used only for status. Dark is the house look; light uses the same hues
+ * stepped for contrast on white. Theme follows the system unless the viewer picks one. */
+:root {
+  color-scheme: light;
+  --paper: #f3f3f1;
+  --surface: #ffffff;
+  --surface-2: #f0efec;
+  --ink: #16181a;
+  --ink-2: #45484b;
+  --ink-3: #6b6e71;
+  --rule: #d9d8d4;
+  --rule-soft: #e8e7e3;
+  --bridge: #9a7330;
+  --bridge-ink: #ffffff;
+  --bridge-soft: #f3ead8;
+  --good: #3d7a55;
+  --good-soft: #e3efe6;
+  --deficit: #b4473a;
+  --deficit-soft: #f6e2de;
+  --risk: #a2700f;
+  --risk-soft: #f5ecd6;
+  --inverse: #16181a;
+  --inverse-ink: #f4f4f3;
+  --focus: #2a78d6;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --serif: system-ui, -apple-system, "Segoe UI", "Noto Sans", "PingFang SC", "Microsoft YaHei", Roboto, Arial, sans-serif;
+  --sans: system-ui, -apple-system, "Segoe UI", "Noto Sans", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r-s: 7px;
+  --r-m: 10px;
+  --r-l: 14px;
+  --step--1: 0.8125rem;
+  --step-0: 1rem;
+  --step-1: 1.1875rem;
+  --step-2: 1.5rem;
+  --step-3: 2rem;
+  --step-4: clamp(2.25rem, 1.6rem + 2.6vw, 3.5rem);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #0c0d0e; --surface: #16181a; --surface-2: #1d2023; --ink: #f4f4f3; --ink-2: #c4c6c8; --ink-3: #8a8d90;
+    --rule: #2a2d30; --rule-soft: #222528; --bridge: #c5a059; --bridge-ink: #0c0d0e; --bridge-soft: #2c2619;
+    --good: #7fa88b; --good-soft: #1b2820; --deficit: #cc5f52; --deficit-soft: #341f1c; --risk: #d4a24c; --risk-soft: #31281a;
+    --inverse: #23262a; --inverse-ink: #f4f4f3; --focus: #8ab4ff;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #0c0d0e; --surface: #16181a; --surface-2: #1d2023; --ink: #f4f4f3; --ink-2: #c4c6c8; --ink-3: #8a8d90;
+  --rule: #2a2d30; --rule-soft: #222528; --bridge: #c5a059; --bridge-ink: #0c0d0e; --bridge-soft: #2c2619;
+  --good: #7fa88b; --good-soft: #1b2820; --deficit: #cc5f52; --deficit-soft: #341f1c; --risk: #d4a24c; --risk-soft: #31281a;
+  --inverse: #23262a; --inverse-ink: #f4f4f3; --focus: #8ab4ff;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 var(--step-0)/1.55 var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+h1, h2, h3 { font-family: var(--serif); font-weight: 750; line-height: 1.15; letter-spacing: -0.02em; margin: 0; }
+h1 { font-size: var(--step-4); }
+h2 { font-size: var(--step-3); }
+h3 { font-size: var(--step-1); }
+p { margin: 0; }
+a { color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.mono { font-family: var(--mono); font-size: 0.86em; word-break: break-all; }
+.muted { color: var(--ink-3); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 42px; padding: 0 18px; border-radius: var(--r-s);
+  border: 1px solid var(--ink); background: var(--ink); color: var(--paper);
+  font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap;
+}
+.btn:hover { filter: brightness(1.12); }
+.btn.bridge { background: var(--bridge); border-color: var(--bridge); color: var(--bridge-ink); }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--rule); }
+.btn.ghost:hover { border-color: var(--ink-2); filter: none; }
+.btn.danger { background: transparent; color: var(--deficit); border-color: var(--deficit); }
+.btn.small { min-height: 34px; padding: 0 12px; font-size: var(--step--1); }
+.btn[disabled] { opacity: 0.45; cursor: not-allowed; filter: none; }
+
+.logo { display: inline-flex; align-items: center; gap: 10px; font-family: var(--serif); font-weight: 800; letter-spacing: -0.03em; font-size: 1.3rem; text-decoration: none; color: var(--ink); }
+.logo svg { width: 30px; height: 30px; }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 2px 10px; font-size: var(--step--1); font-weight: 600; border: 1px solid var(--rule); color: var(--ink-2); background: var(--surface); }
+.pill.ok { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); background: var(--good-soft); }
+.pill.bad { color: var(--deficit); border-color: color-mix(in srgb, var(--deficit) 45%, transparent); background: var(--deficit-soft); }
+.pill.warn { color: var(--risk); border-color: color-mix(in srgb, var(--risk) 45%, transparent); background: var(--risk-soft); }
+
+.field { display: grid; gap: 6px; font-size: var(--step--1); color: var(--ink-2); font-weight: 600; }
+.input, .field input, .field select, .field textarea {
+  width: 100%; min-height: 42px; padding: 9px 12px; border-radius: var(--r-s);
+  border: 1px solid var(--rule); background: var(--surface); color: var(--ink); font-weight: 400; font-size: var(--step-0);
+}
+.field textarea { min-height: 120px; resize: vertical; line-height: 1.45; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
+
+.icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: var(--r-s); border: 1px solid var(--rule); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.icon-btn:hover { color: var(--ink); border-color: var(--ink-3); }
+.icon-btn svg { width: 18px; height: 18px; }
+.lang { display: inline-flex; border: 1px solid var(--rule); border-radius: var(--r-s); overflow: hidden; background: var(--surface); }
+.lang button { border: 0; background: transparent; padding: 6px 9px; cursor: pointer; color: var(--ink-3); font-weight: 650; font-size: var(--step--1); }
+.lang button[aria-pressed="true"] { background: var(--bridge); color: var(--bridge-ink); }
+.tip { position: fixed; z-index: 90; pointer-events: none; background: var(--inverse); color: var(--inverse-ink); border-radius: var(--r-s); padding: 6px 10px; font-size: var(--step--1); line-height: 1.4; max-width: 280px; white-space: pre-line; box-shadow: 0 6px 18px rgba(0,0,0,.25); opacity: 0; transition: opacity .12s; }
+.tip.on { opacity: 1; }

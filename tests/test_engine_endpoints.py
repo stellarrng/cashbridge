@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import create_app
+from tests.authed import RoleClient
 from scripts.run_demo_story import StoryClock
 from ui.backend_real import RealBackend
 
@@ -17,7 +18,7 @@ def backend(tmp_path):
 
 @pytest.fixture
 def client(backend, tmp_path):
-    return TestClient(create_app(lambda: backend, dist_dir=tmp_path / "none"))
+    return RoleClient(create_app(lambda: backend, dist_dir=tmp_path / "none"))
 
 
 def audit(backend):

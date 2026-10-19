@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from agents.coordinator import Coordinator
 from api.main import create_app
+from tests.authed import RoleClient
 from core.pdf_compiler import bundle_sha256, printed_hashes
 from data import seed_sandbox
 from scripts.run_demo_story import StoryClock
@@ -98,7 +99,7 @@ def test_unprepared_case_has_no_pdf(inputs, tmp_path):
 
 def test_api_serves_the_pdf_only_when_a_pack_exists(tmp_path):
     backend = RealBackend(runtime_dir=tmp_path, clock=StoryClock())
-    client = TestClient(create_app(lambda: backend, dist_dir=tmp_path / "none"))
+    client = RoleClient(create_app(lambda: backend, dist_dir=tmp_path / "none"))
     assert client.get("/api/pack/pdf").status_code == 404
     client.post("/api/choose_option", json={"option_id": "factoring_inv1030"})
     client.post("/api/prepare_pack")

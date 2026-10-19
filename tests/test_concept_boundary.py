@@ -3,6 +3,7 @@ import pytest
 from agents.concept_explainer import ConceptExplainer, TOPICS
 from agents.llm_client import LlmClient
 from api.main import create_app
+from tests.authed import RoleClient
 from fastapi.testclient import TestClient
 from ui.backend_real import RealBackend
 from scripts.run_demo_story import StoryClock
@@ -38,7 +39,7 @@ def test_explainer_refuses_untrusted_topics_without_provider_calls(topic):
 
 def test_concept_endpoint_only_accepts_allowlisted_topic(tmp_path):
     b=RealBackend(runtime_dir=tmp_path/'r',clock=StoryClock())
-    c=TestClient(create_app(lambda:b,dist_dir=tmp_path/'ui'))
+    c=RoleClient(create_app(lambda:b,dist_dir=tmp_path/'ui'))
     ok=c.post('/api/chat/explain-concept',json={'topic':'cash_reserve'})
     assert ok.status_code==200 and ok.json()['mode']=='local-concept-template'
     assert c.post('/api/chat/explain-concept',json={'topic':'execute_payment'}).status_code==422

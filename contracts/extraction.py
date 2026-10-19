@@ -5,9 +5,16 @@ In-memory processing, no cloud data transfer. Scans are never claimed to be veri
 from __future__ import annotations
 
 import io
+import shutil
 from typing import Dict
 
 MAX_UPLOAD_BYTES = 5_000_000
+
+
+def _require_ocr() -> None:
+    if shutil.which('tesseract') is None:
+        raise ValueError('OCR engine (Tesseract) is not installed on this server; upload a text PDF or TXT, '
+                         'or run the Docker image, which includes it')
 
 
 def extract_upload(filename: str, data: bytes) -> Dict[str, object]:
@@ -21,7 +28,11 @@ def extract_upload(filename: str, data: bytes) -> Dict[str, object]:
     if suffix == 'txt':
         value = data.decode('utf-8-sig', errors='replace')
     elif suffix == 'pdf':
-        import fitz
+        try:
+            import fitz
+        except ImportError as exc:
+            raise ValueError('PDF reading is not installed on this server (lean serverless build); '
+                             'upload a TXT file or paste the text, or run the Docker image') from exc
         try:
             doc = fitz.open(stream=data, filetype='pdf')
             if doc.needs_pass: raise ValueError('Password-protected PDFs are not supported')
@@ -31,6 +42,7 @@ def extract_upload(filename: str, data: bytes) -> Dict[str, object]:
             for page in doc:
                 text = page.get_text(sort=True)
                 if len(text.strip()) < 24:
+                    _require_ocr()
                     import pytesseract
                     from PIL import Image
                     pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
@@ -45,8 +57,12 @@ def extract_upload(filename: str, data: bytes) -> Dict[str, object]:
         except Exception as exc:
             raise ValueError(f'PDF extraction failed: {type(exc).__name__}') from exc
     else:
+        _require_ocr()
         from PIL import Image, UnidentifiedImageError
-        import pytesseract
+        try:
+            import pytesseract
+        except ImportError as exc:
+            raise ValueError('OCR is not installed on this server; upload a TXT file or paste the text') from exc
         try:
             with Image.open(io.BytesIO(data)) as im:
                 if im.width * im.height > 14_000_000: raise ValueError('Image too large')

@@ -1,0 +1,12 @@
+# One-click deploy on Render (Docker, single long-running process: the most reliable way to demo).
+services:
+  - type: web
+    name: cashbridge
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: CASHBRIDGE_ENV
+        value: demo
+      - key: CASHBRIDGE_SESSION_SECRET
+        generateValue: true

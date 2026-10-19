@@ -7,6 +7,7 @@ from agents.decision_copilot import DecisionCopilot, choose_tools, ORDER
 from agents.document_agent import DocumentAgent
 from agents.llm_client import LlmClient
 from api.main import create_app
+from tests.authed import RoleClient
 from scripts.run_demo_story import StoryClock
 from ui.backend_real import RealBackend
 
@@ -121,13 +122,13 @@ def test_bank_reviewer_requires_backend_token_not_ui_toggle(tmp_path, monkeypatc
     ok=c.get('/api/bank/review',headers={'Authorization':'Bearer correct_bank_reviewer_token_1234567'})
     assert ok.status_code==200
     assert ok.headers['cache-control']=='private, no-store'
-    assert ok.headers['vary']=='Authorization'
+    assert 'Authorization' in ok.headers['vary']
     assert ok.json()['bank_access']=='SERVER_SIDE_BEARER_TOKEN_GATE_SYNTHETIC_DEMO'
 
 
 def test_copilot_endpoint_audits_only_hashes_not_raw_contract(tmp_path):
     backend=RealBackend(runtime_dir=tmp_path/'run',clock=StoryClock())
-    c=TestClient(create_app(lambda:backend, dist_dir=tmp_path/'no-dist'))
+    c=RoleClient(create_app(lambda:backend, dist_dir=tmp_path/'no-dist'))
     private='SENSITIVE-CUSTOMER-NEVER-LOG-PLAINTEXT'
     r=c.post('/api/copilot/ask',json={'question':'Please analyze','inputs':{
         'workflow':'contract_check','contract_text':CONTRACT+'\n'+private}})

@@ -17,7 +17,11 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
-from sklearn.linear_model import LogisticRegression
+
+try:  # scikit-learn is used when installed (local, Docker); serverless builds use the NumPy solver below.
+    from sklearn.linear_model import LogisticRegression
+except ImportError:  # pragma: no cover - exercised in the lean Vercel build
+    LogisticRegression = None  # type: ignore[assignment]
 
 from config.settings import CONCENTRATION_ALERT_PCT
 from schemas.document_schemas import CommercialInvoice, Currency, Money
@@ -25,6 +29,39 @@ from schemas.forecast_schemas import OpenReceivable
 
 GRACE_DAYS = 3
 MODEL_FEATURES = ("terms_30_days", "size_vs_usual")
+
+
+class NumpyLogisticRegression:
+    """Same objective as scikit-learn's ``LogisticRegression(C, penalty="l2")``: the mean-free sum of
+    log-losses times C plus half the squared weights (intercept not penalised), solved by Newton's method.
+    Used only when scikit-learn is unavailable; ``tests/test_buyer_risk.py`` checks both agree."""
+
+    def __init__(self, C: float = 10.0, max_iter: int = 100, tol: float = 1e-10) -> None:
+        self.C, self.max_iter, self.tol = C, max_iter, tol
+
+    def fit(self, X: np.ndarray, y: np.ndarray) -> "NumpyLogisticRegression":
+        X = np.asarray(X, dtype=float)
+        y = np.asarray(y, dtype=float)
+        Xb = np.hstack([X, np.ones((X.shape[0], 1))])
+        w = np.zeros(Xb.shape[1])
+        reg = np.ones(Xb.shape[1]) / self.C
+        reg[-1] = 0.0
+        for _ in range(self.max_iter):
+            p = 1.0 / (1.0 + np.exp(-(Xb @ w)))
+            grad = Xb.T @ (p - y) + reg * w
+            hess = (Xb * (p * (1 - p))[:, None]).T @ Xb + np.diag(reg) + 1e-12 * np.eye(Xb.shape[1])
+            step = np.linalg.solve(hess, grad)
+            w -= step
+            if np.max(np.abs(step)) < self.tol:
+                break
+        self.coef_ = np.array([w[:-1]])
+        self.intercept_ = np.array([w[-1]])
+        return self
+
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        z = np.asarray(X, dtype=float) @ self.coef_[0] + self.intercept_[0]
+        p = 1.0 / (1.0 + np.exp(-z))
+        return np.column_stack([1 - p, p])
 
 
 @dataclass
@@ -36,7 +73,7 @@ class RiskModel:
     intercept: float
     training_rows: int
     on_time_rate: float
-    classifier: Optional[LogisticRegression]
+    classifier: Optional[Any]
     constant: float = 0.5  # used only when the history has a single outcome and no regression can be fitted
 
     def describe(self) -> Dict[str, Any]:
@@ -82,7 +119,8 @@ class BuyerRiskAgent:
         smoothed = (sum(labels) + 1) / (len(labels) + 2)  # Laplace smoothing: never exactly 0 or 1
         if len(set(labels)) < 2:
             return RiskModel(self.buyers, {}, 0.0, len(rows), sum(labels) / len(labels) if labels else 0.0, None, smoothed)
-        classifier = LogisticRegression(C=10.0, solver="lbfgs", max_iter=1000)
+        classifier = (LogisticRegression(C=10.0, solver="lbfgs", max_iter=1000) if LogisticRegression is not None
+                      else NumpyLogisticRegression(C=10.0))
         classifier.fit(np.array(rows), np.array(labels))
         names = [f"buyer {b}" for b in self.buyers] + list(MODEL_FEATURES)
         return RiskModel(

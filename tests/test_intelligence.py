@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import create_app
+from tests.authed import RoleClient
 from contracts.extraction import extract_upload
 from contracts.intelligence import analyze, draft, reconcile
 from core.financial_intelligence import financial_summary, budget_stress, project_feasibility
@@ -17,7 +18,7 @@ from ui.backend_real import RealBackend
 @pytest.fixture
 def app_client(tmp_path):
     backend = RealBackend(runtime_dir=tmp_path)
-    return TestClient(create_app(lambda: backend, dist_dir=tmp_path / 'missing'))
+    return RoleClient(create_app(lambda: backend, dist_dir=tmp_path / 'missing'))
 
 
 def test_financial_ratios_correct_and_source_labelled():
@@ -131,7 +132,7 @@ def test_rest_endpoints_end_to_end_and_injection_does_not_trigger_actions(app_cl
     r=c.post('/api/contracts/analyze',json={'text':text})
     assert r.status_code == 200 and r.json()['risk_signal_count'] >= 1
     # Protected reviewer data cannot be fetched by a client-side role toggle.
-    assert c.get('/api/bank/review').status_code in (401, 503)
+    assert c.get('/api/bank/review').status_code in (401, 403, 503)  # an SME session is refused too
     assert c.post('/api/ask_cfo',json={'text':'Explain contract risk'}).json()['citations']
     assert c.post('/api/contracts/draft',json={'data':{'supplier':'X','customer':'Y','scope':'services','amount':200000}}).status_code==200
     assert c.post('/api/contracts/reconcile',json={'data':{'contract_text':text,'invoice_text':'USD 260,000'}}).json()['amount_mismatch']

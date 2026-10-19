@@ -16,6 +16,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from pydantic import ValidationError
 
+from agents.autopilot import FinanceAutopilot
 from agents.cfo_assistant import CfoAssistant
 from agents.concept_explainer import ConceptExplainer
 from agents.decision_copilot import DecisionCopilot
@@ -23,6 +24,8 @@ from agents.coordinator import Coordinator
 from agents.llm_client import LlmClient
 from config.settings import EXECUTION_EVIDENCE_DIR, FX_NOTE, RUNTIME_DIR, SANDBOX_INPUTS_DIR, USD_VND
 from core.forecasting_engine import compute_ccc
+from core.pdf_compiler import bundle_sha256
+from security.otp_verifier import action_hash as compute_action_hash
 from core.green_finance import assess_green_project, green_project_economics
 from core.financial_intelligence import financial_summary, budget_stress, project_feasibility
 from contracts.intelligence import analyze as analyze_contract_text, draft as draft_contract_text, reconcile as reconcile_contract_text
@@ -40,8 +43,9 @@ SCENARIO_CONTROLS = {
 }
 PACK_KEYS = (
     "status", "pack_id", "locked_metrics", "letter_text", "number_check", "action_hash",
-    "pdf_path", "lender_ref", "registry_block",
+    "pdf_path", "lender_ref", "registry_block", "prepared_by", "approved_by",
 )
+BANK_DECISIONS = ("APPROVE_FUNDING", "REQUEST_INFO", "DECLINE")
 
 
 class RealBackend:
@@ -71,6 +75,8 @@ class RealBackend:
         self._chat: List[Dict[str, Any]] = []
         self._green_reviews: Dict[str, str] = {}
         self._last_contract: Optional[Dict[str, Any]] = None
+        self._last_autopilot: Optional[Dict[str, Any]] = None
+        self._lender_review: Dict[str, Any] = self._empty_lender_review()
         self._start()
 
     # ------------------------------------------------------------------ setup
@@ -82,6 +88,13 @@ class RealBackend:
         self.concepts = ConceptExplainer()
         self._chat = [self._briefing()]
         self._last_contract = None
+        self._last_autopilot = None
+        self._lender_review = self._empty_lender_review()
+
+    @staticmethod
+    def _empty_lender_review() -> Dict[str, Any]:
+        return {"status": "NOT_SUBMITTED", "decision": None, "note": None, "reviewer": None,
+                "decided_at": None, "verification": None, "history": []}
 
     def _briefing(self) -> Dict[str, Any]:
         coord = self.coord
@@ -245,6 +258,8 @@ class RealBackend:
             "buyer_risk": c.buyer_risk_rows(),
             "risk_model": c.risk.model.describe(),
             "evidence": self._evidence(),
+            "autopilot": self._last_autopilot,
+            "lender_review": self._lender_view(),
         }
 
     def _meta(self) -> Dict[str, Any]:
@@ -300,6 +315,13 @@ class RealBackend:
 
     def _pack_value(self, key: str) -> Any:
         return self.coord.pack.get(key)
+
+    def _lender_view(self) -> Dict[str, Any]:
+        review = dict(self._lender_review)
+        state = self.coord.state.value
+        if state in ("SUBMITTED", "FUNDED", "REJECTED") and review["status"] == "NOT_SUBMITTED":
+            review["status"] = "IN_REVIEW"
+        return review
 
     def _pii_inspector(self) -> Dict[str, str]:
         inspector = self.coord.llm.pii_inspector()
@@ -384,9 +406,9 @@ class RealBackend:
     def choose_option(self, option_id: str) -> Dict[str, Any]:
         return self._try(lambda: self.coord.choose_option(option_id))
 
-    def prepare_pack(self) -> Dict[str, Any]:
+    def prepare_pack(self, actor: Optional[str] = None) -> Dict[str, Any]:
         def action() -> None:
-            outcome = self.coord.prepare_pack()
+            outcome = self.coord.prepare_pack(prepared_by=actor)
             if not outcome.get("ok"):
                 raise ValueError(outcome.get("error", "the pack could not be prepared"))
 
@@ -395,9 +417,139 @@ class RealBackend:
     def request_otp(self) -> Dict[str, Any]:
         return self.coord.request_approval()
 
-    def approve(self, code: str) -> Dict[str, Any]:
-        result = self.coord.approve(code)
+    def approve(self, code: str, approver: Optional[str] = None) -> Dict[str, Any]:
+        result = self.coord.approve(code, approver=approver)
+        if result["ok"]:
+            self._lender_review = {**self._empty_lender_review(), "status": "IN_REVIEW",
+                                   "history": [{"event": "SUBMITTED", "by": approver, "lender_ref": result.get("lender_ref")}]}
         return {"ok": result["ok"], "error": result["error"], "snapshot": self.get_snapshot()}
+
+    def reject_pack(self, by: str, reason: str) -> Dict[str, Any]:
+        return self._try(lambda: self.coord.reject_pack(by, reason))
+
+    def reopen_pack(self) -> Dict[str, Any]:
+        return self._try(lambda: self.coord.reopen_after_rejection())
+
+    # ------------------------------------------------------------------ autopilot
+    def run_autopilot(self, actor: Optional[str], execute: bool, goal: str = "") -> Dict[str, Any]:
+        """Governed agent pass. ``execute`` lets it draft the pack (preparer role only, checked by the API)."""
+        result = FinanceAutopilot(self.coord).run(actor=actor, execute=execute, goal=goal or "Close the forecast cash gap safely")
+        self._last_autopilot = result
+        return result
+
+    # ------------------------------------------------------------------ bank portal
+    def _submitted_pack(self) -> Dict[str, Any]:
+        if self.coord.state.value not in ("SUBMITTED", "FUNDED", "REJECTED"):
+            raise LookupError("no submitted case")
+        return self.coord.pack
+
+    def bank_inbox(self) -> Dict[str, Any]:
+        """Only packs the SME Director released with an OTP are visible to the lender (data minimisation)."""
+        c = self.coord
+        items = []
+        if c.state.value in ("SUBMITTED", "FUNDED", "REJECTED"):
+            option = c.selected_option()
+            pack = c.pack
+            items.append({
+                "pack_id": pack["pack_id"], "company": c.profile["name"], "product": option.name if option else None,
+                "amount_usd": float(option.amount_usd) if option and option.amount_usd is not None else None,
+                "apr_pct": option.apr_pct if option else None, "invoice_no": c.nominee.invoice_no if c.nominee else None,
+                "lender_ref": pack.get("lender_ref"), "case_state": c.state.value, "review": self._lender_view(),
+                "submitted_by": pack.get("approved_by"), "prepared_by": pack.get("prepared_by"),
+            })
+        return {"synthetic": True, "lender": c.lender_name, "items": items,
+                "notice": "Only packs released by the SME Director with a one-time code appear here. Pre-submission SME data is not shared."}
+
+    def bank_case(self, pack_id: str) -> Dict[str, Any]:
+        c = self.coord
+        pack = self._submitted_pack()
+        if pack.get("pack_id") != pack_id:
+            raise LookupError(f"unknown pack '{pack_id}'")
+        invoice = c.nominee
+        verification = next((v for v in c.verification if v["invoice_id"] == invoice.invoice_no), None)
+        buyer = next((b for b in c.buyer_risk_rows() if b["buyer_id"] == invoice.buyer_id), None)
+        option = c.selected_option()
+        summary = financial_summary()
+        self.coord._gate("bank_reviewer", "read_documents", Tier.L0_READ, {"pack_id": pack_id})
+        return {
+            "synthetic": True, "pack_id": pack_id, "company": c.profile["name"], "lender": c.lender_name,
+            "case_state": c.state.value, "lender_ref": pack.get("lender_ref"),
+            "prepared_by": pack.get("prepared_by"), "approved_by": pack.get("approved_by"),
+            "product": to_contract(option) if option else None,
+            "locked_metrics": pack["locked_metrics"], "letter_text": pack["letter_text"],
+            "document_hashes": pack.get("document_hashes"), "bundle_sha256": pack.get("bundle_sha256"),
+            "action_hash": pack.get("action_hash"), "registry_block": pack.get("registry_block"),
+            "invoice": {"invoice_no": invoice.invoice_no, "buyer": invoice.buyer_name, "amount_usd": float(invoice.amount.to_usd()),
+                        "issue_date": invoice.issue_date.isoformat(), "due_date": invoice.due_date.isoformat(),
+                        "three_way": verification, "scans": [s for s in c.scans if s["invoice_no"] == invoice.invoice_no]},
+            "buyer_risk": buyer, "risk_model": c.risk.model.describe(),
+            "forecast": self._forecast_block(c.forecast), "financial_ratios": summary["ratios"],
+            "autopilot": ({k: self._last_autopilot[k] for k in ("run_id", "decision", "recommendation", "evidence", "evidence_counts", "steps")}
+                          if self._last_autopilot else None),
+            "review": self._lender_view(),
+            "review_checklist": [
+                "Verify SME entity, KYC and signatory authority",
+                "Confirm the buyer and send a notice of assignment",
+                "Check the invoice in an external / shared duplicate-financing register",
+                "Recompute the hashes below against the documents received",
+                "Make and record the human credit decision",
+            ],
+            "not_shared": ["Inbox and contacts", "Unrelated contracts and drafts", "Other invoices' scans", "Chat history"],
+        }
+
+    def bank_pack_pdf(self, pack_id: str) -> Path:
+        pack = self._submitted_pack()
+        path = self.coord.pack_pdf_file
+        if pack.get("pack_id") != pack_id or path is None or not Path(path).exists():
+            raise LookupError(f"unknown pack '{pack_id}'")
+        return Path(path)
+
+    def bank_verify(self, pack_id: str) -> Dict[str, Any]:
+        """Independent recomputation of every hash the pack claims, plus the audit and registry chains."""
+        c = self.coord
+        pack = self._submitted_pack()
+        if pack.get("pack_id") != pack_id:
+            raise LookupError(f"unknown pack '{pack_id}'")
+        locked = {m["key"]: m["value"] for m in pack["locked_metrics"]}
+        recomputed_docs = c._document_hashes()
+        recomputed_bundle = bundle_sha256(recomputed_docs, locked)
+        payload = {"pack_id": pack["pack_id"], "invoice_no": c.nominee.invoice_no, "option_id": c.selected_option_id,
+                   "bundle_sha256": recomputed_bundle, "amount_usd": str(c.selected_option().amount_usd)}
+        audit_ok, broken, lines = verify_chain(c.audit_path)
+        registry_ok, registry_broken = c.registry.verify_chain()
+        block = pack.get("registry_block")
+        checks = [
+            {"check": "Source documents hash to the values in the pack", "ok": recomputed_docs == pack.get("document_hashes"),
+             "detail": ", ".join(f"{k} {v[:12]}…" for k, v in recomputed_docs.items())},
+            {"check": "Bundle SHA-256 recomputed from documents + locked metrics", "ok": recomputed_bundle == pack.get("bundle_sha256"),
+             "detail": recomputed_bundle},
+            {"check": "Director's OTP was bound to this exact action", "ok": compute_action_hash("submit_pack", payload) == pack.get("action_hash"),
+             "detail": pack.get("action_hash")},
+            {"check": "Preparer and approver are different people", "ok": bool(pack.get("approved_by")) and pack.get("approved_by") != pack.get("prepared_by"),
+             "detail": f"prepared by {pack.get('prepared_by') or 'unknown'}, approved by {pack.get('approved_by') or 'unknown'}"},
+            {"check": "Audit log hash chain intact", "ok": audit_ok, "detail": f"{lines} lines checked" + (f", broken at {broken}" if broken else "")},
+            {"check": "Invoice registry chain intact (this installation)", "ok": registry_ok,
+             "detail": f"block {block['block_index']}" if block else "no block (loan products are not registered)"},
+            {"check": "Not financed at another lender", "ok": None,
+             "detail": "Cannot be proven by the SME's own registry; check a shared register"},
+        ]
+        result = {"pack_id": pack_id, "checks": checks, "all_verifiable_ok": all(x["ok"] for x in checks if x["ok"] is not None)}
+        self._lender_review["verification"] = result
+        self._lender_review["history"].append({"event": "VERIFIED" if result["all_verifiable_ok"] else "VERIFICATION_FAILED"})
+        return result
+
+    def bank_decision(self, pack_id: str, decision: str, note: str, reviewer: str) -> Dict[str, Any]:
+        pack = self._submitted_pack()
+        if pack.get("pack_id") != pack_id:
+            raise LookupError(f"unknown pack '{pack_id}'")
+        if self._lender_review.get("verification") is None:
+            raise ValueError("run the evidence verification before recording a decision")
+        self.coord.record_bank_decision(decision, reviewer, note)
+        status = {"APPROVE_FUNDING": "FUNDED_MOCK", "REQUEST_INFO": "INFO_REQUESTED", "DECLINE": "DECLINED"}[decision]
+        self._lender_review.update(status=status, decision=decision, note=note or None, reviewer=reviewer,
+                                   decided_at=self.coord._clock().isoformat())
+        self._lender_review["history"].append({"event": decision, "by": reviewer, "note": note or None})
+        return self.bank_case(pack_id)
 
     # ----------------------------------------------- engine endpoints (api/main.py, Step 6.2)
     def forecast_view(self, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -412,13 +564,13 @@ class RealBackend:
     def funding_options(self) -> List[Dict[str, Any]]:
         return to_contract(self.coord.options)
 
-    def create_pack(self, option_id: str) -> Dict[str, Any]:
+    def create_pack(self, option_id: str, actor: Optional[str] = None) -> Dict[str, Any]:
         """Choose an option and draft its pack. A refusal is raised as ValueError."""
         self.coord.choose_option(option_id)
-        outcome = self.coord.prepare_pack()
+        outcome = self.coord.prepare_pack(prepared_by=actor)
         if not outcome.get("ok"):
             raise ValueError(outcome.get("error", "the pack could not be prepared"))
-        return {k: self.coord.pack[k] for k in PACK_KEYS}
+        return {k: self.coord.pack.get(k) for k in PACK_KEYS}
 
     def _require_pack(self, pack_id: str) -> None:
         if self.coord.pack.get("pack_id") != pack_id:
@@ -428,10 +580,13 @@ class RealBackend:
         self._require_pack(pack_id)
         return self.coord.request_approval()
 
-    def approve_pack(self, pack_id: str, code: str) -> Dict[str, Any]:
+    def approve_pack(self, pack_id: str, code: str, approver: Optional[str] = None) -> Dict[str, Any]:
         self._require_pack(pack_id)
-        result = self.coord.approve(code)
-        return {**result, "pack": {k: self.coord.pack[k] for k in PACK_KEYS}}
+        result = self.coord.approve(code, approver=approver)
+        if result["ok"]:
+            self._lender_review = {**self._empty_lender_review(), "status": "IN_REVIEW",
+                                   "history": [{"event": "SUBMITTED", "by": approver, "lender_ref": result.get("lender_ref")}]}
+        return {**result, "pack": {k: self.coord.pack.get(k) for k in PACK_KEYS}}
 
     def pack_pdf(self) -> Optional[Path]:
         """Path of the current pack's PDF, or None (served by the API as /api/pack/pdf)."""
@@ -465,6 +620,8 @@ class RealBackend:
         self._green_reviews.clear()
         self._last_contract = None
         self._last_error = None
+        self._last_autopilot = None
+        self._lender_review = self._empty_lender_review()
         self.coord.reset()
         self._chat = [self._briefing()]
         return self.get_snapshot()

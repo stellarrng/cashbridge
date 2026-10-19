@@ -1,14 +1,14 @@
-# CashBridge (SYNTHETIC demo): FastAPI app serving the built React dashboard on port 8000.
-# The React bundle ui/web/dist is committed, so no Node is needed in the image.
-FROM python:3.11-slim
+# CashBridge (SYNTHETIC demo): FastAPI app serving the SME + Bank web portals on port 8000.
+# The static web UI in ui/web/dist is committed, so no Node is needed in the image.
+FROM python:3.12-slim
 
 WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
+COPY requirements.txt requirements-ml.txt ./
+RUN pip install --no-cache-dir -r requirements-ml.txt \
     && apt-get update && apt-get install -y --no-install-recommends tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
@@ -25,6 +25,7 @@ USER app
 EXPOSE 8000
 
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/openapi.json', timeout=2)"
+    CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/api/health' % os.getenv('PORT', '8000'), timeout=2)"
 
-CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# PORT is honoured so the same image runs on Render / Railway / Fly.io.
+CMD ["sh", "-c", "python -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

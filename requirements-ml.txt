@@ -1,0 +1,8 @@
+# Full local stack: runtime + PDF/OCR reading + scikit-learn model + optional LLM concept explainer + evaluation harness.
+-r requirements.txt
+PyMuPDF==1.26.7
+pytesseract==0.3.13
+scikit-learn==1.9.1
+openai==3.31.0
+PyYAML==6.0.3
+httpx==0.28.1

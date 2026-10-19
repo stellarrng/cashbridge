@@ -29,7 +29,10 @@ AUDIT_LOG_PATH = EXECUTION_EVIDENCE_DIR / "sandbox_operation_logs.jsonl"
 INVOICE_REGISTRY_PATH = EXECUTION_EVIDENCE_DIR / "invoice_registry.json"
 CASES_DIR = DATA_DIR / "cases"
 # Live UI session state. Kept apart from the committed evidence so clicking Reset never touches it.
-RUNTIME_DIR = DATA_DIR / "runtime"
+# On serverless hosts (Vercel) only /tmp is writable, so the folder moves there automatically.
+from config.runtime_mode import runtime_dir as _runtime_dir  # noqa: E402
+
+RUNTIME_DIR = _runtime_dir(BASE_DIR)
 
 SYNTHETIC_LABEL = "SYNTHETIC DEMO DATA"
 COMPANY_NAME = "Binh Duong Timberworks Co., Ltd. (SYNTHETIC)"

@@ -128,11 +128,15 @@ class PermissionGatekeeper:
         if registered in (Tier.L0_READ, Tier.L1_ANALYZE):
             return Decision.ALLOWED, "granted source" if registered is Tier.L0_READ else "analysis", None
         if registered is Tier.L2_INTERNAL_WRITE:
-            return self._decide_l2(payload, human_approver)
+            return self._decide_l2(payload, human_approver, tool)
         return self._decide_l3(tool, payload, approval)
 
     @staticmethod
-    def _decide_l2(payload: Dict[str, Any], human_approver: Optional[str]):
+    def _decide_l2(payload: Dict[str, Any], human_approver: Optional[str], tool: str = ""):
+        if tool == "record_credit_decision":
+            if human_approver:
+                return Decision.ALLOWED, f"credit decision recorded by human reviewer {human_approver}", None
+            return Decision.BLOCKED, "a credit decision must be made by a named human reviewer", None
         confidence = payload.get("confidence")
         if confidence == 1.0:
             return Decision.ALLOWED, "confidence 1.0", None

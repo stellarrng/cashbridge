@@ -5,7 +5,26 @@
 Built for the 2026 Shenzhen International FinTech Competition, International Track, Topic E (SME Finance Copilot).
 Every company, person, buyer, lender and API in this repository is **SYNTHETIC** or **MOCK**.
 
-![CashBridge Intelligence Dashboard](docs/screenshots/06-intelligence-dashboard.png)
+![CashBridge SME overview (dark, Vietnamese)](docs/screenshots/23-sme-overview-vi-dark.png)
+
+## Version 2 (19 Oct 2026): two portals, a governed Autopilot, measured trust
+
+**Live flow:** landing page → sign in to the **SME workspace** (Chief accountant prepares, Director approves) or the **Bank review** portal (credit reviewer) → the **Autopilot** goes from cash gap to a drafted funding pack → the Director releases it with an action-bound OTP → the lender re-verifies every hash and records a human credit decision.
+
+| What changed | Where | Proof |
+|---|---|---|
+| Server-side sign-in, signed sessions, role permissions, tenant scope; DEMO vs PRODUCTION mode that refuses to start with demo secrets | `security/auth.py`, `config/runtime_mode.py`, `api/main.py` | `tests/test_auth_rbac.py` |
+| Segregation of duties: the preparer can never approve, enforced in the permission matrix *and* the coordinator | `agents/coordinator.py` (`approve`) | `SOD-01..03` in the scorecard |
+| **Finance Autopilot**: six governed steps, allow-listed transitions, refused planner proposals are logged, every claim tagged `VERIFIED / CALCULATED / MODEL_ESTIMATE / ASSUMPTION / NEEDS_HUMAN / NOT_VERIFIABLE_HERE` | `agents/autopilot.py` | `tests/test_autopilot.py` |
+| **Coverage check**: does the option keep cash positive after week 7? (It does not: the agent says the advance bridges week 7 only and the 13-week trough stays about USD 152.5k short, because outflows exceed collections) | `core/funding_coverage.py` | `test_execute_reaches_director_handoff_with_evidence` |
+| **Bank portal**: inbox of released packs only, independent hash/chain re-verification, recorded human decision (approve / request info / decline), director reject + accountant rework | `ui/backend_real.py`, `api/main.py` | `tests/test_bank_portal.py` |
+| **Trust scorecard**: 20 adversarial security cases, 5 agent scenarios, payment model vs baseline (walk-forward Brier) | `eval/trust_scorecard.py` → `data/execution_evidence/trust_scorecard.{json,md}` | `make trust`, `tests/test_trust_scorecard.py` |
+| New web UI: landing, two-portal sign-in with one-click demo accounts, SME **Overview dashboard** (KPI cards, weekly balance columns, buyer-concentration donut, funding-cost bars, shortfall drivers, 3-way-match donut), SME and Bank workspaces; **EN / VI / 中文**; light and dark themes in the original graphite-and-gold palette; system fonts, no external requests, CSP `self` | `ui/web/dist/` (`i18n.js`, `charts.js`, `app.js`) | `tests/test_ui_bundle.py` |
+| Deploy: Vercel (lean serverless build, `/tmp` runtime, NumPy fallback for the risk model) or Render/Docker | `vercel.json`, `vercel_app.py`, `render.yaml`, `Dockerfile` | [`docs/DEPLOY_VI.md`](docs/DEPLOY_VI.md) |
+
+Demo accounts (DEMO mode only, synthetic, names mixed Vietnamese / English / Chinese): Chief accountants `sme.lan` (Nguyễn Thị Lan) and `sme.olivia` (Olivia Bennett); Directors `sme.minh` (Trần Văn Minh) and `sme.chen` (Chen Wei 陈伟); lender reviewers `bank.lihua` (Li Hua 李华) and `bank.daniel` (Daniel Hughes). Passcode is `<first part after the dot>-demo-2026`, e.g. `lan-demo-2026`. Director OTP secret: `JBSWY3DPEHPK3PXP`.
+
+A review of the project and the roadmap behind these changes (Vietnamese) is in [`docs/REVIEW_VI.md`](docs/REVIEW_VI.md).
 
 ## Privacy-first update: multi-agent workflows with NO LLM orchestration
 
@@ -110,11 +129,11 @@ You need Python 3.11 or newer and the Python dependencies in `requirements.txt`.
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements-dev.txt   # runtime + PDF/OCR + scikit-learn + pytest
 cp .env.example .env        # optional
 make test                   # all tests, no network, no API key
-make ui                     # OPTIONAL: rebuild React UI (npm network access required)
-make run                    # dashboard and API at http://localhost:8000
+make trust                  # security + agent + model scorecard
+make run                    # landing page, both portals and the API at http://localhost:8000
 ```
 
 | Command | What it does |
@@ -125,7 +144,8 @@ make run                    # dashboard and API at http://localhost:8000
 | `make story` | Runs the 11-step demo story headless and regenerates `data/execution_evidence/` |
 | `make eval` | Runs 20 evaluation tasks and writes `data/execution_evidence/eval_report.md`; with an API key it also scores an LLM-only baseline |
 | `make anchor` | Appends the audit-log and registry head hashes to `data/execution_evidence/ANCHORS.md` |
-| `make ui` | Optional: builds React/TypeScript UI over the bundled no-build fallback (needs Node 20+, npm dependencies and network) |
+| `make trust` | Runs the trust scorecard (adversarial security cases, Autopilot scenarios, payment-model backtest) |
+| `make ui` | Legacy: builds the older React/TypeScript prototype in `ui/web/src` (not served; the live UI is the no-build `ui/web/dist`) |
 
 ### Fully local financial operations; optional public-only LLM
 
@@ -160,22 +180,34 @@ OTP_SECRET=JBSWY3DPEHPK3PXP
 
 Add it to any authenticator app (choose manual entry, Base32, 30-second codes). A code works once, only for the pack on screen, and only within 120 seconds.
 
-## Using the dashboard
+## Using the web app
 
-Open http://localhost:8000. The included **zero-build fallback UI** provides Overview, Finance EDA, Bid Simulator, Contracts + OCR, **Secure Multi-Agent**, Financing, Green Finance, Token-Gated Bank Review and Evidence. It talks to the actual Python backend. The optional compiled React UI includes the original workflow tabs and adds Analytics, Contracts and Bank Review. Screens/section names therefore differ slightly between the fallback and React source.
+Open http://localhost:8000. Language (EN / VI / 中文) and light/dark theme switches sit in the top bar. The landing page shows the live 13-week forecast (synthetic) with the recommended advance drawn on it. **Sign in** opens a dialog with two sides, **SME workspace** and **Bank review**, each with one-click demo accounts.
 
-| Section | What you do there |
+The 3-minute demo:
+
+1. Sign in as **Nguyễn Thị Lan (Chief accountant)** → *Autopilot* → **Run and draft the pack**. Read the trace, the recommendation, the honest "what this does not fix" box and the evidence register.
+2. **Switch account** (or the *View as* buttons on the Overview) → **Chen Wei 陈伟 or Trần Văn Minh (Director)** → *Funding & approval* (badge shows 1 waiting) → **Approve with one-time code** (authenticator secret `JBSWY3DPEHPK3PXP`). Try **Reject** instead to see the rework loop.
+3. **Switch account** → Bank side → **Li Hua 李华 (credit reviewer)** → *Incoming packs* → open the pack → **Run verification** → record a decision.
+4. Back in the SME workspace, *Funding & approval* shows the lender's decision; *Audit & trust* shows the audit chain, registry and the trust scorecard.
+
+| SME section | What you do there |
 |---|---|
-| Anticipate | Read the 13-week chart, see what causes the gap, move the sliders to try scenarios, and see which buyers are most likely to pay late |
-| Prove | Check the reconciliation, the wire explanation, blocked emails, what the document agent read from scanned documents, and invoice checks |
-| Compare | Choose a funding option |
-| Approve | Prepare the pack, download the PDF funding pack, enter the code, and try the two safeguard demos (financing the same invoice twice, tampering with the draft) |
-| Capital Planner | Explore financing pressure from marketing, working-capital spending and green investment under a minimum cash reserve |
-| Secure Multi-Agent | Run an explicit contract-to-funding, project finance or financial-health policy workflow; view tool trace, cited calculations and human-review status, with no LLM planner |
-| Green Finance | Review synthetic project documentation, illustrative environmental impact and request internal human review |
-| Evidence | Verify the audit chain, run the tamper demo on a temporary copy, see the invoice registry and the evaluation results |
+| Overview | Dashboard: cash today, first negative week, cheapest cover, items waiting for a person; charts; *View as* buttons to switch persona in one click |
+| Autopilot | Governed agent run: plan-only (Director) or draft the pack (Accountant); trace, recommendation, coverage chart, evidence register |
+| Cash forecast | 13-week chart, scenario sliders, shortfall attribution, buyer payment risk |
+| Receivables & checks | Wire reconciliation, 3-way match, scanned-document confidence, held emails |
+| Funding & approval | Options priced as annual cost, pack, cover letter, PDF, OTP approval / reject, lender status, safeguard demos |
+| Financial health, Bid simulator, Contracts, Green finance | The October intelligence tools |
+| Audit & trust | Scorecard, audit chain verify + tamper demo, registry, privacy masking preview, demo reset |
 
-The **Assistant** button opens a drawer with the CFO chat (ask about the shortfall, the cheapest funding, the cash conversion cycle, a slower-collections, tariff or FX scenario, or which buyer is most at risk; every answer lists where its numbers come from), a log of every permission decision, and a privacy check showing masked text. **Reset demo** starts a fresh session.
+| Bank section | What you do there |
+|---|---|
+| Incoming packs | Only packs the Director released |
+| Case | Locked metrics, letter, pledged invoice and scans, SME forecast, the agent's evidence (unverifiable items first), hash re-verification, decision |
+| Audit & trust | The public trust scorecard |
+
+The **Assistant** button (SME) opens the CFO chat; every answer lists where its numbers come from.
 
 ### API
 

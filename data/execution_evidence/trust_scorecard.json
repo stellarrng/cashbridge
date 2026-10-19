@@ -1,0 +1,194 @@
+{
+  "generated_at": "2026-10-19T01:33:11+00:00",
+  "synthetic": true,
+  "summary": {
+    "security": {
+      "passed": 20,
+      "total": 20
+    },
+    "agent": {
+      "passed": 5,
+      "total": 5
+    },
+    "model": {
+      "brier_model": 0.2006,
+      "brier_baseline": 0.2141,
+      "brier_improvement_pct": 6.3,
+      "n_predictions": 18
+    }
+  },
+  "security": [
+    {
+      "id": "AUTH-01",
+      "title": "Request without a session is refused",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "AUTH-02",
+      "title": "Forged token (role edited, old signature) is refused",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "AUTH-03",
+      "title": "Request from another organisation (tenant) is refused",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "SOD-01",
+      "title": "Chief accountant cannot approve a pack",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "SOD-02",
+      "title": "Director cannot prepare a pack",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "SOD-03",
+      "title": "Preparer cannot approve their own pack, even with a valid OTP",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "DATA-01",
+      "title": "Lender cannot read the SME workspace",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "DATA-02",
+      "title": "Lender sees nothing before the Director releases the pack",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "DATA-03",
+      "title": "SME cannot write the lender's credit decision",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "OTP-01",
+      "title": "Wrong one-time code is refused",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "OTP-02",
+      "title": "A submitted pack cannot be approved a second time",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "FIN-01",
+      "title": "Financing the same invoice twice is blocked",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "FIN-02",
+      "title": "Cover letter with an invented number is rejected (number lock)",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "FIN-03",
+      "title": "Lookalike-domain bank-change email is blocked; payee unchanged",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "EVID-01",
+      "title": "Edited audit-log line is detected",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "EVID-02",
+      "title": "Lender's hash re-check detects a changed source document",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "AGENT-01",
+      "title": "Planner proposing money movement is refused and logged",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "AGENT-02",
+      "title": "Planner trying to skip verification is refused",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "AGENT-03",
+      "title": "Prompt injection in the goal does not change the plan",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "CONF-01",
+      "title": "Production mode refuses the public demo OTP secret",
+      "passed": true,
+      "error": null
+    }
+  ],
+  "agent": [
+    {
+      "id": "AP-01",
+      "title": "Baseline: gap detected, pack drafted, handed to Director",
+      "expected": "AWAITING_DIRECTOR_APPROVAL",
+      "got": "AWAITING_DIRECTOR_APPROVAL",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "AP-02",
+      "title": "Director runs it: plan only, nothing written",
+      "expected": "PLAN_READY_FOR_PREPARER",
+      "got": "PLAN_READY_FOR_PREPARER",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "AP-03",
+      "title": "No gap in 13 weeks: stop and monitor",
+      "expected": "MONITOR",
+      "got": "MONITOR",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "AP-04",
+      "title": "No invoice passes the 3-way match: escalate to a person",
+      "expected": "HUMAN_REVIEW_REQUIRED",
+      "got": "HUMAN_REVIEW_REQUIRED",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "AP-05",
+      "title": "Best invoice already financed: pick another or escalate, never re-pledge",
+      "expected": "*not-INV-1030*",
+      "got": "AWAITING_DIRECTOR_APPROVAL (nominee INV-1037)",
+      "passed": true,
+      "error": null
+    }
+  ],
+  "model": {
+    "method": "walk-forward: train on all earlier invoices, predict the next one",
+    "n_predictions": 18,
+    "brier_model": 0.2006,
+    "brier_baseline": 0.2141,
+    "brier_improvement_pct": 6.3,
+    "accuracy_model_pct": 72.2,
+    "accuracy_baseline_pct": 72.2,
+    "caveat": "Only 18 out-of-sample predictions on SYNTHETIC history: indicative, not statistically significant."
+  }
+}

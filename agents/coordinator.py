@@ -640,8 +640,12 @@ class Coordinator:
     def selected_option(self) -> Optional[LiquidityOption]:
         return next((o for o in self.options if o.id == self.selected_option_id), None)
 
-    def prepare_pack(self) -> Dict[str, Any]:
-        """Lock metrics, hash the documents, draft the letter, run the number check."""
+    def prepare_pack(self, prepared_by: Optional[str] = None) -> Dict[str, Any]:
+        """Lock metrics, hash the documents, draft the letter, run the number check.
+
+        ``prepared_by`` records the human (or the human who ran the Autopilot) so the approver can be
+        checked against it: the person who prepares a pack may not approve it.
+        """
         option = self.selected_option()
         if self.state is not CaseState.INVOICE_VERIFIED or option is None:
             raise ValueError("choose an option first")
@@ -678,6 +682,8 @@ class Coordinator:
             "action_hash": action_hash("submit_pack", payload),
             "document_hashes": docs,
             "bundle_sha256": bundle_sha,
+            "prepared_by": prepared_by,
+            "approved_by": None,
         }
         self._write_pdf(option)
         self._save()
@@ -806,11 +812,23 @@ class Coordinator:
             "instructions": self._challenge.instructions,
         }
 
-    def approve(self, code: str) -> Dict[str, Any]:
-        """Verify the OTP for this exact pack and, only then, submit it."""
+    def approve(self, code: str, approver: Optional[str] = None) -> Dict[str, Any]:
+        """Verify the OTP for this exact pack and, only then, submit it.
+
+        With ``approver`` set, segregation of duties is enforced before the code is even checked
+        (so a refused self-approval does not spend the one-time code).
+        """
         if self._challenge is None or self._pack_payload is None:
             raise ValueError("request approval before entering a code")
         payload = self._pack_payload
+        preparer = self.pack.get("prepared_by")
+        if approver is not None and preparer is not None and approver == preparer:
+            self.audit.append(
+                case_id=CASE_ID, agent="coordinator", tool="submit_pack", tier=Tier.L3_EXTERNAL,
+                decision=Decision.REJECTED, reason="Segregation of duties: the preparer cannot approve the same pack",
+                input_payload={"pack_id": self.pack.get("pack_id"), "approver": approver},
+            )
+            return {"ok": False, "error": "segregation_of_duties"}
         result = self.otp.verify(self._challenge, code, action_type="submit_pack", payload=payload)
         self.gate.record_approval(CASE_ID, result.approval, result.error, tool="submit_pack")
         if not result.ok:
@@ -825,11 +843,57 @@ class Coordinator:
         if self.selected_option().type == "factoring":
             block = self.registry.register(self.nominee, self._bundle_sha, lender_ref)
         self.case.move_to(CaseState.SUBMITTED)
-        self.pack.update(status="SUBMITTED", lender_ref=lender_ref, registry_block=block)
+        self.pack.update(status="SUBMITTED", lender_ref=lender_ref, registry_block=block, approved_by=approver)
         self._write_pdf(self.selected_option())
         self._challenge = None
         self._save()
         return {"ok": True, "error": None, "lender_ref": lender_ref}
+
+    def reject_pack(self, by: str, reason: str) -> Dict[str, Any]:
+        """The Director declines a pack awaiting approval. Nothing leaves the system; the case waits for the preparer."""
+        if self.state is not CaseState.AWAITING_APPROVAL:
+            raise ValueError("no pack is awaiting approval")
+        reason = (reason or "no reason given").strip()[:300]
+        self.audit.append(
+            case_id=CASE_ID, agent="coordinator", tool="submit_pack", tier=Tier.L3_EXTERNAL,
+            decision=Decision.REJECTED, reason=f"Rejected by {by}: {reason}",
+            input_payload={"pack_id": self.pack.get("pack_id")},
+        )
+        self.case.move_to(CaseState.NEEDS_HUMAN, f"Director rejected the pack: {reason}")
+        self.pack.update(status="REJECTED_BY_DIRECTOR", rejected_by=by, rejection_reason=reason)
+        self._pack_payload, self._challenge = None, None
+        self._save()
+        return {"ok": True}
+
+    def reopen_after_rejection(self) -> Dict[str, Any]:
+        """The preparer takes a rejected pack back to the option-choice step."""
+        if self.state is not CaseState.NEEDS_HUMAN or self.pack.get("status") != "REJECTED_BY_DIRECTOR":
+            raise ValueError("there is no rejected pack to rework")
+        self.case.move_to(CaseState.INVOICE_VERIFIED)
+        self.selected_option_id = None
+        self.pack = self._empty_pack()
+        self._save()
+        return {"ok": True}
+
+    def record_bank_decision(self, decision: str, reviewer: str, note: str = "") -> Dict[str, Any]:
+        """A named human at the lender records the credit decision on the submitted pack (MOCK lender)."""
+        if decision not in ("APPROVE_FUNDING", "REQUEST_INFO", "DECLINE"):
+            raise ValueError("decision must be APPROVE_FUNDING, REQUEST_INFO or DECLINE")
+        if self.state is not CaseState.SUBMITTED:
+            raise ValueError("only a submitted pack can receive a lender decision")
+        note = (note or "").strip()[:500]
+        if decision != "APPROVE_FUNDING" and not note:
+            raise ValueError("explain a decline or an information request")
+        payload = {"pack_id": self.pack.get("pack_id"), "decision": decision, "note_sha256": sha256_of({"note": note})}
+        self._gate("bank_reviewer", "record_credit_decision", Tier.L2_INTERNAL_WRITE, payload, human_approver=reviewer)
+        if decision == "APPROVE_FUNDING":
+            self.case.move_to(CaseState.FUNDED)
+            self.pack.update(status="FUNDED_MOCK")
+        elif decision == "DECLINE":
+            self.case.move_to(CaseState.REJECTED)
+            self.pack.update(status="DECLINED_BY_LENDER")
+        self._save()
+        return {"ok": True, "decision": decision}
 
     def retry_double_financing(self) -> Dict[str, Any]:
         """Demo: try to finance the same invoice again. The registry refuses and the attempt is logged."""

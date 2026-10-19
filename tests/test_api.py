@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import create_app
+from tests.authed import RoleClient
 from scripts.run_demo_story import StoryClock
 from ui.backend_real import RealBackend
 
@@ -17,7 +18,7 @@ def backend(tmp_path):
 
 @pytest.fixture
 def client(backend, tmp_path):
-    return TestClient(create_app(lambda: backend, dist_dir=tmp_path / "no-dist"))
+    return RoleClient(create_app(lambda: backend, dist_dir=tmp_path / "no-dist"))
 
 
 def test_snapshot_route_returns_the_contract_snapshot(client):
@@ -95,7 +96,7 @@ def test_built_bundle_is_served_with_spa_fallback(backend, tmp_path):
     (dist / "index.html").write_text("<html>app</html>")
     (dist / "assets" / "main.js").write_text("console.log(1)")
     (tmp_path / "secret.txt").write_text("nope")
-    client = TestClient(create_app(lambda: backend, dist_dir=dist))
+    client = RoleClient(create_app(lambda: backend, dist_dir=dist))
     assert client.get("/").text == "<html>app</html>"
     assert client.get("/assets/main.js").text == "console.log(1)"
     assert client.get("/some/route").text == "<html>app</html>"  # client-side routing

@@ -7,27 +7,35 @@ WEB = Path(__file__).resolve().parent.parent / "ui" / "web"
 SOURCES = [p for p in (WEB / "src").rglob("*") if p.suffix in {".ts", ".tsx", ".css"}]
 
 
+DIST = WEB / "dist"
+
+
 def test_built_bundle_exists_and_every_asset_it_references_exists():
-    index = (WEB / "dist" / "index.html").read_text()
-    refs = re.findall(r'(?:src|href)="(/assets/[^"]+)"', index)
-    assert refs, "index.html references no bundle"
-    for ref in refs:
-        assert (WEB / "dist" / ref.lstrip("/")).is_file(), ref
+    for page in ("index.html", "app.html"):
+        html = (DIST / page).read_text()
+        refs = re.findall(r'(?:src|href)="(/assets/[^"]+)"', html)
+        assert refs, f"{page} references no assets"
+        for ref in refs:
+            assert (DIST / ref.lstrip("/")).is_file(), ref
 
 
-def test_fonts_are_local_or_system_fallback_not_fetched():
-    """A React build can bundle fonts; our offline no-npm fallback uses system fonts."""
-    index = (WEB / "dist" / "index.html").read_text()
-    if 'content="zero-build-fallback"' in index:
-        css = (WEB / "dist" / "assets" / "demo.css").read_text()
-        assert "system-ui" in css and "fonts.googleapis" not in css
-        assert not re.search(r"https?://", index + css)
-        assert (WEB / "dist" / "assets" / "demo.js").is_file()
-    else:
-        assert list((WEB / "dist" / "assets").glob("*.woff2"))
-        css = next((WEB / "dist" / "assets").glob("*.css")).read_text()
-        assert "fonts.googleapis" not in css
-        assert "http" not in re.sub(r"url\(data:[^)]*\)", "", css)
+def test_web_ui_loads_nothing_external_and_never_stores_tokens_persistently():
+    """CSP is 'self' only: no CDN, no web fonts. Sessions live in sessionStorage, never localStorage."""
+    for path in list(DIST.glob("*.html")) + list((DIST / "assets").glob("*.*")):
+        if path.suffix not in {".html", ".css", ".js"}:
+            continue
+        text = path.read_text()
+        assert not re.search(r"(?:src|href|url\()\s*=?\s*[\"']?https?://", text), f"external resource in {path.name}"
+        assert "fonts.googleapis" not in text
+        assert "localStorage.setItem(\"cb.session" not in text and "localStorage.setItem('cb.session" not in text
+    api = (DIST / "assets" / "api.js").read_text()
+    assert "sessionStorage" in api and "Authorization" in api
+
+
+def test_web_ui_never_calculates_money():
+    """The browser renders backend figures; no APR / interest arithmetic in the UI code."""
+    js = (DIST / "assets" / "app.js").read_text()
+    assert not re.search(r"[*/]\s*365|365\s*[*/]", js) and "* 0.8" not in js
 
 
 def test_source_has_no_external_urls_and_no_forbidden_words():
