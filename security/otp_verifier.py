@@ -17,7 +17,10 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, Literal, Optional, Set, Tuple
 
-import pyotp
+try:
+    import pyotp
+except ImportError:  # RFC 6238 fallback for offline evaluation without wheel downloads
+    from security import totp_compat as pyotp
 from pydantic import BaseModel
 
 from config.settings import OTP_SECRET, OTP_VALIDITY_SECONDS

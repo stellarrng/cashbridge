@@ -11,6 +11,11 @@ import { Approve } from "./tabs/Approve";
 import { Compare } from "./tabs/Compare";
 import { Evidence } from "./tabs/Evidence";
 import { Prove } from "./tabs/Prove";
+import { CapitalPlanner } from "./tabs/CapitalPlanner";
+import { GreenFinance } from "./tabs/GreenFinance";
+import { Analytics } from "./tabs/Analytics";
+import { Contracts } from "./tabs/Contracts";
+import { BankReviewer } from "./tabs/BankReview";
 import { dayMonth, usd } from "./format";
 
 const SECTIONS: Record<TabKey, { id: string; label: string }[]> = {
@@ -23,6 +28,11 @@ const SECTIONS: Record<TabKey, { id: string; label: string }[]> = {
     { id: "emails", label: "Suspicious emails" }, { id: "scans", label: "Scanned documents" }, { id: "invoices", label: "Invoice checks" },
   ],
   compare: [],
+  green: [],
+  plan: [],
+  analytics: [],
+  contracts: [],
+  bank: [],
   approve: [
     { id: "metrics", label: "Locked numbers" }, { id: "letter", label: "Cover letter" },
     { id: "approval", label: "Approval" }, { id: "safeguards", label: "Try to break it" },
@@ -42,6 +52,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [railOpen, setRailOpen] = useState(false);
+  const [role, setRole] = useState<"sme" | "bank">("sme");
 
   const go = useCallback((next: TabKey) => {
     window.location.hash = `#/${next}`;
@@ -115,6 +126,7 @@ export function App() {
       <Header
         meta={snap.meta} guide={guide} tab={tab} go={go} busy={busy}
         onReset={() => act(api.resetDemo)} railOpen={railOpen} toggleRail={() => setRailOpen(!railOpen)}
+        role={role} onRoleChange={(next) => { setRole(next); go(next === "bank" ? "bank" : "anticipate"); }}
       />
       {railOpen && <button className="drawer-scrim" aria-label="Close panel" onClick={() => setRailOpen(false)} />}
       {railOpen && (
@@ -144,11 +156,16 @@ export function App() {
 
           {tab === "anticipate" && <Anticipate snap={snap} onAsk={ask} />}
           {tab === "prove" && <Prove snap={snap} />}
+          {tab === "green" && <GreenFinance />}
+          {tab === "analytics" && <Analytics />}
+          {tab === "contracts" && <Contracts />}
+          {tab === "bank" && <BankReviewer />}
+          {tab === "plan" && <CapitalPlanner />}
           {tab === "compare" && <Compare snap={snap} onChoose={(id) => act(() => api.chooseOption(id))} />}
           {tab === "approve" && <Approve snap={snap} onSnapshot={setSnap} onPrepare={() => act(api.preparePack)} />}
           {tab === "evidence" && <Evidence snap={snap} />}
 
-          <NextStep guide={guide} current={tab} go={go} />
+          {role === "sme" && <NextStep guide={guide} current={tab} go={go} />}
         </main>
       </div>
     </div>

@@ -178,19 +178,9 @@ class DocumentAgent:
         self.threshold = threshold
 
     def extract(self, text: str, doc_type: str) -> Extraction:
-        fallback: Callable[[], Extraction] = lambda: rule_extract(text, doc_type, self.threshold)  # noqa: E731
-        if self.llm is None or self.llm.current_mode() != "live-llm":
-            return fallback()
-        prompt = (
-            f"Read this {doc_type.replace('_', ' ')} into fields {[n for n, _, _ in SPECS[doc_type]]}. "
-            "Give each field a value, a confidence from 0 to 1 and its page. Use null and confidence 0 for anything missing. "
-            "Copy numbers exactly as printed."
-        )
-        result = self.llm.complete_structured(prompt, Extraction, fallback, untrusted=text, check_numbers=False)
-        extraction = result.value
-        if result.used_fallback or not _grounded(extraction, text):
-            return fallback()
-        return _summarise(doc_type, _typed(extraction).fields, self.threshold)
+        # Always local rule/OCR extraction. No uploaded document reaches a hosted
+        # language model, even if LLM_API_KEY happens to be configured.
+        return rule_extract(text, doc_type, self.threshold)
 
     # ------------------------------------------------------------- typed models
     def build_invoice(self, e: Extraction) -> Optional[CommercialInvoice]:

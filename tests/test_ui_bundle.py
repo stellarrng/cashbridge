@@ -15,10 +15,19 @@ def test_built_bundle_exists_and_every_asset_it_references_exists():
         assert (WEB / "dist" / ref.lstrip("/")).is_file(), ref
 
 
-def test_fonts_are_bundled_not_fetched():
-    assert list((WEB / "dist" / "assets").glob("*.woff2"))
-    css = next((WEB / "dist" / "assets").glob("*.css")).read_text()
-    assert "fonts.googleapis" not in css and "http" not in re.sub(r"url\(data:[^)]*\)", "", css)
+def test_fonts_are_local_or_system_fallback_not_fetched():
+    """A React build can bundle fonts; our offline no-npm fallback uses system fonts."""
+    index = (WEB / "dist" / "index.html").read_text()
+    if 'content="zero-build-fallback"' in index:
+        css = (WEB / "dist" / "assets" / "demo.css").read_text()
+        assert "system-ui" in css and "fonts.googleapis" not in css
+        assert not re.search(r"https?://", index + css)
+        assert (WEB / "dist" / "assets" / "demo.js").is_file()
+    else:
+        assert list((WEB / "dist" / "assets").glob("*.woff2"))
+        css = next((WEB / "dist" / "assets").glob("*.css")).read_text()
+        assert "fonts.googleapis" not in css
+        assert "http" not in re.sub(r"url\(data:[^)]*\)", "", css)
 
 
 def test_source_has_no_external_urls_and_no_forbidden_words():

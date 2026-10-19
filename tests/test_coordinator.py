@@ -259,15 +259,17 @@ def test_bridge_loan_pack_does_not_touch_the_invoice_registry(inputs, tmp_path, 
     assert c.registry.blocks() == [] and c.pack["registry_block"] is None
 
 
-def test_live_letter_is_used_only_if_it_passes_the_number_lock(inputs, tmp_path, clock):
-    good = {"text": "We ask for USD 48,000.00 against INV-1030. Synthetic demo data."}
-    bad = {"text": "We ask for USD 52,000 against INV-1030."}
-    for reply, expect_live in ((good, True), (bad, False)):
-        llm = LlmClient(api_key="k", model="m", provider=lambda m, mo, t, r=reply: json.dumps(r))
-        c = make(inputs, tmp_path / str(expect_live), clock, llm=llm)
-        c.weekly_run(auto_prepare=True)
-        assert c.state is CaseState.AWAITING_APPROVAL
-        assert ("We ask for USD 48,000.00" in c.pack["letter_text"]) is expect_live
+def test_funding_letter_never_calls_a_configured_provider(inputs, tmp_path, clock):
+    calls = []
+    def unexpected_provider(messages, model, timeout):
+        calls.append(messages)
+        raise AssertionError('Customer data must never leave via LLM')
+    c = make(inputs, tmp_path / 'letter_privacy', clock,
+             llm=LlmClient(api_key='k', model='m', provider=unexpected_provider))
+    c.weekly_run(auto_prepare=True)
+    assert c.state is CaseState.AWAITING_APPROVAL
+    assert 'Synthetic demo data' in c.pack['letter_text']
+    assert not calls
 
 
 # --------------------------------------------------------- other triggers

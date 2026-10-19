@@ -44,7 +44,7 @@ def test_question_one_when_is_the_shortfall(assistant):
     assert reply["text"] == (
         f"Week 7 is expected to be short by USD {coord.forecast.shortfall_usd:,.2f}. Cash today is USD 80,000."
     )
-    assert reply["mode"] == "offline-demo" and reply["role"] == "assistant"
+    assert reply["mode"] == "local-explanation-no-llm" and reply["role"] == "assistant"
     assert {c["source_id"] for c in reply["citations"]} >= {f"forecast:{coord.forecast_run_id}", "bank:closing_balance"}
 
 
@@ -165,20 +165,19 @@ def live(provider):
     return LlmClient(base_url="http://x", model="m", api_key="k", provider=provider)
 
 
-def test_live_model_picks_the_intent_and_the_wording_when_numbers_check_out(inputs, tmp_path):
-    provider = Provider({"intent": "cheapest_funding"}, {"text": "Factoring against INV-1030 is cheapest at about 17.1% a year for USD 48,000."})
+def test_configured_provider_never_receives_user_chat_or_financial_data(inputs, tmp_path):
+    provider = Provider({"intent": "cheapest_funding"}, {"text": "untrusted"})
     _, cfo = build(inputs, tmp_path, live(provider))
     reply = cfo.ask("How should we fund the gap?")
-    assert reply["mode"] == "live-llm" and reply["text"].startswith("Factoring against INV-1030")
-    sent = json.dumps(provider.calls)
-    assert "How should we fund the gap?" in sent and "UNTRUSTED_DATA" in sent
+    assert reply["mode"] == "local-explanation-no-llm"
+    assert reply["text"] and not provider.calls
 
 
 def test_live_wording_with_an_invented_number_falls_back_to_the_template(inputs, tmp_path):
     provider = Provider({"intent": "cheapest_funding"}, {"text": "Factoring costs about 9.9% a year."})
     _, cfo = build(inputs, tmp_path, live(provider))
     text = cfo.ask("cheapest funding?")["text"]
-    assert "9.9%" not in text and "17.1%" in text
+    assert "9.9%" not in text and "17.1%" in text and not provider.calls
 
 
 def test_live_router_returning_nonsense_uses_the_rule_router(inputs, tmp_path):
@@ -193,4 +192,4 @@ def test_provider_failure_gives_the_offline_answer(inputs, tmp_path):
 
     _, cfo = build(inputs, tmp_path, live(broken))
     reply = cfo.ask("When will I run out of cash?")
-    assert reply["mode"] == "offline-demo" and reply["text"].startswith("Week 7 is expected")
+    assert reply["mode"] == "local-explanation-no-llm" and reply["text"].startswith("Week 7 is expected")

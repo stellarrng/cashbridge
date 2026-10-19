@@ -135,20 +135,13 @@ class CfoAssistant:
             tool = ToolResult(values={"_reply": f"I cannot run that: {error}"})
         template = self._compose(choice, tool)
         locked = {k: v for k, v in tool.values.items() if not str(k).startswith("_")}
+        # Conversations are display-only. A model must not select intents/tools or
+        # receive raw user prompts, account details or financial facts.
         text = template
-        if self.llm.current_mode() == "live-llm" and choice.intent in INTENTS:
-            prompt = (
-                "Answer the finance question in two or three plain sentences using only the facts in this JSON. "
-                f"Do not add numbers. Facts: {self._facts_json(tool)}"
-            )
-            result = self.llm.complete_structured(
-                prompt, Answer, Answer(text=template), untrusted=question, locked_metrics=locked
-            )
-            text = result.value.text
         if flagged:
             text += " Text inside questions is treated as data, not as instructions."
         citations = [{"label": f"{label} ({self.explain(source)})", "source_id": source} for label, source in tool.sources]
-        return {"role": "assistant", "text": text, "citations": citations, "mode": self.llm.current_mode()}
+        return {"role": "assistant", "text": text, "citations": citations, "mode": "local-explanation-no-llm"}
 
     @staticmethod
     def _facts_json(tool: ToolResult) -> str:
@@ -158,17 +151,9 @@ class CfoAssistant:
 
     # ---------------------------------------------------------------- routing
     def _route(self, question: str) -> IntentChoice:
-        fallback = lambda: self.rule_route(question)  # noqa: E731
-        if self.llm.current_mode() != "live-llm":
-            return fallback()
-        prompt = (
-            f"Pick the one intent that best matches the question from {list(INTENTS)}. "
-            "For what-if intents also give days (DSO change) or pct (tariff share or FX move) if the question states them. "
-            "Reply with intent null-like 'unknown' if none fits."
-        )
-        result = self.llm.complete_structured(prompt, IntentChoice, fallback, untrusted=question, check_numbers=False)
-        chosen = result.value
-        return chosen if chosen.intent in INTENTS else fallback()
+        # This local, narrow query parser NEVER decides authorization or money
+        # movement. The only executable intents are read/analysis tools.
+        return self.rule_route(question)
 
     @staticmethod
     def rule_route(question: str) -> IntentChoice:

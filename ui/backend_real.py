@@ -17,10 +17,17 @@ from typing import Any, Callable, Dict, List, Optional
 from pydantic import ValidationError
 
 from agents.cfo_assistant import CfoAssistant
+from agents.concept_explainer import ConceptExplainer
+from agents.decision_copilot import DecisionCopilot
 from agents.coordinator import Coordinator
 from agents.llm_client import LlmClient
 from config.settings import EXECUTION_EVIDENCE_DIR, FX_NOTE, RUNTIME_DIR, SANDBOX_INPUTS_DIR, USD_VND
 from core.forecasting_engine import compute_ccc
+from core.green_finance import assess_green_project, green_project_economics
+from core.financial_intelligence import financial_summary, budget_stress, project_feasibility
+from contracts.intelligence import analyze as analyze_contract_text, draft as draft_contract_text, reconcile as reconcile_contract_text
+from config.settings import Tier
+from schemas.agent_schemas import Decision
 from schemas.forecast_schemas import ForecastResult, ScenarioParams, to_contract
 from security import number_check
 from security.audit_log import verify_chain
@@ -62,6 +69,8 @@ class RealBackend:
         self.coord = coordinator
         self._last_error: Optional[str] = None
         self._chat: List[Dict[str, Any]] = []
+        self._green_reviews: Dict[str, str] = {}
+        self._last_contract: Optional[Dict[str, Any]] = None
         self._start()
 
     # ------------------------------------------------------------------ setup
@@ -69,7 +78,10 @@ class RealBackend:
         """Every server start is a fresh demo session: the previous session's audit log and registry are cleared."""
         self.coord.reset()
         self.assistant = CfoAssistant(self.coord)
+        self.decision_copilot = DecisionCopilot()
+        self.concepts = ConceptExplainer()
         self._chat = [self._briefing()]
+        self._last_contract = None
 
     def _briefing(self) -> Dict[str, Any]:
         coord = self.coord
@@ -89,7 +101,120 @@ class RealBackend:
         return self._message(text, citations)
 
     def _message(self, text: str, citations: List[Dict[str, str]]) -> Dict[str, Any]:
-        return {"role": "assistant", "text": text, "citations": citations, "mode": self.coord.llm.current_mode()}
+        return {"role": "assistant", "text": text, "citations": citations, "mode": "local-explanation-no-llm"}
+
+    def green_finance_view(self) -> Dict[str, Any]:
+        """Synthetic pre-screening: no lender submission or taxonomy certification."""
+        path = SANDBOX_INPUTS_DIR / "green_projects.json"
+        projects = json.loads(path.read_text(encoding="utf-8"))
+        results = []
+        for project in projects:
+            assessment = assess_green_project(project)
+            assessment["review_status"] = self._green_reviews.get(assessment["project_id"], "NOT_REQUESTED")
+            results.append(assessment)
+        return {"synthetic": True, "projects": results,
+                "notice": "Green eligibility and bank lending decisions require independent human verification."}
+
+    def green_economics(self, project_id: str, electricity_price_usd_per_kwh: float, annual_opex_usd: float) -> Dict[str, Any]:
+        projects = json.loads((SANDBOX_INPUTS_DIR / 'green_projects.json').read_text(encoding='utf-8'))
+        project = next((p for p in projects if p['project_id'] == project_id), None)
+        if project is None: raise ValueError('Unknown green project')
+        result = green_project_economics(project, electricity_price_usd_per_kwh, annual_opex_usd)
+        self._analytics_audit('green_project_economics', {'project_id':project_id,
+                'electricity_price_usd_per_kwh':electricity_price_usd_per_kwh,'annual_opex_usd':annual_opex_usd}, result)
+        return result
+
+    def request_green_review(self, project_id: str) -> Dict[str, Any]:
+        """Record a review request in this demo session; does not contact a bank."""
+        if not any(p["project_id"] == project_id for p in self.green_finance_view()["projects"]):
+            raise ValueError("Unknown green project")
+        self._green_reviews[project_id] = "PENDING_HUMAN_REVIEW"
+        return self.green_finance_view()
+
+    # ------------------------------------------------------ Financial & contract intelligence
+    def _analytics_audit(self, tool: str, input_data: Any, output_data: Any, tier: Tier = Tier.L1_ANALYZE) -> None:
+        """Store hashes only; no document contents in the audit log."""
+        self.coord.audit.append(case_id=self.coord.case.case_id, agent='intelligence', tool=tool,
+                                tier=tier, decision=Decision.ALLOWED, reason='User-invoked offline demo tool; no external action',
+                                input_payload=input_data, output_payload=output_data)
+
+    def copilot_decision(self, question: str, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Audit a controlled multi-tool analytical chain; never allow a write tool."""
+        options = self.funding_options()
+        result = self.decision_copilot.run(question, inputs, funding_options=options)
+        self._analytics_audit('copilot_decision_workflow',
+                              {'question': question, 'input_sources': sorted(inputs),
+                               'tools_executed': [x['tool'] for x in result['plan']]},
+                              {'tools': [x['tool'] for x in result['plan']], 'decision': result['decision']})
+        return result
+
+    def explain_public_concept(self, topic: str) -> Dict[str, Any]:
+        # Optional external model receives only allowlisted public topic titles,
+        # no case/user question/contract/transaction data.
+        result = self.concepts.explain(topic)
+        self._analytics_audit('public_concept_explanation', {'topic': topic},
+                              {'mode': result['mode']})
+        return result
+
+    def project_cashflow(self, values: Dict[str, Any]) -> Dict[str, Any]:
+        from core.project_cashflow import project_cash_waterfall
+        result = project_cash_waterfall(values)
+        self._analytics_audit('project_cash_waterfall', {'source': 'user_entered_milestones'}, result)
+        return result
+
+    def financial_analytics(self) -> Dict[str, Any]:
+        result = financial_summary()
+        self._analytics_audit('financial_analytics', {'source': result['source_id']}, result)
+        return result
+
+    def financial_scenario(self, values: Dict[str, Any]) -> Dict[str, Any]:
+        result = budget_stress(values)
+        self._analytics_audit('budget_stress', values, result)
+        return result
+
+    def project_assessment(self, values: Dict[str, Any]) -> Dict[str, Any]:
+        result = project_feasibility(values)
+        self._analytics_audit('project_feasibility', values, result)
+        return result
+
+    def analyze_contract(self, values: Dict[str, Any]) -> Dict[str, Any]:
+        result = analyze_contract_text(values.get('text', ''), values.get('invoice_amount_usd'))
+        self._last_contract = result
+        self._analytics_audit('contract_review', values, result)
+        return result
+
+    def draft_contract(self, values: Dict[str, Any]) -> Dict[str, Any]:
+        result = draft_contract_text(values)
+        self._analytics_audit('contract_draft_unsigned', values, result, Tier.L2_INTERNAL_WRITE)
+        return result
+
+    def reconcile_contract(self, values: Dict[str, Any]) -> Dict[str, Any]:
+        result = reconcile_contract_text(values)
+        self._analytics_audit('contract_invoice_compare', values, result)
+        return result
+
+    def bank_review(self) -> Dict[str, Any]:
+        """Informational reviewer screen; never a credit scoring or authentication claim."""
+        summary = financial_summary()
+        snap = self.get_snapshot()
+        result = {
+            'synthetic': True, 'bank_access': 'SERVER_SIDE_BEARER_TOKEN_GATE_SYNTHETIC_DEMO',
+            'case_id': snap['meta']['case_id'], 'case_state': snap['meta']['case_state'],
+            'evidence': {'audit_chain_ok': snap['evidence']['chain_ok'],
+                         'invoice_registry_blocks': len(snap['evidence']['registry_blocks']),
+                         'verified_invoices': len([x for x in snap['verification'] if x.get('status') in {'VERIFIED','ELIGIBLE'}])
+                         if isinstance(snap['verification'], list) else None,
+                         'document_review': self._last_contract,
+                         'source_id': summary['source_id']},
+            'financial_ratios': summary['ratios'],
+            'funding_options': snap['funding_options'],
+            'green_projects': self.green_finance_view()['projects'],
+            'review_checklist': ['Verify entity/KYC and signatory authority', 'Validate raw bank transactions and contract with counterparties',
+                                 'Check exposure, collateral and any duplicate financing in external registers',
+                                 'Validate model inputs and independently approve or decline credit'],
+            'notice': 'READ-ONLY synthetic reviewer preview. Bank view requires a server-configured reviewer token; this is not production IAM, underwriting or a lending decision.'
+        }
+        return result
 
     # --------------------------------------------------------------- snapshot
     def get_snapshot(self) -> Dict[str, Any]:
@@ -125,7 +250,7 @@ class RealBackend:
     def _meta(self) -> Dict[str, Any]:
         c = self.coord
         return {
-            "mode": c.llm.current_mode(),
+            "mode": "local-finance-engines",
             "synthetic": True,
             "company": c.profile["name"],
             "case_id": c.case.case_id,
@@ -178,11 +303,10 @@ class RealBackend:
 
     def _pii_inspector(self) -> Dict[str, str]:
         inspector = self.coord.llm.pii_inspector()
-        offline = self.coord.llm.current_mode() == "offline-demo"
         return {
             **inspector,
-            "note": "Preview only: offline mode, nothing was sent to a cloud model." if offline
-            else "Text as sent to the model provider.",
+            'note': ('Local masking preview: nothing was sent to the LLM; this is not a transmission log. '
+                     'The private SME documents and numbers are never sent to the optional public-topic explanation model.'),
         }
 
     def _evidence(self) -> Dict[str, Any]:
@@ -227,7 +351,33 @@ class RealBackend:
         }
 
     def ask_cfo(self, text: str) -> Dict[str, Any]:
-        reply = self.assistant.ask(text)
+        # Explicit offline tool routing; untrusted user text is not executed as code.
+        q = text.lower()
+        if any(term in q for term in ('contract risk', 'contract clause', 'contract review', 'contract fraud', 'hợp đồng')):
+            if self._last_contract:
+                flags = self._last_contract['flags']
+                message = ('The most recently reviewed contract has ' + str(len(flags)) +
+                           ' rule-based review flags: ' +
+                           (', '.join(x['code'] for x in flags) if flags else 'none detected') +
+                           '. Check the Contracts tab for evidence. This is not proof of fraud or legal advice.')
+            else:
+                message = 'Open Contracts, paste or upload a document, and click Review before asking about its clauses or risk.'
+            reply = self._message(message, [{'label':'Session contract review','source_id':'contract:session'}])
+        elif any(term in q for term in ('marketing budget', 'marketing spend', 'marketing increase', 'marketing allocation')):
+            result = budget_stress({'marketing_increase_pct':25})
+            reply = self._message('A sample 25% marketing budget increase would add USD '
+                  +f"{result['additional_marketing_monthly_usd']:,.2f} per month. "
+                  +'For a personalized scenario, change inputs in Financial Analytics; marketing ROI is not modeled.',
+                  [{'label':'Budget engine synthetic ledger','source_id':result['source_id']}])
+        elif any(term in q for term in ('dscr', 'quick ratio', 'interest coverage', 'debt to equity')):
+            metrics = financial_summary()
+            reply = self._message('Synthetic ledger: DSCR proxy '+str(metrics['ratios']['dscr_proxy'])+
+                ', quick ratio '+str(metrics['ratios']['quick_ratio'])+
+                ', interest coverage '+str(metrics['ratios']['interest_coverage'])+
+                '. These are illustrative ratios, not lending approval.',
+                [{'label':'Financial analytics input','source_id':metrics['source_id']}])
+        else:
+            reply = self.assistant.ask(text)
         self._chat += [{"role": "user", "text": text, "citations": [], "mode": reply["mode"]}, reply]
         return reply
 
@@ -312,6 +462,8 @@ class RealBackend:
         return {"ok": ok, "broken_seq": broken, "lines_checked": checked, "note": "temporary copy only"}
 
     def reset_demo(self) -> Dict[str, Any]:
+        self._green_reviews.clear()
+        self._last_contract = None
         self._last_error = None
         self.coord.reset()
         self._chat = [self._briefing()]

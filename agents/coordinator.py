@@ -777,18 +777,8 @@ class Coordinator:
 
     def _draft_letter(self, option: LiquidityOption, locked: Dict[str, Any]) -> str:
         self._gate("cfo_assistant", "draft_text", Tier.L1_ANALYZE, {"pack": option.id})
-        template = self._letter_template(option, locked)
-        prompt = (
-            "Write a short, factual cover letter for a funding pack. Use only the numbers in this JSON "
-            f"and add no others: {json.dumps(locked, sort_keys=True)}. Facts: seller "
-            f"{self.profile['name']}, invoice {self.nominee.invoice_no} of {self.nominee.buyer_name}, "
-            f"product: {option.name}. End with the sentence 'Synthetic demo data.'"
-        )
-        result = self.llm.complete_structured(
-            prompt, LetterDraft, LetterDraft(text=template),
-            directory=self.contacts.get("staff_directory"), locked_metrics=locked,
-        )
-        return result.value.text
+        # Local audited template, never send firm/buyer/invoice data to an LLM.
+        return self._letter_template(option, locked)
 
     def _letter_template(self, option: LiquidityOption, locked: Dict[str, Any]) -> str:
         run = self.forecast_run_id

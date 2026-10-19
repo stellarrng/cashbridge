@@ -32,7 +32,7 @@ export function Activity({ rows, total, onMore }: { rows: TierRow[]; total: numb
   const groups = group(rows).slice(0, 8);
   return (
     <Panel title="Activity" count={`${total} logged`}>
-      <p className="muted" style={{ fontSize: 13, margin: "0 0 8px" }}>Every action passes a permission check. Level 4 (moving money) is always refused.</p>
+      <p className="muted" style={{ fontSize: 13, margin: "0 0 8px" }}>Financing and submission actions use the permission gate. Informational analytics and unsigned drafts are separately audit-logged. Level 4 money movement is refused.</p>
       {groups.length === 0 && <div className="muted">Nothing yet.</div>}
       {groups.map(({ row, times }) => (
         <div className="mon" key={row.seq}>

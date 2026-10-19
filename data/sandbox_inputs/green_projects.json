@@ -1,0 +1,16 @@
+[
+  {
+    "project_id": "GREEN-SOLAR-001", "name": "Factory rooftop solar upgrade", "activity_type": "rooftop_solar",
+    "project_cost_usd": 180000, "requested_loan_usd": 150000,
+    "baseline_kwh_year": 460000, "expected_generation_kwh_year": 210000,
+    "illustrative_emission_factor_kg_per_kwh": 0.5,
+    "evidence": {"equipment_quote": true, "site_assessment": true, "electricity_baseline": false, "generation_estimate": true}
+  },
+  {
+    "project_id": "GREEN-EFF-002", "name": "High-efficiency production equipment", "activity_type": "energy_efficiency",
+    "project_cost_usd": 95000, "requested_loan_usd": 75000,
+    "baseline_kwh_year": 320000, "expected_savings_pct": 22,
+    "illustrative_emission_factor_kg_per_kwh": 0.5,
+    "evidence": {"equipment_quote": true, "energy_audit": false, "electricity_baseline": true, "savings_estimate": false}
+  }
+]

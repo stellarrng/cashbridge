@@ -13,14 +13,16 @@ import threading
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from config.settings import BASE_DIR
+from security.role_access import require_bank_reviewer
 from ui.backend import get_backend
+from automation.api import router as automation_router
 
 DIST_DIR = BASE_DIR / "ui" / "web" / "dist"
 DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
@@ -32,6 +34,42 @@ class PackBody(BaseModel):
 
 class SimulateBody(BaseModel):
     params: Dict[str, Any]
+
+
+class IntelligenceBody(BaseModel):
+    data: Dict[str, Any]
+
+
+class CopilotBody(BaseModel):
+    question: str
+    inputs: Dict[str, Any] = {}
+
+
+class ConceptBody(BaseModel):
+    topic: str
+
+
+class ContractReviewBody(BaseModel):
+    text: str
+    invoice_amount_usd: Optional[float] = None
+
+
+class CapitalPlanBody(BaseModel):
+    available_cash_usd: float
+    minimum_reserve_usd: float
+    working_capital_usd: float
+    marketing_usd: float
+    green_investment_usd: float
+
+
+class GreenEconomicsBody(BaseModel):
+    project_id: str
+    electricity_price_usd_per_kwh: float
+    annual_opex_usd: float = 0
+
+
+class GreenReviewBody(BaseModel):
+    project_id: str
 
 
 class AskBody(BaseModel):
@@ -50,6 +88,7 @@ def create_app(backend_provider: Callable[[], Any] = get_backend, dist_dir: Path
     """Build the app. ``backend_provider`` is injectable so tests can use a throw-away backend."""
     app = FastAPI(title="CashBridge (SYNTHETIC demo)", version="1.0")
     app.add_middleware(CORSMiddleware, allow_origins=DEV_ORIGINS, allow_methods=["GET", "POST"], allow_headers=["*"])
+    app.include_router(automation_router)
     lock = threading.Lock()
 
     def call(action: Callable[[Any], Any], refusal_status: int = 409) -> Any:
@@ -62,6 +101,84 @@ def create_app(backend_provider: Callable[[], Any] = get_backend, dist_dir: Path
     @app.get("/api/snapshot")
     def snapshot() -> Dict[str, Any]:
         return call(lambda b: b.get_snapshot())
+
+    @app.get('/api/analytics/summary', tags=['intelligence'])
+    def analytics_summary() -> Dict[str, Any]:
+        return call(lambda b: b.financial_analytics())
+
+    @app.post('/api/analytics/scenario', tags=['intelligence'])
+    def analytics_scenario(body: IntelligenceBody) -> Dict[str, Any]:
+        return call(lambda b: b.financial_scenario(body.data), refusal_status=422)
+
+    @app.post('/api/copilot/ask', tags=['agentic'])
+    def copilot_ask(body: CopilotBody) -> Dict[str, Any]:
+        return call(lambda b: b.copilot_decision(body.question, body.inputs), refusal_status=422)
+
+    @app.post('/api/chat/explain-concept', tags=['conversation'])
+    def explain_concept(body: ConceptBody) -> Dict[str, Any]:
+        return call(lambda b: b.explain_public_concept(body.topic), refusal_status=422)
+
+    @app.post('/api/projects/waterfall', tags=['intelligence'])
+    def project_waterfall(body: IntelligenceBody) -> Dict[str, Any]:
+        return call(lambda b: b.project_cashflow(body.data), refusal_status=422)
+
+    @app.post('/api/projects/assess', tags=['intelligence'])
+    def project_assess(body: IntelligenceBody) -> Dict[str, Any]:
+        return call(lambda b: b.project_assessment(body.data), refusal_status=422)
+
+    @app.post('/api/contracts/analyze', tags=['intelligence'])
+    def contract_review(body: ContractReviewBody) -> Dict[str, Any]:
+        return call(lambda b: b.analyze_contract({'text': body.text, 'invoice_amount_usd': body.invoice_amount_usd}), refusal_status=422)
+
+    @app.post('/api/contracts/draft', tags=['intelligence'])
+    def contract_draft(body: IntelligenceBody) -> Dict[str, Any]:
+        return call(lambda b: b.draft_contract(body.data), refusal_status=422)
+
+    @app.post('/api/contracts/draft-docx', tags=['intelligence'])
+    def contract_docx(body: IntelligenceBody) -> Response:
+        from contracts.docx_export import draft_docx_bytes
+        raw = call(lambda b: draft_docx_bytes(body.data), refusal_status=422)
+        return Response(content=raw,
+                        media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        headers={'Content-Disposition': 'attachment; filename="CashBridge_UNSIGNED_DRAFT.docx"',
+                                 'Cache-Control':'no-store'})
+
+    @app.post('/api/contracts/reconcile', tags=['intelligence'])
+    def contract_reconcile(body: IntelligenceBody) -> Dict[str, Any]:
+        return call(lambda b: b.reconcile_contract(body.data), refusal_status=422)
+
+    @app.post('/api/contracts/extract-upload', tags=['intelligence'])
+    async def contract_extract_upload(file: UploadFile = File(...)) -> Dict[str, Any]:
+        from contracts.extraction import extract_upload, MAX_UPLOAD_BYTES
+        raw = await file.read(MAX_UPLOAD_BYTES + 1)
+        try:
+            return extract_upload(file.filename or '', raw)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.get('/api/bank/review', tags=['intelligence'])
+    def bank_review(response: Response, _: None = Depends(require_bank_reviewer)) -> Dict[str, Any]:
+        response.headers['Cache-Control'] = 'private, no-store'
+        response.headers['Vary'] = 'Authorization'
+        return call(lambda b: b.bank_review())
+
+    @app.post("/api/capital-plan")
+    def capital_plan(body: CapitalPlanBody) -> Dict[str, Any]:
+        from core.capital_planning import evaluate_allocation
+        return call(lambda b: evaluate_allocation(body.model_dump() if hasattr(body, "model_dump") else body.dict()), refusal_status=422)
+
+    @app.get("/api/green-finance")
+    def green_finance() -> Dict[str, Any]:
+        return call(lambda b: b.green_finance_view())
+
+    @app.post('/api/green-finance/economics', tags=['intelligence'])
+    def green_economics(body: GreenEconomicsBody) -> Dict[str, Any]:
+        return call(lambda b: b.green_economics(body.project_id, body.electricity_price_usd_per_kwh,
+                                                body.annual_opex_usd), refusal_status=422)
+
+    @app.post("/api/green-finance/request-review")
+    def green_review(body: GreenReviewBody) -> Dict[str, Any]:
+        return call(lambda b: b.request_green_review(body.project_id), refusal_status=422)
 
     @app.post("/api/simulate")
     def simulate(body: SimulateBody) -> Dict[str, Any]:

@@ -71,7 +71,7 @@ def test_snapshot_is_json_serialisable(backend):
 
 def test_snapshot_carries_the_real_story_numbers(backend):
     snap = backend.get_snapshot()
-    assert snap["meta"]["mode"] == "offline-demo" and snap["meta"]["case_state"] == "INVOICE_VERIFIED"
+    assert snap["meta"]["mode"] == "local-finance-engines" and snap["meta"]["case_state"] == "INVOICE_VERIFIED"
     assert snap["kpis"]["ccc"]["ccc"] == 82.0
     assert snap["kpis"]["first_shortfall_week"] == 7 and 40000 <= snap["kpis"]["shortfall_usd"] <= 47000
     assert snap["kpis"]["blocked_fraud_count"] == 1
@@ -158,7 +158,7 @@ def test_reset_returns_a_fresh_snapshot(backend):
 
 def test_ask_cfo_returns_a_cited_message(backend):
     reply = backend.ask_cfo("When will I run out of cash?")
-    assert reply["role"] == "assistant" and reply["citations"] and reply["mode"] == "offline-demo"
+    assert reply["role"] == "assistant" and reply["citations"] and reply["mode"] == "local-explanation-no-llm"
     assert len(backend.get_snapshot()["chat"]["history"]) == 3
 
 

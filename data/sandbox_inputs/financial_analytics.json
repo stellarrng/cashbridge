@@ -1,0 +1,133 @@
+{
+  "_label": "SYNTHETIC EXAMPLE ONLY - not linked to a bank/ERP",
+  "currency": "USD",
+  "source_id": "synthetic-financial-ledger-2026",
+  "balance_sheet": {
+    "cash": 80000,
+    "accounts_receivable": 948367,
+    "inventory": 309800,
+    "other_current_assets": 50000,
+    "current_liabilities": 625000,
+    "total_debt": 820000,
+    "equity": 1120000
+  },
+  "annual": {
+    "revenue": 4615385,
+    "cogs": 3230770,
+    "operating_expenses": 1010000,
+    "depreciation": 90000,
+    "interest": 86000,
+    "principal_payments": 112000,
+    "taxes": 25000
+  },
+  "monthly": [
+    {
+      "month": "2025-11",
+      "revenue": 330000,
+      "expenses": 301000,
+      "marketing": 9000,
+      "payroll": 42000,
+      "supplier": 190000,
+      "other": 60000
+    },
+    {
+      "month": "2025-12",
+      "revenue": 380000,
+      "expenses": 335000,
+      "marketing": 11000,
+      "payroll": 42000,
+      "supplier": 212000,
+      "other": 70000
+    },
+    {
+      "month": "2026-01",
+      "revenue": 355000,
+      "expenses": 329000,
+      "marketing": 9500,
+      "payroll": 43000,
+      "supplier": 210000,
+      "other": 66500
+    },
+    {
+      "month": "2026-02",
+      "revenue": 340000,
+      "expenses": 325000,
+      "marketing": 10000,
+      "payroll": 43000,
+      "supplier": 205000,
+      "other": 67000
+    },
+    {
+      "month": "2026-03",
+      "revenue": 365000,
+      "expenses": 337000,
+      "marketing": 12000,
+      "payroll": 43000,
+      "supplier": 218000,
+      "other": 64000
+    },
+    {
+      "month": "2026-04",
+      "revenue": 390000,
+      "expenses": 357000,
+      "marketing": 12500,
+      "payroll": 44000,
+      "supplier": 227000,
+      "other": 73500
+    },
+    {
+      "month": "2026-05",
+      "revenue": 410000,
+      "expenses": 377000,
+      "marketing": 15000,
+      "payroll": 44000,
+      "supplier": 238000,
+      "other": 80000
+    },
+    {
+      "month": "2026-06",
+      "revenue": 385000,
+      "expenses": 353000,
+      "marketing": 11500,
+      "payroll": 44000,
+      "supplier": 225000,
+      "other": 72500
+    },
+    {
+      "month": "2026-07",
+      "revenue": 425000,
+      "expenses": 391000,
+      "marketing": 16500,
+      "payroll": 45000,
+      "supplier": 245000,
+      "other": 84500
+    },
+    {
+      "month": "2026-08",
+      "revenue": 450000,
+      "expenses": 415000,
+      "marketing": 18000,
+      "payroll": 46000,
+      "supplier": 265000,
+      "other": 86000
+    },
+    {
+      "month": "2026-09",
+      "revenue": 425000,
+      "expenses": 387000,
+      "marketing": 16000,
+      "payroll": 45000,
+      "supplier": 248000,
+      "other": 78000
+    },
+    {
+      "month": "2026-10",
+      "revenue": 360385,
+      "expenses": 333770,
+      "marketing": 12000,
+      "payroll": 46000,
+      "supplier": 214000,
+      "other": 61770
+    }
+  ]
+}
