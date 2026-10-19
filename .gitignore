@@ -1,10 +1,22 @@
-instructions.md
-instruction.md
-
-# Python cache files — never commit these
+# Python
 __pycache__/
 *.py[cod]
 *.pyo
+.pytest_cache/
 
-# Environment secrets — never commit
+# Environments and secrets: never commit
+.venv/
+venv/
 .env
+
+# Local-only build prompts (remove these lines to publish the spec files)
+instructions.md
+DECISIONS.md
+buildplan.md
+
+# Local working files
+data/cases/
+.DS_Store
+data/runtime/
+
+ui/web/node_modules/

@@ -1,42 +1,19 @@
-# CashBridge — compose file for the parts that exist.
-#
-# The previous version defined a `cashbridge-ui` service on port 8501 and a
-# `cashbridge-api` service running `uvicorn api.main:app` on port 8000. Neither
-# `ui/app.py` nor `api/main.py` exists (see README §0), so both services
-# crash-looped under `restart: unless-stopped` — which looks worse to a reviewer
-# than having no compose file at all.
-#
-# The UI and API service definitions are kept below, commented out, as the
-# intended deployment shape. Uncomment each one when its code lands.
-
 services:
-  cashbridge-core:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: cashbridge-core
+    container_name: cashbridge
+    ports:
+      - "8000:8000"
     environment:
-      - DEMO_MODE=true
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+      - LLM_MODEL=${LLM_MODEL:-}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - OTP_SECRET=${OTP_SECRET:-}
     volumes:
-      - ./data:/app/data
-    # One-shot walkthrough, not a long-running service: do not restart it.
-    restart: "no"
+      - runtime:/app/data/runtime
+    restart: unless-stopped
 
-  # cashbridge-ui:
-  #   build: { context: ., dockerfile: Dockerfile }
-  #   command: ["streamlit", "run", "ui/app.py",
-  #             "--server.port=8501", "--server.address=0.0.0.0"]
-  #   ports: ["8501:8501"]
-  #   environment:
-  #     - STREAMLIT_SERVER_HEADLESS=true
-  #     - DEMO_MODE=true
-  #   volumes: ["./data:/app/data"]
-  #   restart: unless-stopped
-
-  # cashbridge-api:
-  #   build: { context: ., dockerfile: Dockerfile }
-  #   command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
-  #   ports: ["8000:8000"]
-  #   environment: ["DEMO_MODE=true"]
-  #   volumes: ["./data:/app/data"]
-  #   restart: unless-stopped
+volumes:
+  runtime:

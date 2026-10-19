@@ -1,0 +1,29 @@
+{
+  "_label": "SYNTHETIC DEMO DATA",
+  "documents": [
+    {
+      "doc_id": "SCAN-INV-1030",
+      "doc_type": "invoice",
+      "invoice_no": "INV-1030",
+      "text": "COMMERCIAL INVOICE\n--- page 1 ---\nInvoice No: INV-1030\nPO Number: PO-1030\nSeller Tax ID: 0312345678\nBuyer ID: B-JP-01\nBuyer: Kyoto Interiors K.K. (SYNTHETIC)\nMarket: JP\nCurrency: USD\n--- page 2 ---\nTotal Amount: 60,000.00\nQuantity: 200\nPackages: 200\nPort of Loading: Cat Lai\nPort of Discharge: Yokohama\nIssue Date: 2026-10-19\nDue Date: 2026-12-18"
+    },
+    {
+      "doc_id": "SCAN-PO-1030",
+      "doc_type": "purchase_order",
+      "invoice_no": "INV-1030",
+      "text": "PURCHASE ORDER\n--- page 1 ---\nPO Number: PO-1030\nSeller Tax ID: 0312345678\nBuyer ID: B-JP-01\nBuyer: Kyoto Interiors K.K. (SYNTHETIC)\nCurrency: USD\nTotal Amount: 60,000.00\n--- page 2 ---\nQuantity: 200\nPackages: 200\nPort of Loading: Cat Lai\nPort of Discharge: Yokohama\nIssue Date: 2026-09-19"
+    },
+    {
+      "doc_id": "SCAN-BL-1030",
+      "doc_type": "bill_of_lading",
+      "invoice_no": "INV-1030",
+      "text": "BILL OF LADING\n--- page 1 ---\nB/L No: BL-1030\nInvoice No: INV-1030\nSeller Tax ID: 0312345678\nBuyer ID: B-JP-01\nQuantity: 200\nPackages: 200\nPort of Loading: Cat Lai\nPort of Discharge: Yokohama\nShipped On Board: 2026-10-18"
+    },
+    {
+      "doc_id": "SCAN-INV-1036",
+      "doc_type": "invoice",
+      "invoice_no": "INV-1036",
+      "text": "COMMERCIAL INVOICE\n--- page 1 ---\nInvoice No: INV-1036\nPO Number: PO-1036\nSeller Tax ID: 0312345678\nBuyer ID: B-US-01\nBuyer: Oakline Home LLC (SYNTHETIC)\nMarket: US\nCurrency: USD\n--- page 2 ---\nTotal Amount: 1O,5OO.OO\nQuantity: 55\nPackages: l2\nPort of Loading: Cat Lai\nPort of Discharge: Los Angeles\nIssue Date: 2026-10-12"
+    }
+  ]
+}

@@ -1,332 +1,325 @@
-"""
-Forecasting Engine — deterministic 13-week direct cash flow model and CCC.
+"""Forecasting engine: cash conversion cycle and the 13-week direct cash forecast.
 
-WHAT CHANGED AND WHY
---------------------
-The previous version computed the weekly rows correctly but then drew the wrong
-conclusion from them, and the docstrings, README and demo narrative all
-inherited that error.
+Pure Python, no I/O, no LLM. Money is Decimal USD at cent precision.
 
-Running the default seed schedule gives:
-
-    W1  29,500   W2  37,000   W3   6,500   W4  24,000   W5  36,150
-    W6 -31,350   W7 -43,850   W8 -56,350   W9  -3,850   W10 -16,350
-    W11 13,150   W12    650   W13 -11,850
-
-Week 6 is where the balance FIRST goes negative. The TROUGH is week 8 at
--$56,350, and the business is underwater for five consecutive weeks (6-10) and
-again in week 13. The old code reported `recommended_financing_amount =
-abs(lowest_cash_balance)`, which happened to read the right row, but every
-docstring, the README and the funding narrative described "a Week 6 shortfall
-of $31,350" and then proposed an $55,250 factoring advance to cover it.
-
-That advance does not cover it. Net of fees it releases $54,518, against a
-trough of $56,350 before any operating buffer. The headline demo claim was
-arithmetically false.
-
-This module now reports the deficit's full geometry — first week, trough week,
-duration, whether the horizon ends in deficit — and sizes the facility against
-the trough plus a minimum operating buffer, because financing calculated to
-return the balance to exactly zero leaves a business with no float and is not
-a fundable plan.
-
-ALL ARITHMETIC IS PURE PYTHON. No LLM performs any calculation in this module.
+Direct method
+  * Expected inflow = invoice value x p_on_time, placed in the invoice's due week.
+  * The late remainder (value x (1 - p_on_time)) arrives LATE_PAYMENT_DELAY_WEEKS later.
+  * A buyer's dated promise to pay overrides both: the full value lands in the promised week.
+  * Outflows = weekly fixed costs + month-end payroll + supplier deposits.
+  * A week is "shortfall" below 0 and "at_risk" below the cash buffer.
 """
 
-from typing import Optional, List, Tuple
+from __future__ import annotations
+
 from datetime import date, timedelta
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Dict, List, NamedTuple, Optional
 
 from config.settings import (
-    DEFAULT_COMPANY,
     FORECAST_WEEKS,
-    DEFAULT_WEEK_3_SUPPLIER_DEPOSIT,
-    DEFAULT_WEEK_6_SUPPLIER_DEPOSIT,
-    MINIMUM_CASH_BUFFER_USD,
+    FX_STRESS_PCT,
+    LATE_PAYMENT_DELAY_WEEKS,
+    USD_VND,
 )
 from schemas.forecast_schemas import (
     CCCMetrics,
+    DepositPlan,
+    ForecastInputs,
+    ForecastResult,
+    FxExposure,
+    LedgerSnapshot,
+    OpenReceivable,
+    ScenarioDelta,
+    ScenarioParams,
+    ScenarioResult,
+    ShortfallAttribution,
     WeeklyCashRow,
-    ForecastSummary,
 )
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Default seed receivable schedule (SYNTHETIC — not customer data)
-# (invoice_id, due_week, usd_amount, buyer_name)
-# ─────────────────────────────────────────────────────────────────────────────
-
-DEFAULT_AR_SCHEDULE = [
-    ("INV-2026-101", 2, 20000.00, "Nordic Home Retail (US)"),
-    ("INV-2026-102", 4, 30000.00, "Nordic Home Retail (US)"),
-    ("INV-2026-JPY", 5, 24650.00, "Sakura Furniture Co. (JP)"),
-    ("INV-2026-103", 9, 65000.00, "Nordic Home Retail (US)"),
-    ("INV-2026-104", 11, 42000.00, "Sakura Furniture Co. (JP)"),
-]
-
-FORECAST_ASSUMPTIONS = [
-    "SYNTHETIC DATA: figures describe a sandbox company, not a real customer.",
-    "Every buyer pays in full on the scheduled week; no probability of late "
-    "payment is applied. Use simulate_forecast() to test delay scenarios.",
-    "Operating expenses are flat at the weekly figure; no seasonality, payroll "
-    "cycles, tax payments or capex are modelled.",
-    "FX is converted at frozen sandbox rates, not a live feed.",
-    "No credit line, overdraft or existing debt service is included.",
-    "This is a projection under stated assumptions, not a validated forecast: "
-    "no out-of-sample error (MAE/WAPE) has been measured, because there is no "
-    "historical payment data behind it.",
-]
+_CENT = Decimal("0.01")
+FX_EXPOSURE_NOTE = "Exposure estimate only. This is not a hedging recommendation."
 
 
-def calculate_ccc(
-    dio_days: float = DEFAULT_COMPANY["dio_days"],
-    dso_days: float = DEFAULT_COMPANY["dso_days"],
-    dpo_days: float = DEFAULT_COMPANY["dpo_days"],
-) -> CCCMetrics:
+def _cents(value: Decimal) -> Decimal:
+    return value.quantize(_CENT, rounding=ROUND_HALF_UP)
+
+
+def _days(numerator: Decimal, denominator: Decimal, period_days: int) -> float:
+    return float((numerator / denominator * period_days).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
+
+
+def compute_ccc(ledger: LedgerSnapshot) -> CCCMetrics:
+    """CCC = DIO + DSO - DPO, each component computed from ledger averages.
+
+    DIO = inventory / COGS x days, DSO = receivables / revenue x days,
+    DPO = payables / COGS x days. Components are rounded to 0.1 day and CCC is the
+    sum of the rounded components so the published numbers always add up.
     """
-    Calculate the Cash Conversion Cycle: CCC = DIO + DSO - DPO.
-
-    Default sandbox company: 38 + 68 - 24 = 82 days.
-
-    Args:
-        dio_days: Days Inventory Outstanding.
-        dso_days: Days Sales Outstanding.
-        dpo_days: Days Payables Outstanding.
-
-    Returns:
-        CCCMetrics with the computed cycle and benchmark commentary.
-    """
-    ccc = dio_days + dso_days - dpo_days
-    drag = ccc - 65.0
-    commentary = (
-        f"CCC of {ccc:.0f} days is {drag:+.0f} days against a 65-day reference. "
-        f"Cash is locked for roughly {ccc:.0f} days between paying for inputs and "
-        f"collecting on the sale. (Reference figure is an illustrative sector "
-        f"benchmark, not a verified industry statistic.)"
-    )
-    return CCCMetrics(
-        dio_days=dio_days,
-        dso_days=dso_days,
-        dpo_days=dpo_days,
-        ccc_days=ccc,
-        industry_benchmark_days=65.0,
-        liquidity_drag_commentary=commentary,
-    )
+    dio = _days(ledger.avg_inventory_usd, ledger.cogs_usd, ledger.period_days)
+    dso = _days(ledger.avg_receivables_usd, ledger.revenue_usd, ledger.period_days)
+    dpo = _days(ledger.avg_payables_usd, ledger.cogs_usd, ledger.period_days)
+    return CCCMetrics(dio=dio, dso=dso, dpo=dpo, ccc=round(dio + dso - dpo, 1))
 
 
-def _deficit_geometry(
-    rows: List[WeeklyCashRow], buffer_usd: float
-) -> Tuple[Optional[int], Optional[int], List[int], float, Optional[int]]:
-    """
-    Describe the shape of the cash deficit, not just its first appearance.
-
-    Returns:
-        (first_shortfall_week, trough_week, weeks_in_deficit,
-         peak_funding_need, funding_needed_by_week)
-
-    `peak_funding_need` is the smallest one-off injection that, if received
-    before the first shortfall and retained, keeps every remaining week at or
-    above `buffer_usd`. Because a retained injection lifts every subsequent
-    week equally, that is the maximum weekly gap against the buffer — not the
-    gap in the first week that dips.
-    """
-    below_zero = [r.week for r in rows if r.closing_cash < 0]
-    first_shortfall = min(below_zero) if below_zero else None
-
-    trough_row = min(rows, key=lambda r: r.closing_cash)
-    trough_week = trough_row.week if trough_row.closing_cash < buffer_usd else None
-
-    gaps = [(r.week, buffer_usd - r.closing_cash) for r in rows if r.closing_cash < buffer_usd]
-    if not gaps:
-        return first_shortfall, None, [], 0.0, None
-
-    peak_need = round(max(g for _, g in gaps), 2)
-    # Cash must be in the account by the week before the first dip below buffer.
-    first_gap_week = min(w for w, _ in gaps)
-    needed_by = max(1, first_gap_week - 1)
-
-    return first_shortfall, trough_week, below_zero, peak_need, needed_by
+# ------------------------------------------------------------------ receipts
+class _Receipt(NamedTuple):
+    invoice_id: str
+    week: int
+    amount: Decimal
+    foreign: bool
 
 
-def run_13_week_forecast(
-    opening_cash: float = DEFAULT_COMPANY["opening_cash_week_1"],
-    fixed_weekly_opex: float = DEFAULT_COMPANY["fixed_weekly_opex"],
-    ar_schedule: Optional[list] = None,
-    week_3_supplier_deposit: float = DEFAULT_WEEK_3_SUPPLIER_DEPOSIT,
-    week_6_supplier_deposit: float = DEFAULT_WEEK_6_SUPPLIER_DEPOSIT,
-    financed_invoice_id: Optional[str] = None,
-    financing_advance_usd: float = 0.0,
-    financing_week: int = 5,
-    financing_repayment_week: Optional[int] = None,
-    financing_repayment_usd: float = 0.0,
-    minimum_cash_buffer: float = MINIMUM_CASH_BUFFER_USD,
-) -> ForecastSummary:
-    """
-    Run the 13-week direct cash flow model.
+class _InvoiceView(NamedTuple):
+    receivable: OpenReceivable
+    due_week: int
+    raw_usd: Decimal
+    fx_effect: Decimal  # change in USD value caused by the FX what-if
+    tariff_effect: Decimal  # change in USD value caused by the tariff what-if (<= 0)
+    final_usd: Decimal
+    on_time: Decimal
+    late: Decimal
 
-    Under the default seed schedule the balance first goes negative in week 6
-    (-$31,350) and reaches its trough in week 8 (-$56,350), recovering only
-    partially before closing week 13 at -$11,850. The facility must be sized
-    against the trough, not the first dip.
 
-    Args:
-        opening_cash: Starting cash balance in USD.
-        fixed_weekly_opex: Flat weekly operating outflow.
-        ar_schedule: List of (invoice_id, due_week, amount, buyer) tuples.
-        week_3_supplier_deposit: Supplier deposit outflow in week 3.
-        week_6_supplier_deposit: Supplier deposit outflow in week 6.
-        financed_invoice_id: Invoice backing a financing inflow, if any.
-        financing_advance_usd: Cash received from financing (net of fees).
-        financing_week: Week the advance lands.
-        financing_repayment_week: Week the facility is settled, if modelled.
-        financing_repayment_usd: Amount repaid at settlement.
-        minimum_cash_buffer: Operating float the business must retain.
+def _week_of(start: date, day: date) -> int:
+    """1-based forecast week containing ``day``; earlier dates count as week 1."""
+    return max(1, (day - start).days // 7 + 1)
 
-    Returns:
-        ForecastSummary with weekly rows, deficit geometry and peak funding need.
-    """
-    schedule = ar_schedule if ar_schedule is not None else list(DEFAULT_AR_SCHEDULE)
 
-    ar_by_week = {
-        w: {"amount": 0.0, "invoices": []} for w in range(1, FORECAST_WEEKS + 1)
-    }
-    for inv_id, due_week, amount, _buyer in schedule:
-        if 1 <= due_week <= FORECAST_WEEKS:
-            ar_by_week[due_week]["amount"] += amount
-            ar_by_week[due_week]["invoices"].append(inv_id)
-
-    financing_by_week = {w: 0.0 for w in range(1, FORECAST_WEEKS + 1)}
-    financing_labels = {w: [] for w in range(1, FORECAST_WEEKS + 1)}
-    if financed_invoice_id and financing_advance_usd > 0:
-        if 1 <= financing_week <= FORECAST_WEEKS:
-            financing_by_week[financing_week] += financing_advance_usd
-            financing_labels[financing_week].append(f"{financed_invoice_id}[FINANCED]")
-
-    repayment_by_week = {w: 0.0 for w in range(1, FORECAST_WEEKS + 1)}
-    if financing_repayment_week and financing_repayment_usd > 0:
-        if 1 <= financing_repayment_week <= FORECAST_WEEKS:
-            repayment_by_week[financing_repayment_week] += financing_repayment_usd
-
-    rows: List[WeeklyCashRow] = []
-    current_cash = opening_cash
-    start_date = date(2026, 10, 16)
-
-    for week_num in range(1, FORECAST_WEEKS + 1):
-        week_start = start_date + timedelta(weeks=week_num - 1)
-        week_label = f"W{week_num} ({week_start.strftime('%b %d')})"
-
-        ar_inflows = ar_by_week[week_num]["amount"]
-        inflow_invoices = list(ar_by_week[week_num]["invoices"]) + financing_labels[week_num]
-        financing_in = financing_by_week[week_num]
-        repayment_out = repayment_by_week[week_num]
-
-        supplier_deposit = 0.0
-        outflow_note = None
-        if week_num == 3:
-            supplier_deposit = week_3_supplier_deposit
-            outflow_note = "Timber raw material supplier deposit"
-        elif week_num == 6:
-            supplier_deposit = week_6_supplier_deposit
-            outflow_note = "Textile mill + timber bulk deposit"
-
-        net_cash_flow = (
-            ar_inflows + financing_in - fixed_weekly_opex - supplier_deposit - repayment_out
-        )
-        closing_cash = current_cash + net_cash_flow
-
-        rows.append(
-            WeeklyCashRow(
-                week=week_num,
-                week_label=week_label,
-                opening_cash=round(current_cash, 2),
-                ar_inflows=round(ar_inflows, 2),
-                fixed_opex=fixed_weekly_opex,
-                supplier_deposits=supplier_deposit,
-                financing_inflows=round(financing_in, 2),
-                financing_repayments=round(repayment_out, 2),
-                net_cash_flow=round(net_cash_flow, 2),
-                closing_cash=round(closing_cash, 2),
-                is_critical_shortfall=closing_cash < 0,
-                is_below_buffer=closing_cash < minimum_cash_buffer,
-                inflow_invoices=inflow_invoices,
-                outflow_notes=outflow_note,
+def _invoice_views(inputs: ForecastInputs) -> List[_InvoiceView]:
+    views: List[_InvoiceView] = []
+    fx_factor = Decimal(1) + inputs.fx_change_pct / 100
+    tariff_cut = inputs.tariff_rate_pct * inputs.tariff_shared_pct / Decimal(10_000)
+    for rec in inputs.receivables:
+        raw = rec.amount.to_usd()
+        after_fx = _cents(raw * fx_factor) if rec.amount.currency.value != "USD" else raw
+        final = _cents(after_fx * (Decimal(1) - tariff_cut)) if rec.market == "US" else after_fx
+        if rec.promised_date is not None:
+            # A dated promise replaces the probability model: the full amount lands on that date.
+            on_time = final
+            due = rec.promised_date
+        else:
+            on_time = _cents(final * Decimal(str(rec.p_on_time)))
+            due = rec.due_date + timedelta(days=inputs.dso_shift_days)
+        views.append(
+            _InvoiceView(
+                receivable=rec,
+                due_week=_week_of(inputs.start_date, due),
+                raw_usd=raw,
+                fx_effect=after_fx - raw,
+                tariff_effect=final - after_fx,
+                final_usd=final,
+                on_time=on_time,
+                late=final - on_time,
             )
         )
-        current_cash = closing_cash
-
-    first_week, trough_week, deficit_weeks, peak_need, needed_by = _deficit_geometry(
-        rows, minimum_cash_buffer
-    )
-
-    trough_row = min(rows, key=lambda r: r.closing_cash)
-    total_inflows = sum(r.ar_inflows + r.financing_inflows for r in rows)
-    total_outflows = sum(
-        r.fixed_opex + r.supplier_deposits + r.financing_repayments for r in rows
-    )
-
-    return ForecastSummary(
-        company_name=DEFAULT_COMPANY["name"],
-        starting_cash=opening_cash,
-        total_projected_inflows=round(total_inflows, 2),
-        total_projected_outflows=round(total_outflows, 2),
-        first_shortfall_week=first_week,
-        lowest_cash_week=trough_row.week,
-        lowest_cash_balance=trough_row.closing_cash,
-        weeks_in_deficit=deficit_weeks,
-        deficit_duration_weeks=len(deficit_weeks),
-        ends_period_in_deficit=rows[-1].closing_cash < 0,
-        shortfall_detected=bool(deficit_weeks),
-        minimum_cash_buffer=minimum_cash_buffer,
-        peak_funding_need_usd=peak_need,
-        funding_needed_by_week=needed_by,
-        weekly_breakdown=rows,
-        assumptions=list(FORECAST_ASSUMPTIONS),
-        data_provenance="SYNTHETIC_SANDBOX",
-    )
+    return views
 
 
-def simulate_forecast(
-    delay_buyer: Optional[str] = None,
-    delay_weeks: int = 0,
-    financed_invoice_id: Optional[str] = None,
-    financing_advance_usd: float = 0.0,
-    financing_week: int = 5,
-    financing_repayment_week: Optional[int] = None,
-    financing_repayment_usd: float = 0.0,
-) -> ForecastSummary:
-    """
-    What-if simulator: re-run the forecast with buyer delays and/or financing.
+def _receipts(views: List[_InvoiceView]) -> List[_Receipt]:
+    receipts: List[_Receipt] = []
+    for view in views:
+        foreign = view.receivable.amount.currency.value != "USD"
+        invoice_id = view.receivable.invoice_id
+        if view.on_time > 0 and view.due_week <= FORECAST_WEEKS:
+            receipts.append(_Receipt(invoice_id, view.due_week, view.on_time, foreign))
+        late_week = view.due_week + LATE_PAYMENT_DELAY_WEEKS
+        if view.late > 0 and late_week <= FORECAST_WEEKS:
+            receipts.append(_Receipt(invoice_id, late_week, view.late, foreign))
+    return receipts
 
-    Args:
-        delay_buyer: Buyer name substring to delay (e.g. 'Nordic').
-        delay_weeks: Weeks to shift that buyer's invoices (0-4).
-        financed_invoice_id: Invoice receiving an advance.
-        financing_advance_usd: Net cash from the advance (after fees).
-        financing_week: Week the advance lands.
-        financing_repayment_week: Week the facility settles, if modelled.
-        financing_repayment_usd: Settlement amount.
 
-    Returns:
-        ForecastSummary for the scenario.
+# ------------------------------------------------------------------- outflows
+def _deposit_amount(deposit: DepositPlan) -> Decimal:
+    return _cents(deposit.po_value_usd * deposit.pct / 100)
 
-    Note:
-        A delay pushed past week 13 is dropped from the horizon entirely rather
-        than clamped to week 13, since clamping would fabricate an inflow that
-        the scenario says has not arrived.
-    """
-    schedule = []
-    for inv_id, due_week, amount, buyer in DEFAULT_AR_SCHEDULE:
-        if delay_buyer and delay_weeks > 0 and delay_buyer.lower() in buyer.lower():
-            new_week = due_week + delay_weeks
-            if new_week > FORECAST_WEEKS:
-                continue  # Receipt falls outside the horizon — do not clamp it in.
-            schedule.append((inv_id, new_week, amount, buyer))
+
+def _week_start(inputs: ForecastInputs, week: int) -> date:
+    return inputs.start_date + timedelta(weeks=week - 1)
+
+
+def _has_month_end(first_day: date) -> bool:
+    return any((first_day + timedelta(days=i + 1)).day == 1 for i in range(7))
+
+
+def _recurring_cost(inputs: ForecastInputs, week: int) -> Decimal:
+    cost = inputs.weekly_fixed_costs_usd
+    if _has_month_end(_week_start(inputs, week)):
+        cost += inputs.payroll_usd
+    return cost
+
+
+# ------------------------------------------------------------------- forecast
+def forecast_13w(inputs: ForecastInputs) -> ForecastResult:
+    """Run the 13-week direct forecast and find the first shortfall and its drivers."""
+    views = _invoice_views(inputs)
+    receipts = _receipts(views)
+    inflow_by_week: Dict[int, Decimal] = {w: Decimal(0) for w in range(1, FORECAST_WEEKS + 1)}
+    for receipt in receipts:
+        inflow_by_week[receipt.week] += receipt.amount
+    deposit_by_week: Dict[int, Decimal] = {w: Decimal(0) for w in range(1, FORECAST_WEEKS + 1)}
+    for deposit in inputs.deposits:
+        deposit_by_week[deposit.week] += _deposit_amount(deposit)
+
+    rows: List[WeeklyCashRow] = []
+    cash = inputs.opening_cash_usd
+    for week in range(1, FORECAST_WEEKS + 1):
+        outflows = _recurring_cost(inputs, week) + deposit_by_week[week]
+        closing = cash + inflow_by_week[week] - outflows
+        if closing < 0:
+            status = "shortfall"
+        elif closing < inputs.buffer_usd:
+            status = "at_risk"
         else:
-            schedule.append((inv_id, due_week, amount, buyer))
+            status = "ok"
+        rows.append(
+            WeeklyCashRow(
+                week=week,
+                start_date=_week_start(inputs, week),
+                opening=cash,
+                inflows=inflow_by_week[week],
+                outflows=outflows,
+                closing=closing,
+                status=status,
+            )
+        )
+        cash = closing
 
-    return run_13_week_forecast(
-        ar_schedule=schedule,
-        financed_invoice_id=financed_invoice_id,
-        financing_advance_usd=financing_advance_usd,
-        financing_week=financing_week,
-        financing_repayment_week=financing_repayment_week,
-        financing_repayment_usd=financing_repayment_usd,
+    first = first_negative_week(rows)
+    shortfall = -rows[first - 1].closing if first else None
+    return ForecastResult(
+        buffer_usd=inputs.buffer_usd,
+        weeks=rows,
+        first_shortfall_week=first,
+        shortfall_usd=shortfall,
+        min_closing_usd=min(row.closing for row in rows),
+        attribution=shortfall_attribution(inputs, views, first) if first else [],
     )
+
+
+def first_negative_week(rows: List[WeeklyCashRow]) -> Optional[int]:
+    """First week whose closing balance is below zero, or None."""
+    return next((row.week for row in rows if row.closing < 0), None)
+
+
+def shortfall_attribution(
+    inputs: ForecastInputs, views: List[_InvoiceView], week: int
+) -> List[ShortfallAttribution]:
+    """Split the shortfall in ``week`` into drivers that add up to it exactly.
+
+    shortfall = -(opening cash + inflows - outflows up to that week), rewritten as:
+      deposits + late invoice value not yet received + tariff/FX changes
+      - (opening cash + full-value scheduled inflows - recurring costs)
+    The last term is the operating baseline; it is negative when the business would
+    stay cash-positive without the stress drivers.
+    """
+    drivers: List[ShortfallAttribution] = []
+    for deposit in inputs.deposits:
+        if deposit.week <= week:
+            drivers.append(
+                ShortfallAttribution(
+                    driver=f"{deposit.pct.normalize():f}% deposit on {deposit.ref}",
+                    amount_usd=_deposit_amount(deposit),
+                    source_ref=f"doc:{deposit.ref}",
+                )
+            )
+
+    baseline = inputs.opening_cash_usd
+    fx_total = Decimal(0)
+    tariff_total = Decimal(0)
+    for view in views:
+        if view.due_week > week:
+            continue
+        baseline += view.raw_usd
+        fx_total -= view.fx_effect
+        tariff_total -= view.tariff_effect
+        late_week = view.due_week + LATE_PAYMENT_DELAY_WEEKS
+        if view.late > 0 and late_week > week:
+            rec = view.receivable
+            drivers.append(
+                ShortfallAttribution(
+                    driver=f"{rec.invoice_id} ({rec.buyer_name}) is likely late: {round(rec.p_on_time * 100)}% chance of on-time payment",
+                    amount_usd=view.late,
+                    source_ref=f"inv:{rec.invoice_id}",
+                )
+            )
+    if tariff_total:
+        drivers.append(
+            ShortfallAttribution(
+                driver="Tariff share conceded to US buyers",
+                amount_usd=tariff_total,
+                source_ref="scenario:tariff_shared_pct",
+            )
+        )
+    if fx_total:
+        drivers.append(
+            ShortfallAttribution(
+                driver="FX move on foreign-currency receivables",
+                amount_usd=fx_total,
+                source_ref="scenario:fx_change_pct",
+            )
+        )
+    baseline -= sum((_recurring_cost(inputs, w) for w in range(1, week + 1)), Decimal(0))
+    drivers.append(
+        ShortfallAttribution(
+            driver="Opening cash plus scheduled inflows, net of fixed costs and payroll",
+            amount_usd=-baseline,
+            source_ref="ledger:baseline",
+        )
+    )
+    return drivers
+
+
+# ------------------------------------------------------------------- what-if
+def apply_params(inputs: ForecastInputs, params: ScenarioParams) -> ForecastInputs:
+    """Return a copy of ``inputs`` with the what-if controls applied."""
+    deposits = [
+        deposit.model_copy(update={"pct": Decimal(str(params.deposit_pct))}) if deposit.adjustable else deposit
+        for deposit in inputs.deposits
+    ]
+    return inputs.model_copy(
+        update={
+            "dso_shift_days": params.dso_change_days,
+            "fx_change_pct": Decimal(str(params.fx_change_pct)),
+            "tariff_shared_pct": Decimal(str(params.tariff_shared_pct)),
+            "deposits": deposits,
+        }
+    )
+
+
+def simulate(base_inputs: ForecastInputs, params: ScenarioParams) -> ScenarioResult:
+    """Re-run the forecast under what-if controls and compare it with the base case."""
+    base = forecast_13w(base_inputs)
+    new = forecast_13w(apply_params(base_inputs, params))
+    return ScenarioResult(
+        forecast=new,
+        delta=ScenarioDelta(
+            first_shortfall_week_before=base.first_shortfall_week,
+            first_shortfall_week_after=new.first_shortfall_week,
+            min_closing_before_usd=base.min_closing_usd,
+            min_closing_after_usd=new.min_closing_usd,
+        ),
+    )
+
+
+# ---------------------------------------------------------------- FX exposure
+def fx_exposure(inputs: ForecastInputs) -> List[FxExposure]:
+    """Foreign-currency inflow per week and the effect of a +/-2% rate move."""
+    foreign: Dict[int, Decimal] = {w: Decimal(0) for w in range(1, FORECAST_WEEKS + 1)}
+    for receipt in _receipts(_invoice_views(inputs)):
+        if receipt.foreign:
+            foreign[receipt.week] += receipt.amount
+    rows: List[FxExposure] = []
+    for week, amount in foreign.items():
+        move = _cents(amount * FX_STRESS_PCT / 100)
+        rows.append(
+            FxExposure(
+                week=week,
+                foreign_inflow_usd=amount,
+                impact_up_usd=move,
+                impact_down_usd=-move,
+                impact_up_vnd=move * USD_VND,
+                impact_down_vnd=-move * USD_VND,
+            )
+        )
+    return rows

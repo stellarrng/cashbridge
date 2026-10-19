@@ -1,0 +1,11 @@
+[
+  {
+    "block_index": 0,
+    "timestamp_utc": "2026-10-19T07:00:53+00:00",
+    "invoice_key": "3d80fcc9ed2f815e5c3ccaf350db17f9e61c71d66c8bda9711dfa936c11190b4",
+    "document_bundle_sha256": "9e13af9b976b5bf6f93567d87771d37592a152bf541003fc79b8eb9224a2618e",
+    "lender_ref": "MOCK-0D6485F099",
+    "previous_block_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "block_hash": "486df7ca12aca75ec9f262d1863cf05c8124e0db005d0389276fc185cb30df21"
+  }
+]

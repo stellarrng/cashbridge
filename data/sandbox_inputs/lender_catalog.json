@@ -1,0 +1,24 @@
+{
+  "_label": "SYNTHETIC DEMO DATA",
+  "bridge_loan": {
+    "amount_usd": "46000",
+    "days": 90,
+    "interest_pa_pct": "14",
+    "upfront_fee_pct": "1"
+  },
+  "early_discount": {
+    "discount_days": 10,
+    "discount_pct": "2",
+    "invoice_amount_usd": "46000",
+    "net_days": 30
+  },
+  "factoring": {
+    "advance_pct": "80",
+    "fee_pct_of_invoice": "1.2",
+    "interest_pa_pct": "8",
+    "max_days": 120,
+    "min_invoice_usd": "10000"
+  },
+  "lender": "Partner Factor (FCI two-factor model, MOCK)",
+  "overdraft": null
+}

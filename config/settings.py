@@ -1,133 +1,105 @@
-"""
-Configuration and constants for CashBridge SME Finance Copilot.
+"""CashBridge configuration constants (instructions.md section 2.2).
 
-All parameters, tolerances, permission tiers and deterministic FX rates live here.
-
-NOTE ON "EXPECTED" VALUES
--------------------------
-Earlier versions of this file carried a BENCHMARK_APR_OPTIONS table with
-hard-coded `expected_apr` numbers that the engine then reproduced. That is
-backwards: the engine must derive the numbers, and the test-suite golden values
-must be computed independently (see tests/golden_values.py). This file now only
-carries *product terms* (advance rates, fee rates, discount terms) — never
-expected outputs.
+All company data in this project is SYNTHETIC. Secrets are read from the
+environment or a local ``.env`` file only; nothing secret is stored in code.
 """
 
-from pathlib import Path
-from enum import Enum
+from __future__ import annotations
+
 import os
+from decimal import Decimal
+from enum import Enum
+from pathlib import Path
+from typing import Mapping, Optional
 
-# ── Base directories ─────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+try:
+    from dotenv import load_dotenv
+except ImportError:  # python-dotenv is optional at runtime
+    load_dotenv = None
+if load_dotenv is not None:
+    load_dotenv(BASE_DIR / ".env")
+
+# ---------------------------------------------------------------- paths
 DATA_DIR = BASE_DIR / "data"
 SANDBOX_INPUTS_DIR = DATA_DIR / "sandbox_inputs"
 EXECUTION_EVIDENCE_DIR = DATA_DIR / "execution_evidence"
+AUDIT_LOG_PATH = EXECUTION_EVIDENCE_DIR / "sandbox_operation_logs.jsonl"
+INVOICE_REGISTRY_PATH = EXECUTION_EVIDENCE_DIR / "invoice_registry.json"
+CASES_DIR = DATA_DIR / "cases"
+# Live UI session state. Kept apart from the committed evidence so clicking Reset never touches it.
+RUNTIME_DIR = DATA_DIR / "runtime"
 
-AUDIT_HASH_REGISTRY_PATH = EXECUTION_EVIDENCE_DIR / "audit_hash_registry.json"
-OPERATION_LOGS_PATH = EXECUTION_EVIDENCE_DIR / "sandbox_operation_logs.jsonl"
+SYNTHETIC_LABEL = "SYNTHETIC DEMO DATA"
+COMPANY_NAME = "Binh Duong Timberworks Co., Ltd. (SYNTHETIC)"
+PARTNER_FACTOR_NAME = "Partner Factor (FCI two-factor model, MOCK)"
 
-# ── Operational mode ─────────────────────────────────────────────────────────
-# DEMO_MODE=true  -> fixed OTP, mock lender responses, synthetic data.
-# DEMO_MODE=false -> OTPs are randomly generated; no lender integration exists,
-#                    so external submission is refused rather than simulated.
-DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() in ("true", "1", "yes")
-DEMO_OTP = "123456"
-
-OTP_TTL_SECONDS = 300          # Session lifetime
-OTP_MAX_ATTEMPTS = 3           # Attempts before a session is burned
-
-
-# ── 5-tier permission state machine ──────────────────────────────────────────
-class PermissionLevel(str, Enum):
-    L0_READ = "L0_READ"                      # Read-only data ingestion
-    L1_ANALYZE = "L1_ANALYZE"                # Calculations, forecasts, drafts
-    L2_INTERNAL_WRITE = "L2_INTERNAL_WRITE"  # Ledger updates, period locks
-    L3_EXTERNAL_OTP = "L3_EXTERNAL_OTP"      # External submission (OTP gated)
-    L4_MONEY_MOVEMENT = "L4_MONEY_MOVEMENT"  # Funds transfer (HARD-BLOCKED)
-
-
-# ── Deterministic FX rates (demo only — NOT a live rate feed) ────────────────
-# These are frozen sandbox rates so demo output is reproducible. A production
-# deployment must pull dated rates from the bank/accounting system and record
-# the rate date alongside every converted figure.
-FX_RATES_TO_USD = {
-    "USD": 1.0,
-    "JPY": 0.0067,
-    "CNY": 0.14,
+# ------------------------------------------------- FX (assumed demo rates)
+# VND per one unit of currency. Labelled "assumed demo rates" wherever shown.
+USD_VND = 26_000
+JPY_VND = 175
+CNY_VND = 3_650
+FX_VND_PER_UNIT: Mapping[str, Decimal] = {
+    "USD": Decimal(USD_VND),
+    "JPY": Decimal(JPY_VND),
+    "CNY": Decimal(CNY_VND),
+    "VND": Decimal(1),
 }
-FX_RATE_DATE = "2026-10-16"          # Rate as-of date, carried into audit logs
-USD_VND_RATE = 25_400.0              # Demo rate for VND settlement reporting
-FX_CONVERSION_SPREAD_PCT = 0.35      # Typical bank spread on USD->VND, %
+CURRENCY_MINOR_DIGITS: Mapping[str, int] = {"USD": 2, "JPY": 0, "CNY": 2, "VND": 0}
+FX_NOTE = "Assumed demo rate USD/VND 26,000"
 
-# ── Matching and reconciliation tolerances ───────────────────────────────────
-# Tolerance is applied in the INVOICE'S OWN currency, not post-USD-conversion:
-# a $0.01 USD tolerance on a JPY invoice silently permits a ~1.5 JPY mismatch.
-PO_INVOICE_TOLERANCE_NATIVE = {
-    "USD": 0.01,
-    "JPY": 1.0,
-    "CNY": 0.01,
-}
-PO_INVOICE_TOLERANCE_DEFAULT = 0.01
+# ------------------------------------------------------------ tolerances
+INTERMEDIARY_FEE_TOLERANCE_USD = Decimal("50")  # per incoming wire
+THREE_WAY_AMOUNT_TOLERANCE = Decimal("0.01")  # in invoice currency
+MAX_SUBSET_SIZE = 6
+EXTRACTION_CONFIDENCE_THRESHOLD = 0.85
 
-# Max intermediary / correspondent wire deduction accepted without review.
-CORRESPONDENT_BANK_FEE_TOLERANCE_USD = 50.00
-
-# Subset-sum guard: exhaustive search is 2^n. Above this, refuse and ask a human
-# rather than silently truncating the search space.
-SSMP_MAX_OPEN_INVOICES = 18
-
-# ── Sandbox company baseline (synthetic) ─────────────────────────────────────
-DEFAULT_COMPANY = {
-    "name": "Pacific Timber & Garment Exports Ltd.",
-    "registration_no": "VN-EXPORT-889211-HK",
-    "tax_id": "VN9876543210",
-    "base_currency": "USD",
-    "dio_days": 38.0,
-    "dso_days": 68.0,
-    "dpo_days": 24.0,
-    "ccc_days": 82.0,  # 38 + 68 - 24 = 82
-    "opening_cash_week_1": 42000.0,
-    "fixed_weekly_opex": 12500.0,
-}
-
-# ── Forecast parameters ──────────────────────────────────────────────────────
+# ------------------------------------------------------------ forecasting
 FORECAST_WEEKS = 13
-DEFAULT_WEEK_3_SUPPLIER_DEPOSIT = 18000.0
-DEFAULT_WEEK_6_SUPPLIER_DEPOSIT = 55000.0
+MIN_CASH_BUFFER_USD = Decimal("10000")  # below this: at_risk; below 0: shortfall
+LATE_PAYMENT_DELAY_WEEKS = 4  # late remainder arrives in due week + 4
+FX_STRESS_PCT = Decimal("2")
+# Hypothetical tariff used only by the "tariff shared %" what-if control.
+# It is a scenario assumption, not a statement about any current tariff rate.
+SCENARIO_TARIFF_RATE_PCT = Decimal("10")
+CONCENTRATION_ALERT_PCT = Decimal("40")
 
-# Minimum cash the business wants to keep on hand at all times. Financing sized
-# to "get back to exactly zero" leaves no operating buffer, which is not a
-# fundable plan — the peak need is measured against this floor.
-MINIMUM_CASH_BUFFER_USD = 10_000.0
+# CCC calibration targets. The seed data is tuned towards these and tests check
+# the engine lands near them; the engine itself never reads this constant.
+CCC_TARGET_DAYS = {"dio": 35, "dso": 75, "dpo": 28, "ccc": 82}
 
-# ── Financing product terms (inputs, not expected outputs) ───────────────────
-FINANCING_PRODUCTS = {
-    "WEBANK_FACTORING": {
-        "provider": "WeBank Partner Supply Chain Factoring",
-        "option_type": "FACTORING",
-        "advance_rate": 0.85,            # % of invoice face advanced
-        "fee_rate_on_advance": 0.01125,  # Discount fee charged on the advance
-        "flat_fee_usd": 110.0,           # Platform / documentation fee
-        "fee_deducted_upfront": True,    # Fee netted off the advance at drawdown
-        "reserve_released_on_payment": True,  # The 15% holdback returns later
-        "is_mock_partner": True,         # No signed partner — simulated terms
-    },
-    "EARLY_PAYMENT_DISCOUNT": {
-        "provider": "Customer Early-Payment Discount (2/10 Net 55)",
-        "option_type": "EARLY_DISCOUNT",
-        "discount_rate_pct": 2.0,        # d in "d/10 net N"
-        "discount_period_days": 10,      # Pay-by day to earn the discount
-        "net_terms_days": 55,            # Original due day
-        "is_mock_partner": False,        # Depends only on the buyer agreeing
-    },
-    "UNSECURED_BRIDGE": {
-        "provider": "Traditional Unsecured Working Capital Bridge",
-        "option_type": "UNSECURED_BRIDGE",
-        "nominal_apr_pct": 18.90,        # Lender's quoted rate
-        "origination_fee_pct": 0.0,      # No fee quoted; shown as a disclosure
-        "interest_paid_at_maturity": True,
-        "is_mock_partner": True,
-    },
-}
+# --------------------------------------------------------------- security
+OTP_VALIDITY_SECONDS = 120
+DEMO_OTP_SECRET = "JBSWY3DPEHPK3PXP"  # public demo secret, printed in the README
+OTP_SECRET = os.getenv("OTP_SECRET", "").strip() or DEMO_OTP_SECRET
 
-DAYS_PER_YEAR = 365
+# -------------------------------------------------------------------- LLM
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").strip()
+LLM_MODEL = os.getenv("LLM_MODEL", "").strip()
+LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()
+LLM_TIMEOUT_SECONDS = 8
+
+
+def is_demo_mode(env: Optional[Mapping[str, str]] = None) -> bool:
+    """Return True when no LLM API key is configured (offline deterministic mode)."""
+    source = os.environ if env is None else env
+    return not source.get("LLM_API_KEY", "").strip()
+
+
+DEMO_MODE = is_demo_mode()
+
+
+class Tier(str, Enum):
+    """The 5-tier permission model (instructions.md section 3, Rule 2)."""
+
+    L0_READ = "L0_READ"
+    L1_ANALYZE = "L1_ANALYZE"
+    L2_INTERNAL_WRITE = "L2_INTERNAL_WRITE"
+    L3_EXTERNAL = "L3_EXTERNAL"
+    L4_MONEY_MOVEMENT = "L4_MONEY_MOVEMENT"
+
+    @property
+    def rank(self) -> int:
+        """Numeric order of the tier (L0 = 0 ... L4 = 4)."""
+        return int(self.value[1])

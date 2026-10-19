@@ -1,0 +1,366 @@
+{
+  "_label": "SYNTHETIC DEMO DATA",
+  "months": 12,
+  "records": [
+    {
+      "amount": "133947",
+      "buyer_id": "B-CN-01",
+      "currency": "CNY",
+      "days_late": -1,
+      "due_date": "2025-12-19",
+      "invoice_no": "INV-0129",
+      "issue_date": "2025-10-20",
+      "paid_date": "2025-12-18"
+    },
+    {
+      "amount": "15662",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": -5,
+      "due_date": "2025-12-08",
+      "invoice_no": "INV-0101",
+      "issue_date": "2025-10-24",
+      "paid_date": "2025-12-03"
+    },
+    {
+      "amount": "61007",
+      "buyer_id": "B-JP-01",
+      "currency": "USD",
+      "days_late": -2,
+      "due_date": "2026-01-08",
+      "invoice_no": "INV-0121",
+      "issue_date": "2025-10-25",
+      "paid_date": "2026-01-06"
+    },
+    {
+      "amount": "14031",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": -5,
+      "due_date": "2026-01-18",
+      "invoice_no": "INV-0102",
+      "issue_date": "2025-11-04",
+      "paid_date": "2026-01-13"
+    },
+    {
+      "amount": "20684",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": 2,
+      "due_date": "2026-02-12",
+      "invoice_no": "INV-0103",
+      "issue_date": "2025-11-29",
+      "paid_date": "2026-02-14"
+    },
+    {
+      "amount": "101780",
+      "buyer_id": "B-CN-01",
+      "currency": "CNY",
+      "days_late": -5,
+      "due_date": "2026-01-13",
+      "invoice_no": "INV-0130",
+      "issue_date": "2025-11-29",
+      "paid_date": "2026-01-08"
+    },
+    {
+      "amount": "29214",
+      "buyer_id": "B-JP-01",
+      "currency": "USD",
+      "days_late": -3,
+      "due_date": "2026-03-04",
+      "invoice_no": "INV-0122",
+      "issue_date": "2025-12-04",
+      "paid_date": "2026-03-01"
+    },
+    {
+      "amount": "19469",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": -2,
+      "due_date": "2026-01-22",
+      "invoice_no": "INV-0104",
+      "issue_date": "2025-12-08",
+      "paid_date": "2026-01-20"
+    },
+    {
+      "amount": "20936",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": 1,
+      "due_date": "2026-02-26",
+      "invoice_no": "INV-0105",
+      "issue_date": "2025-12-28",
+      "paid_date": "2026-02-27"
+    },
+    {
+      "amount": "178299",
+      "buyer_id": "B-CN-01",
+      "currency": "CNY",
+      "days_late": -1,
+      "due_date": "2026-02-24",
+      "invoice_no": "INV-0131",
+      "issue_date": "2026-01-10",
+      "paid_date": "2026-02-23"
+    },
+    {
+      "amount": "29668",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": 8,
+      "due_date": "2026-02-28",
+      "invoice_no": "INV-0106",
+      "issue_date": "2026-01-14",
+      "paid_date": "2026-03-08"
+    },
+    {
+      "amount": "41755",
+      "buyer_id": "B-JP-01",
+      "currency": "USD",
+      "days_late": -5,
+      "due_date": "2026-03-03",
+      "invoice_no": "INV-0123",
+      "issue_date": "2026-01-17",
+      "paid_date": "2026-02-26"
+    },
+    {
+      "amount": "28926",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": 0,
+      "due_date": "2026-04-16",
+      "invoice_no": "INV-0107",
+      "issue_date": "2026-01-31",
+      "paid_date": "2026-04-16"
+    },
+    {
+      "amount": "31567",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": 3,
+      "due_date": "2026-04-02",
+      "invoice_no": "INV-0108",
+      "issue_date": "2026-02-16",
+      "paid_date": "2026-04-05"
+    },
+    {
+      "amount": "38466",
+      "buyer_id": "B-JP-01",
+      "currency": "USD",
+      "days_late": 4,
+      "due_date": "2026-04-24",
+      "invoice_no": "INV-0124",
+      "issue_date": "2026-02-23",
+      "paid_date": "2026-04-28"
+    },
+    {
+      "amount": "139990",
+      "buyer_id": "B-CN-01",
+      "currency": "CNY",
+      "days_late": -3,
+      "due_date": "2026-05-26",
+      "invoice_no": "INV-0132",
+      "issue_date": "2026-02-25",
+      "paid_date": "2026-05-23"
+    },
+    {
+      "amount": "27858",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": 0,
+      "due_date": "2026-04-20",
+      "invoice_no": "INV-0109",
+      "issue_date": "2026-03-06",
+      "paid_date": "2026-04-20"
+    },
+    {
+      "amount": "22968",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": 4,
+      "due_date": "2026-06-06",
+      "invoice_no": "INV-0110",
+      "issue_date": "2026-03-23",
+      "paid_date": "2026-06-10"
+    },
+    {
+      "amount": "38541",
+      "buyer_id": "B-JP-01",
+      "currency": "USD",
+      "days_late": 1,
+      "due_date": "2026-05-18",
+      "invoice_no": "INV-0125",
+      "issue_date": "2026-04-03",
+      "paid_date": "2026-05-19"
+    },
+    {
+      "amount": "127077",
+      "buyer_id": "B-CN-01",
+      "currency": "CNY",
+      "days_late": -6,
+      "due_date": "2026-05-19",
+      "invoice_no": "INV-0133",
+      "issue_date": "2026-04-04",
+      "paid_date": "2026-05-13"
+    },
+    {
+      "amount": "24380",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": 1,
+      "due_date": "2026-06-21",
+      "invoice_no": "INV-0111",
+      "issue_date": "2026-04-07",
+      "paid_date": "2026-06-22"
+    },
+    {
+      "amount": "16221",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": -4,
+      "due_date": "2026-06-09",
+      "invoice_no": "INV-0112",
+      "issue_date": "2026-04-25",
+      "paid_date": "2026-06-05"
+    },
+    {
+      "amount": "12071",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": -9,
+      "due_date": "2026-08-06",
+      "invoice_no": "INV-0113",
+      "issue_date": "2026-05-08",
+      "paid_date": "2026-07-28"
+    },
+    {
+      "amount": "29501",
+      "buyer_id": "B-JP-01",
+      "currency": "USD",
+      "days_late": 1,
+      "due_date": "2026-07-16",
+      "invoice_no": "INV-0126",
+      "issue_date": "2026-05-17",
+      "paid_date": "2026-07-17"
+    },
+    {
+      "amount": "92488",
+      "buyer_id": "B-CN-01",
+      "currency": "CNY",
+      "days_late": -2,
+      "due_date": "2026-08-16",
+      "invoice_no": "INV-0134",
+      "issue_date": "2026-05-18",
+      "paid_date": "2026-08-14"
+    },
+    {
+      "amount": "23994",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": 6,
+      "due_date": "2026-07-08",
+      "invoice_no": "INV-0114",
+      "issue_date": "2026-05-24",
+      "paid_date": "2026-07-14"
+    },
+    {
+      "amount": "29876",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": 4,
+      "due_date": "2026-09-08",
+      "invoice_no": "INV-0115",
+      "issue_date": "2026-06-10",
+      "paid_date": "2026-09-12"
+    },
+    {
+      "amount": "25564",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": 1,
+      "due_date": "2026-09-21",
+      "invoice_no": "INV-0116",
+      "issue_date": "2026-06-23",
+      "paid_date": "2026-09-22"
+    },
+    {
+      "amount": "85149",
+      "buyer_id": "B-CN-01",
+      "currency": "CNY",
+      "days_late": 1,
+      "due_date": "2026-09-23",
+      "invoice_no": "INV-0135",
+      "issue_date": "2026-06-25",
+      "paid_date": "2026-09-24"
+    },
+    {
+      "amount": "54731",
+      "buyer_id": "B-JP-01",
+      "currency": "USD",
+      "days_late": -1,
+      "due_date": "2026-09-09",
+      "invoice_no": "INV-0127",
+      "issue_date": "2026-06-26",
+      "paid_date": "2026-09-08"
+    },
+    {
+      "amount": "31596",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": 4,
+      "due_date": "2026-08-28",
+      "invoice_no": "INV-0117",
+      "issue_date": "2026-07-14",
+      "paid_date": "2026-09-01"
+    },
+    {
+      "amount": "18029",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": 2,
+      "due_date": "2026-09-16",
+      "invoice_no": "INV-0118",
+      "issue_date": "2026-08-02",
+      "paid_date": "2026-09-18"
+    },
+    {
+      "amount": "132077",
+      "buyer_id": "B-CN-01",
+      "currency": "CNY",
+      "days_late": 5,
+      "due_date": "2026-10-22",
+      "invoice_no": "INV-0136",
+      "issue_date": "2026-08-08",
+      "paid_date": "2026-10-27"
+    },
+    {
+      "amount": "59229",
+      "buyer_id": "B-JP-01",
+      "currency": "USD",
+      "days_late": -3,
+      "due_date": "2026-09-24",
+      "invoice_no": "INV-0128",
+      "issue_date": "2026-08-10",
+      "paid_date": "2026-09-21"
+    },
+    {
+      "amount": "32918",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": 7,
+      "due_date": "2026-10-28",
+      "invoice_no": "INV-0119",
+      "issue_date": "2026-08-14",
+      "paid_date": "2026-11-04"
+    },
+    {
+      "amount": "27241",
+      "buyer_id": "B-US-01",
+      "currency": "USD",
+      "days_late": 1,
+      "due_date": "2026-11-14",
+      "invoice_no": "INV-0120",
+      "issue_date": "2026-08-31",
+      "paid_date": "2026-11-15"
+    }
+  ]
+}

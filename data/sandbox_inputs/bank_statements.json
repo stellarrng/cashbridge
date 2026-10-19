@@ -1,0 +1,41 @@
+{
+  "_label": "SYNTHETIC DEMO DATA",
+  "account": "Operating account (SYNTHETIC)",
+  "as_of": "2026-10-19",
+  "closing_balance_usd": "80000.00",
+  "transactions": [
+    {
+      "amount": {
+        "amount": "48620.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "reference": "INV1021 1022 1024",
+      "sender_name": "Oakline Home LLC (SYNTHETIC)",
+      "txn_date": "2026-10-19",
+      "txn_id": "TXN-0912"
+    },
+    {
+      "amount": {
+        "amount": "9870.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "reference": "INV-1025",
+      "sender_name": "Oakline Home LLC (SYNTHETIC)",
+      "txn_date": "2026-10-19",
+      "txn_id": "TXN-0913"
+    },
+    {
+      "amount": {
+        "amount": "1520000",
+        "currency": "JPY"
+      },
+      "buyer_id": "B-JP-01",
+      "reference": "PAYMENT OCT",
+      "sender_name": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "txn_date": "2026-10-18",
+      "txn_id": "TXN-0914"
+    }
+  ]
+}

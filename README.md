@@ -1,393 +1,186 @@
-# CashBridge — SME Finance Copilot for Export Enterprises
+# CashBridge
 
-> **2026 Shenzhen International FinTechathon submission (Topic E: SME Finance Copilot)**
->
-> **Principle:** *code calculates, AI writes.* Financial arithmetic and hard
-> rules live in tested Python. Language models are confined to reading
-> unstructured documents and drafting text.
+**An SME finance copilot for export manufacturers. It turns each export invoice into evidence a lender can verify, and then into cash.**
 
----
+Built for the 2026 Shenzhen International FinTech Competition, International Track, Topic E (SME Finance Copilot).
+Every company, person, buyer, lender and API in this repository is **SYNTHETIC** or **MOCK**.
 
-## 0. What is built, what is simulated, what is not built
+![Anticipate](docs/screenshots/01-anticipate.png)
 
-This section is first on purpose. The previous version of this README described
-eight agents, a Streamlit application, a FastAPI service, a seed script and a
-test suite. `agents/`, `api/`, `ui/` and `tests/` were empty directories, and
-`data/seed_sandbox.py` did not exist, so a reviewer following the quickstart hit
-an immediate crash. A reviewer who finds one claim unsupported reasonably
-discounts the rest.
+## The problem
 
-| Component | State |
+Vietnamese B2B export manufacturers sell on 45 to 90 day open-account terms to buyers in the US, Japan and China. On paper they are profitable, yet they run out of cash, because working capital is locked in unpaid invoices and supplier deposits (`CCC = DIO + DSO − DPO`). Banks cannot verify foreign invoices or stop the same invoice being financed twice, so they ask for real-estate collateral.
+
+| Fact | Source |
 |---|---|
-| `core/forecasting_engine.py` — 13-week direct cash flow, CCC | **Built, tested** |
-| `core/matching_engine.py` — 3-way match, subset-sum reconciliation | **Built, tested** |
-| `core/funding_evaluator.py` — same-basis APR comparison and ranking | **Built, tested** |
-| `core/cryptographic_registry.py` — hash-chained pledge registry | **Built, tested** |
-| `security/permission_gatekeeper.py` — L0-L4 gate, hash-chained audit log | **Built, tested** |
-| `security/otp_verifier.py` — human approval gate | **Built, tested** |
-| `security/pii_masker.py` — identifier redaction | **Built, tested** |
-| `security/bec_fraud_detector.py` — BEC screening | **Built, tested** |
-| `core/pdf_compiler.py` — funding pack PDF | **Built, tested** |
-| `demo_walkthrough.py` — runnable end-to-end flow | **Built, tested** (runs twice in a row from a clean checkout) |
-| `config/runtime.py` — per-run evidence isolation | **Built, tested** |
-| Financing partner terms (advance rates, fees, APR quotes) | **Simulated.** No funder has been approached or signed. |
-| Buyer / counterparty verification | **Not built.** No registry, tax-authority or carrier lookup. |
-| Bank Open API, e-invoice, factoring API, email/Zalo connectors | **Not built.** No integration, no mock service, no access agreement. |
-| LLM document extraction (`agents/`) | **Not built.** The directory is empty. |
-| Streamlit UI, FastAPI service | **Not built.** `Dockerfile`/`docker-compose.yml` are architectural sketches and will not start. |
-| ML forecasting / payment-probability models | **Not built**, and deliberately so — see §4. |
-| Cash flow figures, invoices, emails | **Synthetic.** Not customer data and not customer results. |
+| About 8.8% of Vietnamese SMEs access bank loans, against 47.1% of large firms | FiinGroup, "Vietnam SME: Maturity and Credit Access", Aug 2026 |
+| International factoring is about 0.04% of Vietnam's trade turnover, against 0.86% in developing economies | VNBA / IFC / FCI workshop, Mar 2026 |
+| Factoring outstanding is about VND 22,000 bn across 16 credit institutions | VNBA, Mar 2026 |
+| WeBank launched 微贸贷 (an online credit loan for small foreign-trade firms) with China Eximbank Shenzhen, Sinosure Shenzhen and Shenzhen Southern E-Port | Xinhua, 27 May 2025 |
+| US tariffs on Vietnamese goods changed several times in 2025 to 2026 | Described as volatility only; no current rate is quoted |
 
-**What CashBridge does not promise.** It does not turn an invoice into cash.
-A funder can decline on buyer, country, goods, dispute or contract grounds.
-Three states are kept distinct throughout the code and the UI copy:
+## How it works
 
-1. **Pre-screened eligible** — CashBridge's own checks pass.
-2. **Pack accepted** — a funder agreed to review it.
-3. **Facility disbursed** — money arrived.
+CashBridge follows one loop. Each step is a section of the dashboard.
 
-Only state 1 is implemented. States 2 and 3 require a funding partner.
+1. **Anticipate.** A 13-week cash forecast finds the first week the account goes negative and says what causes it.
+2. **Prove.** Bank credits are matched to invoices (including one wire that pays several invoices at once). Each invoice is checked against its purchase order and bill of lading, and suspicious emails are blocked.
+3. **Compare.** Every way to bridge the gap is priced by what it really costs per year.
+4. **Approve.** The numbers are locked into a funding pack, and the Director approves it with a one-time code that works for that exact pack only.
 
----
+> **AI reads and writes. Code calculates and decides. Humans approve everything that leaves the system.**
+> No language model ever does arithmetic, matching or eligibility. Every number comes from tested Python, and any text a model writes is rejected unless every number in it is one of the locked figures.
 
-## 1. Problem
+### The demo company
 
-Export SMEs are profitable on paper and short of cash. Receivables sit for
-45-90 days while suppliers want deposits up front:
+Binh Duong Timberworks Co., Ltd. (SYNTHETIC) has about 120 staff and annual revenue of about VND 120 bn. Demo exchange rates are fixed and labelled as assumed: USD/VND 26,000, JPY/VND 175, CNY/VND 3,650.
 
-```
-CCC = DIO + DSO - DPO
-```
+| What happens | Result in the demo |
+|---|---|
+| Cash conversion cycle | 82 days (35 stock + 75 collection − 28 payment), computed from the ledger |
+| A USD 48,620 wire arrives | Matched to INV-1021 + INV-1022 + INV-1024; the USD 35 gap is booked as a bank fee |
+| First negative week | Week 7, short by about USD 42,000 (a 30% timber deposit and a late US invoice) |
+| What it costs to bridge | Factoring INV-1030 about 17.1% a year, a bridge loan about 18.2%, an early-payment discount (2/10 net 30) about 37.2%; no overdraft on file |
+| Invoice checks | INV-1030 is eligible; INV-1027 is flagged (two packages missing) |
+| A lookalike-domain email asks to change bank details | Blocked |
 
-Lenders ask for real estate collateral because they cannot independently verify
-an unstructured international invoice or assess a foreign buyer. The target
-user is a B2B export manufacturer or trader — wood processing, garments,
-subcontracting — selling on credit into the US, Japan and China.
+The lender is "Partner Factor (FCI two-factor model, MOCK)". WeBank appears only as the intended white-label channel; no WeBank API is claimed.
 
-> Market figures previously quoted here (SME bank-loan access rates,
-> international factoring as a share of trade volume) have been removed pending
-> a citable source. Unsourced statistics in a pitch invite exactly the question
-> you least want.
+## Quickstart
 
----
-
-## 2. The loop
-
-**Anticipate → Prove → Compare → Approve**
-
-1. **Reconcile.** Bank credits against invoices, including multi-currency and
-   bulk wires net of correspondent bank fees.
-2. **Forecast.** Weekly cash position over 13 weeks; locate the trough, not
-   just the first dip.
-3. **Compare.** When a gap appears, rank financing options by true cost on cash
-   actually received *and* by whether they close the gap.
-4. **Pack.** Produce documentation tied to a content hash of the underlying
-   documents, behind a human approval gate.
-
-Run it:
+You need Python 3.11 or newer. Node is only needed to rebuild the UI; the built dashboard is included.
 
 ```bash
-python demo_walkthrough.py
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env        # optional
+make test                   # all tests, no network, no API key
+make run                    # dashboard and API at http://localhost:8000
 ```
 
-Each run creates its own evidence directory under `data/demo_runs/` and writes
-its audit log, pledge registry and funding pack there. The committed
-`data/execution_evidence/` files stay empty and are never touched, so the demo
-is repeatable and nothing in the archive has to be deleted before it works.
+| Command | What it does |
+|---|---|
+| `make seed` | Writes the deterministic SYNTHETIC inputs to `data/sandbox_inputs/` |
+| `make test` | Runs the test suite |
+| `make run` | Serves the dashboard and API on port 8000 |
+| `make story` | Runs the 11-step demo story headless and regenerates `data/execution_evidence/` |
+| `make eval` | Runs 20 evaluation tasks and writes `data/execution_evidence/eval_report.md`; with an API key it also scores an LLM-only baseline |
+| `make anchor` | Appends the audit-log and registry head hashes to `data/execution_evidence/ANCHORS.md` |
+| `make ui` | Rebuilds the React bundle in `ui/web/dist` (needs Node 20 or newer) |
 
-The first version of this script wrote into the committed directory, so a
-second run raised `DoubleFinancingError` — and because the archive was
-packaged after a demo run, it failed on the very first attempt from the ZIP.
+### Offline by default
 
----
-
-## 3. Design decisions that carry the submission
-
-### 3.1 Two cost measures, both reported
-
-Every product is modelled as a **dated cash flow schedule** from the
-borrower's point of view, and two figures are derived from it:
+With no `LLM_API_KEY` the whole product runs without a network connection, using fixed templates and rule-based parsing. The header badge reads `offline-demo`. To use a live model, set these in `.env` (any OpenAI-compatible provider works, so DeepSeek or Qwen can be used in mainland China):
 
 ```
-annualized_simple_cost = (total_cost / cash_in_hand) x (365 / days) x 100
-effective_apr          = the annual rate that discounts the dated flows to
-                         zero (an IRR), actual/365, compounded
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL=your-model
+LLM_API_KEY=your-key
 ```
 
-`cash_in_hand` is cash the business can actually spend after upfront fees,
-discounts and holdbacks.
+If a call fails or takes longer than 8 seconds, the app drops back to offline mode. Text is PII-masked before it reaches a model.
 
-The simple measure is the convention behind the familiar "2/10 net 30 is about
-36% a year" figure. It is easy to check on paper and it is a fair same-basis
-comparison — but it does not compound and it flattens a product with payments
-at several dates into a single term, so it is **not** an effective APR under
-any standard convention. An earlier version of this submission reported it
-under the name `apr_pct`, which overstated how standardised the comparison was.
-Both figures are now shown and the **ranking uses the effective rate**.
+### Approving as the Director
 
-This matters because the products are not quoted on comparable bases. The
-factoring fee is deducted at drawdown, so the borrower never holds the gross
-advance, and the 15% reserve comes back at maturity — cash deferred, not a
-cost, which only a dated schedule gets right. The buyer discount runs over a
-term set by the payment terms, not by the time left on the invoice. The bridge
-quotes a simple annual rate with interest at maturity. On the reference
-invoice ($65,000, 45 days):
+Submitting a funding pack is a level 3 action and needs a 6-digit one-time code. The demo secret is public:
 
-| Option | Headline | Cash in hand | Cost | Simple p.a. | **Effective APR** |
-|---|---|---|---|---|---|
-| Factoring (85% advance, 1.125% + $110) | 1.125% | $54,518.44 | $731.56 | 10.88% | **11.42%** |
-| Buyer discount (2/10 net 55) | 2% | $63,700.00 | $1,300.00 | 16.55% | **17.81%** |
-| Unsecured bridge | 18.90% | $65,000.00 | $1,514.59 | 18.90% | **20.54%** |
+```
+OTP_SECRET=JBSWY3DPEHPK3PXP
+```
 
-The bridge is the control: with no fee and interest at maturity its simple
-cost must equal the quoted 18.90% exactly, and a test asserts it. Its
-effective rate is legitimately higher, because the quote does not compound.
+Add it to any authenticator app (choose manual entry, Base32, 30-second codes). A code works once, only for the pack on screen, and only within 120 seconds.
 
-Each option publishes its `cash_flows`, so a reviewer can re-derive the rate
-rather than taking it on trust.
+## Using the dashboard
 
-### 3.2 Ranking by fit, then by cost
+Open http://localhost:8000. The top bar holds the five sections (keys 1 to 5 also switch), and a progress strip underneath shows where you are and what to do next.
 
-The cheapest option is not the best option if it leaves a hole. Against the
-$66,350 peak need on the sandbox data, **no single product closes the gap** —
-and factoring, the cheapest, leaves the largest shortfall ($11,831.56). The
-engine therefore builds packages, sizing any amount-flexible facility to the
-residual so no interest is paid on cash the business does not need.
+| Section | What you do there |
+|---|---|
+| Anticipate | Read the 13-week chart, see what causes the gap, move the sliders to try scenarios, and see which buyers are most likely to pay late |
+| Prove | Check the reconciliation, the wire explanation, blocked emails, what the document agent read from scanned documents, and invoice checks |
+| Compare | Choose a funding option |
+| Approve | Prepare the pack, download the PDF funding pack, enter the code, and try the two safeguard demos (financing the same invoice twice, tampering with the draft) |
+| Evidence | Verify the audit chain, run the tamper demo on a temporary copy, see the invoice registry and the evaluation results |
 
-### 3.2a A package is several facilities, not one product
+The **Assistant** button opens a drawer with the CFO chat (ask about the shortfall, the cheapest funding, the cash conversion cycle, a slower-collections, tariff or FX scenario, or which buyer is most at risk; every answer lists where its numbers come from), a log of every permission decision, and a privacy check showing masked text. **Reset demo** starts a fresh session.
 
-A package carries its facilities separately, each with its own counterparty,
-cash flows and conditions. An earlier version collapsed one into a single
-`provider` string and a single advance figure, and the demo then wrote that
-package into the pledge registry as **one pledge** — recording security over
-the invoice on behalf of two funders, only one of which actually takes any.
+### API
 
-Now:
+The dashboard uses `/api/...`. For integrations, the same engines are exposed as `GET /forecast` (optionally with `dso_change_days`, `deposit_pct`, `tariff_shared_pct`, `fx_change_pct`), `GET /reconcile`, `GET /funding-options`, `POST /packs`, `POST /packs/{id}/request-approval`, `POST /packs/{id}/approve` and `GET /audit/verify`. Interactive documentation is at http://localhost:8000/docs. Approving a pack still needs the one-time code, and every call goes through the same permission checks.
 
-- `LiquidityOption.facilities` lists each line separately.
-- `Facility.pledges_receivable` marks which one takes security. Factoring
-  does; a buyer discount settles the invoice and an unsecured bridge does not
-  touch it. **Only a secured facility is registered as a pledge.**
-- `check_facility_compatibility()` refuses two facilities that both claim the
-  same receivable, and refuses factoring alongside a buyer discount on one
-  invoice.
-- It checks only conflicts CashBridge can see. **Exclusivity, negative-pledge
-  and cross-default clauses in the real agreements have not been reviewed**,
-  and no counterparty has agreed to lend alongside another. A package is a
-  proposal, never an approved structure — the option's `cons` say so.
+## Architecture
 
-### 3.3 The trough, not the first dip
+```mermaid
+flowchart LR
+    UI[React dashboard] -->|JSON, UI contract| API[FastAPI api/main.py]
+    API --> ADAPTER[ui/backend_real.py]
+    ADAPTER --> COORD[Coordinator state machine]
+    COORD --> GUARD[Guards: PII mask, injection guard, number lock, BEC]
+    COORD --> GATE[Permission gatekeeper L0 to L4]
+    GUARD --> LLM[LLM client with offline fallback]
+    GATE --> CORE[Deterministic core: matching, forecast, funding, registry]
+    GATE --> AUDIT[Hash-chained audit log]
+    CORE --> EVID[data/execution_evidence]
+```
 
-On the seed schedule the balance first goes negative in **week 6 (-$31,350)**
-and reaches its low in **week 8 (-$56,350)**, staying negative for five
-consecutive weeks and closing week 13 at -$11,850.
+The dashboard never calculates a money value. It renders what the backend returns through the contract in `docs/UI_CONTRACT.md`.
 
-An earlier version of this submission described "a Week 6 shortfall of $31,350"
-and proposed a $55,250 factoring advance against it. Net of fees that advance
-releases $54,518.44, against a trough of $56,350 before any operating buffer —
-the headline claim was arithmetically false. The facility is now sized to the
-trough plus a $10,000 operating float, and `tests/test_financial_core.py`
-asserts that the old narrative fails.
+### Five permission tiers
 
-### 3.4 `REVIEW_REQUIRED` is a first-class outcome
-
-Pass / fail is the wrong shape for a verification system. Three states are
-distinguished:
-
-- **finding** — the evidence present is inconsistent (amounts disagree);
-- **absence of evidence** — a document is missing, so the check could not run;
-- **ambiguity** — several answers fit, and the data does not choose between them.
-
-Concretely: if two different invoice subsets both fit an incoming wire within
-tolerance, the reconciliation is **not posted**; the alternatives are returned
-for a human to resolve using the remittance advice. A bank-detail change from an
-unrecognised sender is held for out-of-band verification rather than rated safe.
-
-### 3.5 Honest limits on the cryptographic claims
-
-**3-way match.** Establishes that the invoice, PO and bill of lading are
-mutually consistent. A consistent set of forged documents passes every check.
-Each bundle returns a `checks_not_performed` list naming what was not verified
-(buyer existence, e-invoice status, carrier confirmation, dispute status,
-pledges made outside this platform).
-
-**Duplicate registry.** Detects a second pledge *made through CashBridge*,
-indexed by both invoice ID and document content hash — so a renumbered
-resubmission of the same trade is caught. It cannot see a pledge made to a
-funder that does not use CashBridge. The industry problem is double financing
-*across* funders; that needs a shared registry or a funder-side check.
-
-**Audit log.** Hash-chained, so an edited, deleted or reordered entry is
-detected. It is **not immutable against whoever controls the process**: that
-party can recompute every hash from genesis and produce a valid chain.
-`get_chain_head()` exposes the head hash precisely so a deployment can anchor it
-externally — counter-signed by the funder, published, or written to append-only
-storage. `tests/test_matching_and_registry.py` contains a test that performs
-exactly this wholesale rewrite and shows it is caught *only* by the anchor.
-
-**PII masking.** Reduces exposure of direct identifiers. It is not
-anonymisation: prices, quantities, shipment dates, port pairs and buyer names
-remain, and in a narrow export sector that combination often identifies the deal.
-Whether a document may be sent to a third-party model at all is a data-rights
-question that must be settled before the masker is called.
-
-### 3.6 Five-tier permission model
-
-| Level | Permission | Enforcement |
+| Tier | Scope | Approval |
 |---|---|---|
-| `L0` | Read | Auto-approved |
-| `L1` | Analyse and draft | Auto-approved |
-| `L2` | Internal ledger write | Auto-approved, logged |
-| `L3` | External action | Requires a verified OTP session bound to that exact action and resource, consumed on first use |
-| `L4` | Money movement | Hard-blocked in code. No override exists. |
+| L0 Read | Bank statements, e-invoices, bills of lading, POs, inbox | Automatic |
+| L1 Analyze | Forecasts, APR comparisons, risk scores, drafts | Automatic |
+| L2 Internal write | Ledger entries for exact and subset-sum matches; period locking | Automatic at confidence 1.0; fuzzy matches need the accountant |
+| L3 External | Submitting a funding pack, sending any external email | A one-time code from the Director for every single action |
+| L4 Money movement | Payments, changing payee details | Always blocked in code; do it in your banking portal |
 
-L3 approval is redeemed against the OTP module. It is not a boolean the caller
-can set — an earlier version accepted `otp_verified=True` from the caller, so
-any code path could declare its own human approval.
+### Security and evidence
 
----
+- **Tamper-evident audit log.** One hash-chained line per permission decision; `verify_chain` reports the first broken line.
+- **Anti-double-financing registry.** Keyed on the invoice's content (not the PDF file), so re-scanning a document cannot create a second entry.
+- **Prompt-injection guard.** Emails and documents are data, never instructions.
+- **Business-email-compromise detection.** Lookalike domains, bank-detail change requests and unverified accounts are blocked, and payee details are never updated automatically.
+- **Number lock.** Model-written text is rejected if it contains any number that is not a locked figure.
+- **Verifiable Funding Pack.** A PDF with the cover letter, locked metrics, a 3-way match summary, the SHA-256 of every source document and of the whole bundle, the registry reference and an appendix of formulas, so a lender can recompute the figures.
+- **Document reading with confidence.** Scanned documents are read field by field; anything below 0.85 confidence is left for a person instead of guessed.
+- **Buyer risk model.** The chance each invoice is paid on time comes from a logistic regression fitted on the company's own payment history, with its coefficients shown. A buyer holding more than 40% of open invoices is flagged as a concentration risk.
+- **Collections ladder.** Reminders 3 days before the due date, on it, and 7, 15 and 30 days after, drafted in English, Japanese or Chinese by buyer market. Nothing is sent without the Director's one-time code.
 
-## 4. Why there is no ML model here
+## Repository layout
 
-The 13-week projection is arithmetic: opening balance, scheduled receipts,
-fixed outflows, deposits. A model predicting payment probability or forecast
-error needs historical payment behaviour to train on and held-out data to be
-measured against. Neither exists yet.
-
-Reporting MAE or WAPE from synthetic data would measure nothing. The projection
-is labelled a projection under stated assumptions — `ForecastSummary.assumptions`
-carries them — and the honest next step is the scenario simulator
-(`simulate_forecast`), which stresses buyer delays without claiming predictive
-accuracy. ML belongs here once there is real payment history and an
-out-of-sample measurement to report.
-
----
-
-## 5. Verification
-
-```bash
-pip install -r requirements.txt
-pytest -q                 # the full suite
-pytest -q -m "not slow"   # skip the subprocess demo runs
+```text
+config/     settings.py (constants), tool_allowlist.py (which agent may use which tool)
+schemas/    Pydantic v2 data contracts
+core/       matching, forecasting, funding evaluator, invoice registry, period lock, pack metrics, PDF compiler
+            (pure Python: no LLM)
+security/   permission gatekeeper, audit log, OTP, PII masker, injection guard, number check, BEC detector
+agents/     LLM client, coordinator, CFO assistant, document agent, collections agent, buyer risk agent
+api/        FastAPI app and the MOCK lender connector
+ui/         backend_real.py (the UI contract on the real engines) and web/ (React + TypeScript)
+data/       seed_sandbox.py, loader.py, sandbox_inputs/, execution_evidence/
+scripts/    run_demo_story.py, anchor_head.py, export_ui_snapshot.py
+eval/       tasks.yaml and run_eval.py (CashBridge against an LLM-only baseline)
+docs/       UI_CONTRACT.md, screenshots/
+tests/      pytest suite
 ```
 
-`pytest` reports the count; this file deliberately does not, because a number
-written in prose is stale on the next commit. (It said 91 when the suite had
-92, which a reviewer noticed.)
+## Limits
 
-Expected figures live in `tests/golden_values.py`, derived by hand from the
-stated product terms and **importing nothing from `core/`** — so a passing
-test is a check, not the engine agreeing with itself.
+- The registry and audit chain are **tamper-evident**, not tamper-resistant. Someone with write access could rewrite both files; anchoring the head hashes in git is the mitigation.
+- A registry inside one company's installation cannot stop the same invoice being financed at a second lender. In production it must be shared, for example run by a lender consortium or anchored to the e-invoice authority.
+- The demo one-time-code secret is public by design.
+- All data, lenders and bank connections are synthetic or mocked.
 
-`tests/test_packaging.py` checks the archive itself: that the committed
-evidence files are empty, that no run output is bundled, and that
-`demo_walkthrough.py` completes **twice in a row** from a clean checkout. That
-suite exists because an earlier archive shipped with a populated registry, so
-the demo raised `DoubleFinancingError` on first run while every unit test
-passed. Unit tests did not look inside the box.
+## Out of scope
 
-This replaced an arrangement in which `config/settings.py` carried an
-`expected_apr` per product and the evaluator contained:
+Marketing agent, contract and bid evaluation agent, ESG / CBAM add-on, inventory, payroll and tax agents, real bank Open API and e-invoice connectors, a shared cross-lender registry, and expansion to distributors, forwarders and household businesses.
 
-```python
-if invoice_id == "INV-2026-103":
-    net_advance_a = 55250.00
-    total_fee_a = 731.25     # also wrong: 55,250 x 1.125% + 110 = 731.5625
-```
+Demo video: _link to be added_
 
-A substantial number of the tests are regressions against specific defects
-found in that build, each naming what it covers:
+## Project documents
 
-| Area | Defect |
-|---|---|
-| APR | Hard-coded override reproducing spec numbers for the demo invoice |
-| APR | Each product measured on a different denominator |
-| APR | Discount term read from `days_until_due` instead of the payment terms |
-| Ranking | Sorted by APR alone; the cheapest option left the largest shortfall |
-| Combination | Pooled both facilities at full size — $119,518 drawn for a $66,350 need |
-| Forecast | Narrative sized the facility to week 6 rather than the week 8 trough |
-| Forecast | Delayed receipts clamped into week 13, fabricating an inflow |
-| OTP | Blank code approved any L3 action outside demo mode (`_secret_otp` never set) |
-| OTP | No expiry, no attempt limit, non-constant-time comparison |
-| Gate | `otp_verified=True` accepted from the caller |
-| Audit log | No chain at all, despite the claim; edits and deletions undetectable |
-| Bundle hash | Covered only 3 identifiers plus today's date — amount changes invisible |
-| Bundle hash | Changed daily, so the duplicate check could be beaten by waiting |
-| Registry | Duplicate check by invoice ID only; renumbering defeated it |
-| Registry | Partner and amount sat outside the block hash |
-| Registry | Accepted the literal placeholder `"sha256hash"` as a bundle digest |
-| Matching | $0.01 USD tolerance applied to JPY after conversion (~1.5 JPY slack) |
-| Matching | Ambiguous reconciliations posted to the ledger silently |
-| Matching | Largest-subset-first search, preferring coincidental basket matches |
-| PII | `[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}` + IGNORECASE redacted SHIPMENT, CONTRACT, DELIVERY |
-| PII | Unlabelled 9-13 digit pattern redacted invoice amounts as tax IDs |
-| BEC | Twelve single phrases each triggering CRITICAL_BLOCK, incl. "effective immediately" |
-| BEC | Bank-change request from an unrelated domain scored SAFE |
-| BEC | Trust list contained `pacifictiber.vn`, a typo of the exporter's own domain |
-| Packaging | Archive shipped with a populated registry; demo failed on first run |
-| Packaging | Demo wrote into committed evidence, so it worked once and then broke |
-| Rates | Linear cost annualisation reported under the name "true APR" |
-| Rates | Factoring reserve not modelled as a dated flow, so the rate was off |
-| Packages | Two funders collapsed into one `provider` and one registry pledge |
-| Packages | Unsecured facilities recorded as pledges over the receivable |
-| PDF | `cash_in_hand_usd=0.0` fell back to the gross advance via `or` |
-| PDF | Bundle hash validated on length only, so `"z" * 64` passed |
-| PDF | Em dashes and Vietnamese diacritics crashed generation outright |
-| Docs | README stated a test count that was already wrong |
-
----
-
-## 6. What to do before submitting
-
-Carried over from review, in priority order.
-
-**P0**
-1. Interview three to five SME finance leads or chief accountants. Everything
-   above is a build; none of it is demand evidence.
-2. Decide the honest story for data connectivity. Either build labelled mock
-   connectors for bank statements, e-invoices and factoring APIs, or state
-   plainly that integration is unproven. §0 currently does the latter.
-3. Quantify the value to the SME: reconciliation hours before and after,
-   discrepancies caught pre-submission, cost of capital of the option they
-   would have picked versus the one recommended, minus an assumed CashBridge
-   fee. Label it an illustrative scenario, not a customer result.
-
-**P1**
-4. Build the LLM extraction layer against a labelled document set and report
-   per-field accuracy and missing-field rate. `agents/` is empty, so the
-   "code calculates, AI writes" split is currently asserted rather than shown.
-5. Add `DISPUTED` handling end to end — the status exists in `MatchStatus` but
-   nothing populates it.
-6. Test `pdf_compiler` and check the pack renders the disclosures correctly.
-
-**P2**
-7. Cut the agent roster in the pitch to the ones on the main path. Eight agents
-   invites "why not one workflow with a few tools?", and the answer has to be
-   about permissions, testability and failure isolation — not that eight sounds
-   more modern.
-
----
-
-## 7. Business model
-
-- **SaaS subscription**, tiered by connected accounts and invoice volume.
-- **Lender referral fees**, disclosed to the SME.
-- **White-label integration** with a bank's supply chain finance programme.
-
-Referral revenue only exists once a funding partner does, and none of the three
-has been validated with a paying customer. Treat §6 item 3 as the gate.
-
----
-
-## 8. Principles
-
-1. **Deterministic finance.** Arithmetic in tested Python, never generated.
-2. **Traceable evidence.** Every figure reaches back to a document, a formula
-   and a stated assumption.
-3. **Controlled autonomy.** L0-L4, with a human gate on every external action
-   and no autonomy over money.
-4. **Stated limits.** Where the system cannot conclude, it says so and stops.
-
-CashBridge turns scattered receivable data into a cash flow decision and a
-funding pack a third party can re-derive. That is the claim, and §0 states
-exactly how much of it runs today.
+- `instructions.md`: the build specification.
+- `buildplan.md`: the phased build plan and progress tracker.
+- `DECISIONS.md`: design choices, with a table mapping each security control to its file and test.
+- `docs/UI_CONTRACT.md`: the interface between the dashboard and the backend.

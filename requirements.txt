@@ -1,20 +1,12 @@
-# ── Required to run the deterministic core, the demo and the test suite ──────
-pydantic>=2.8.0
-fpdf2>=2.8.0
-pytest>=8.3.0
-pypdf>=5.0.0             # test-only: reads back the generated funding pack
-
-# ── Not yet used by any code in this repository ───────────────────────────────
-# Listed previously as if they were dependencies. The UI, API and LLM layers
-# they belong to are not built (see README §0), so installing them tells a
-# reviewer the application exists when it does not. Uncomment as each layer
-# lands.
-#
-# streamlit>=1.38.0        # ui/app.py — not built
-# fastapi>=0.112.0         # api/main.py — not built
-# uvicorn>=0.30.0          # api server — not built
-# openai>=1.40.0           # agents/ extraction layer — not built
-# pandas>=2.2.0            # only needed by the UI data tables
-# plotly>=5.24.0           # only needed by the UI charts
-# python-dotenv>=1.0.1     # only needed once there are API keys to load
-# requests>=2.32.0         # only needed once there is an external API to call
+fastapi==0.143.2
+uvicorn==0.54.0
+pydantic==2.14.1
+fpdf2==2.8.9
+pytest==9.1.1
+openai==3.31.0
+pyotp==2.10.0
+scikit-learn==1.9.1
+python-dotenv==1.2.4
+httpx==0.28.1
+PyYAML==6.0.3
+numpy==2.5.4

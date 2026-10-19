@@ -1,232 +1,183 @@
-"""
-Pydantic v2 schemas for Cash Conversion Cycle (CCC), 13-week cash flow forecasts
-and liquidity option comparison.
+"""Pydantic v2 models for forecasting, scenarios and the liquidity menu.
+
+Money fields are ``Decimal`` in USD with cent precision. ``to_contract`` turns any
+model into the plain JSON shape the UI contract uses (Decimals become numbers).
 """
 
-from typing import List, Optional, Dict
+from __future__ import annotations
+
+from datetime import date
+from decimal import Decimal
+from typing import Any, Dict, List, Literal, Optional
+
 from pydantic import BaseModel, Field
 
-from config.settings import FORECAST_WEEKS
+from config.settings import (
+    FORECAST_WEEKS,
+    MIN_CASH_BUFFER_USD,
+    SCENARIO_TARIFF_RATE_PCT,
+)
+from schemas.document_schemas import Money
+
+WeekStatus = Literal["ok", "at_risk", "shortfall"]
+
+
+def to_contract(value: Any) -> Any:
+    """Convert models, Decimals and dates into plain JSON-compatible values."""
+    if isinstance(value, BaseModel):
+        return {k: to_contract(v) for k, v in value.model_dump().items()}
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {k: to_contract(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [to_contract(v) for v in value]
+    return value
 
 
 class CCCMetrics(BaseModel):
-    dio_days: float = Field(..., description="Days Inventory Outstanding")
-    dso_days: float = Field(..., description="Days Sales Outstanding")
-    dpo_days: float = Field(..., description="Days Payables Outstanding")
-    ccc_days: float = Field(..., description="Cash Conversion Cycle: DIO + DSO - DPO")
-    industry_benchmark_days: float = 65.0
-    liquidity_drag_commentary: str = ""
+    """Cash conversion cycle components in days."""
+
+    dio: float
+    dso: float
+    dpo: float
+    ccc: float
+
+
+class LedgerSnapshot(BaseModel):
+    """Period totals from which DIO, DSO and DPO are computed."""
+
+    period_days: int = Field(gt=0)
+    revenue_usd: Decimal = Field(gt=0)
+    cogs_usd: Decimal = Field(gt=0)
+    avg_inventory_usd: Decimal = Field(ge=0)
+    avg_receivables_usd: Decimal = Field(ge=0)
+    avg_payables_usd: Decimal = Field(ge=0)
+
+
+class OpenReceivable(BaseModel):
+    """An unpaid export invoice with the probability it is paid on time."""
+
+    invoice_id: str
+    buyer_id: str
+    buyer_name: str
+    market: str
+    amount: Money
+    due_date: date
+    p_on_time: float = Field(ge=0.0, le=1.0)
+    promised_date: Optional[date] = Field(
+        default=None, description="Buyer's dated promise to pay; the full amount lands on that date"
+    )
+
+
+class DepositPlan(BaseModel):
+    """A supplier deposit: ``po_value_usd`` times ``pct`` paid in a given week."""
+
+    ref: str
+    week: int = Field(ge=1, le=FORECAST_WEEKS)
+    po_value_usd: Decimal = Field(gt=0)
+    pct: Decimal = Field(ge=0, le=100)
+    adjustable: bool = Field(default=False, description="True if the deposit_pct what-if control applies")
+
+
+class ScenarioParams(BaseModel):
+    """What-if controls. Field names match the UI contract ``scenario_controls``."""
+
+    dso_change_days: int = Field(default=0, ge=-30, le=30)
+    deposit_pct: float = Field(default=30, ge=0, le=50)
+    tariff_shared_pct: float = Field(default=0, ge=0, le=100)
+    fx_change_pct: float = Field(default=0, ge=-5, le=5)
+
+
+class ForecastInputs(BaseModel):
+    """Everything the 13-week model needs. Scenario adjustments default to none."""
+
+    start_date: date
+    opening_cash_usd: Decimal
+    buffer_usd: Decimal = MIN_CASH_BUFFER_USD
+    receivables: List[OpenReceivable] = Field(default_factory=list)
+    weekly_fixed_costs_usd: Decimal = Decimal("0")
+    payroll_usd: Decimal = Decimal("0")
+    deposits: List[DepositPlan] = Field(default_factory=list)
+    # Scenario adjustments (set by simulate, zero in the base case)
+    dso_shift_days: int = 0
+    fx_change_pct: Decimal = Decimal("0")
+    tariff_shared_pct: Decimal = Decimal("0")
+    tariff_rate_pct: Decimal = SCENARIO_TARIFF_RATE_PCT
 
 
 class WeeklyCashRow(BaseModel):
-    week: int = Field(ge=1, le=FORECAST_WEEKS)
-    week_label: str = Field(..., description="e.g. 'W1 (Oct 16)'")
-    opening_cash: float
-    ar_inflows: float = 0.0
-    fixed_opex: float = 12500.0
-    supplier_deposits: float = 0.0
-    financing_inflows: float = 0.0
-    financing_repayments: float = 0.0
-    net_cash_flow: float
-    closing_cash: float
-    is_critical_shortfall: bool = Field(
-        default=False, description="Closing cash below zero"
-    )
-    is_below_buffer: bool = Field(
-        default=False, description="Closing cash below the minimum operating buffer"
-    )
-    inflow_invoices: List[str] = Field(default_factory=list)
-    outflow_notes: Optional[str] = None
+    """One forecast week. Names match the UI contract ``forecast.weeks``."""
+
+    week: int
+    start_date: date
+    opening: Decimal
+    inflows: Decimal
+    outflows: Decimal
+    closing: Decimal
+    status: WeekStatus
 
 
-class ForecastSummary(BaseModel):
-    company_name: str
-    starting_cash: float
-    total_projected_inflows: float
-    total_projected_outflows: float
+class ShortfallAttribution(BaseModel):
+    """One driver of the first shortfall. Amounts add up to the shortfall."""
 
-    # Deficit geometry. `lowest_cash_week` is the TROUGH of the cumulative cash
-    # curve, which is the week that sizes the facility — not merely the first
-    # week that happens to go negative.
-    first_shortfall_week: Optional[int] = Field(
-        default=None, description="First week closing cash goes below zero"
-    )
-    lowest_cash_week: Optional[int] = None
-    lowest_cash_balance: float
-    weeks_in_deficit: List[int] = Field(default_factory=list)
-    deficit_duration_weeks: int = 0
-    ends_period_in_deficit: bool = False
-
-    shortfall_detected: bool = False
-    minimum_cash_buffer: float = 0.0
-
-    # Peak funding need = how much cash must be injected (and held) so that no
-    # week in the horizon closes below the buffer. Sizing to the first dip only
-    # underfunds a multi-week trough.
-    peak_funding_need_usd: float = 0.0
-    funding_needed_by_week: Optional[int] = None
-
-    weekly_breakdown: List[WeeklyCashRow] = Field(default_factory=list)
-    assumptions: List[str] = Field(default_factory=list)
-    data_provenance: str = "SYNTHETIC_SANDBOX"
+    driver: str
+    amount_usd: Decimal
+    source_ref: str
 
 
-class CashFlowEvent(BaseModel):
-    """
-    One dated cash movement, from the borrower's point of view.
+class ForecastResult(BaseModel):
+    """The 13-week forecast with its first shortfall and attribution."""
 
-    Positive is cash into the business, negative is cash out. `day` is days
-    from drawdown. These are what `effective_apr_pct` is solved against, so
-    a product with fees at several dates, a reserve released at maturity, or
-    interest at a different time from principal is modelled rather than
-    averaged.
-    """
-
-    day: int = Field(..., description="Days from drawdown (day 0)")
-    amount_usd: float = Field(..., description="Positive = received, negative = paid")
-    label: str = ""
+    buffer_usd: Decimal
+    weeks: List[WeeklyCashRow]
+    first_shortfall_week: Optional[int] = None
+    shortfall_usd: Optional[Decimal] = None
+    min_closing_usd: Decimal
+    attribution: List[ShortfallAttribution] = Field(default_factory=list)
 
 
-class Facility(BaseModel):
-    """
-    A single funding line from a single counterparty.
+class ScenarioDelta(BaseModel):
+    """Before/after comparison. Names match the UI contract ``simulate().delta``."""
 
-    A combined package is two facilities, not one blended product: two
-    agreements, two sets of conditions precedent, two counterparties who can
-    each decline. The previous model collapsed a package into one `provider`
-    string and one advance figure, which hid that — and caused the demo to
-    register a two-funder package in the pledge registry as a single pledge.
-    """
+    first_shortfall_week_before: Optional[int]
+    first_shortfall_week_after: Optional[int]
+    min_closing_before_usd: Decimal
+    min_closing_after_usd: Decimal
 
-    facility_id: str
-    provider: str
-    option_type: str = Field(
-        ..., description="'FACTORING' | 'EARLY_DISCOUNT' | 'UNSECURED_BRIDGE'"
-    )
-    pledges_receivable: bool = Field(
-        ...,
-        description="Whether this facility takes security over the invoice. Only "
-        "a facility that does belongs in the anti-double-financing registry, "
-        "and two such facilities on one invoice cannot be combined.",
-    )
-    gross_advance_usd: float
-    upfront_fees_usd: float = 0.0
-    cash_in_hand_usd: float
-    deferred_cost_usd: float = 0.0
-    total_cost_usd: float
-    reserve_held_usd: float = 0.0
-    days_financed: int
-    cash_flows: List[CashFlowEvent] = Field(default_factory=list)
-    annualized_simple_cost_pct: float
-    effective_apr_pct: Optional[float] = None
-    nominal_quoted_rate_pct: Optional[float] = None
-    is_mock_partner: bool = False
-    assumptions: List[str] = Field(default_factory=list)
+
+class ScenarioResult(BaseModel):
+    """Output of ``simulate``: the new forecast and how it differs from the base."""
+
+    forecast: ForecastResult
+    delta: ScenarioDelta
+
+
+class FxExposure(BaseModel):
+    """Foreign-currency inflow in a week and the effect of a rate move. Warning only."""
+
+    week: int
+    foreign_inflow_usd: Decimal
+    impact_up_usd: Decimal
+    impact_down_usd: Decimal
+    impact_up_vnd: Decimal
+    impact_down_vnd: Decimal
 
 
 class LiquidityOption(BaseModel):
-    """
-    One financing option, stated on a basis that is comparable across products.
+    """One funding option. Names match the UI contract ``funding_options``."""
 
-    TWO COST MEASURES, both reported, because they answer different questions
-    and conflating them is how a comparison table misleads:
-
-      annualized_simple_cost_pct
-          total cost / cash received, scaled to a year linearly:
-              (total_cost / cash_in_hand) x (365 / days) x 100
-          Simple to audit and the convention behind the familiar "2/10 net 30
-          is about 36% a year" figure. It does NOT compound, and it collapses
-          everything to a single term, so for a product with payments at
-          several dates it is an approximation, not an APR.
-
-      effective_apr_pct
-          the annual rate that discounts the facility's actual dated cash
-          flows to zero (an IRR). This is the measure that survives a product
-          with staged fees, a reserve released at maturity, or interest paid
-          on a different date from principal.
-
-    Ranking uses the effective rate. An earlier version reported the simple
-    figure under the name `apr_pct`, which overstates how standardised the
-    comparison was.
-
-    `cash_in_hand_usd` is cash the business can actually spend at drawdown —
-    after upfront fees, discounts and holdbacks. Comparing a fee-inclusive
-    product against a fee-exclusive one on headline rate alone is the single
-    most common error in cost-of-capital comparisons.
-    """
-
-    option_id: str
-    provider: str
-    option_type: str = Field(
-        ..., description="'FACTORING' | 'EARLY_DISCOUNT' | 'UNSECURED_BRIDGE' | 'COMBINATION'"
-    )
-    eligible_invoice_id: str
-    invoice_gross_amount_usd: float
-    facilities: List[Facility] = Field(
-        default_factory=list,
-        description="The individual funding lines. One for a single product, "
-        "two or more for a package. Each has its own counterparty.",
-    )
-
-    # ── Same-basis economics ──────────────────────────────────────────────
-    advance_rate_pct: float = Field(..., description="% of face value advanced")
-    gross_advance_usd: float = Field(..., description="Advance before fees")
-    upfront_fees_usd: float = 0.0
-    cash_in_hand_usd: float = Field(..., description="Spendable cash at drawdown")
-    deferred_cost_usd: float = Field(
-        default=0.0, description="Cost paid at maturity rather than upfront"
-    )
-    total_cost_usd: float = Field(..., description="Upfront + deferred cost")
-    reserve_held_usd: float = Field(
-        default=0.0, description="Holdback returned only when the buyer pays"
-    )
-    days_financed: int
-    cash_flows: List[CashFlowEvent] = Field(
-        default_factory=list, description="Dated flows the effective APR is solved against"
-    )
-    annualized_simple_cost_pct: float = Field(
-        ..., description="Linear annualisation of cost over cash received"
-    )
-    effective_apr_pct: Optional[float] = Field(
-        default=None, description="IRR of the dated cash flows, annualised"
-    )
-    apr_basis: str = Field(
-        default="EFFECTIVE_IRR",
-        description="Which measure drives the ranking",
-    )
-    nominal_quoted_rate_pct: Optional[float] = Field(
-        default=None, description="Lender's headline rate, for contrast"
-    )
-
-    # ── Fit against the actual cash need ──────────────────────────────────
-    cash_need_usd: float = 0.0
-    covers_need: bool = False
-    coverage_pct: float = 0.0
-    residual_gap_usd: float = 0.0
-
-    # ── Optional settlement-currency view ─────────────────────────────────
-    net_cash_realized_vnd: Optional[float] = None
-    fx_cost_usd: Optional[float] = None
-
-    rank: int = 0
-    eligibility_status: str = Field(
-        default="ELIGIBLE",
-        description="'ELIGIBLE' | 'REVIEW_REQUIRED' | 'INELIGIBLE'",
-    )
-    pros: List[str] = Field(default_factory=list)
-    cons: List[str] = Field(default_factory=list)
-    assumptions: List[str] = Field(default_factory=list)
-    is_mock_partner: bool = Field(
-        default=False, description="Terms are simulated; no signed funding partner"
-    )
-    recommendation_verdict: str = ""
-    component_option_ids: List[str] = Field(
-        default_factory=list, description="Populated for COMBINATION options"
-    )
-
-
-class SimulationScenario(BaseModel):
-    delay_buyer: Optional[str] = None
-    delay_weeks: int = Field(default=0, ge=0, le=4)
-    financed_invoice_id: Optional[str] = None
-    advance_rate_override: Optional[float] = None
+    rank: Optional[int] = None
+    id: str
+    name: str
+    type: Literal["factoring", "loan", "discount", "overdraft"]
+    amount_usd: Optional[Decimal] = None
+    apr_pct: Optional[float] = None
+    eligible: bool
+    ineligible_reason: Optional[str] = None
+    cost_breakdown: Dict[str, Decimal] = Field(default_factory=dict)
+    assumptions: Dict[str, Any] = Field(default_factory=dict)
+    formula: Optional[str] = None
+    why_not_cheaper: Optional[str] = None

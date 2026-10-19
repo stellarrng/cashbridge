@@ -1,27 +1,28 @@
-# CashBridge — container for the deterministic core, its test suite and the
-# end-to-end walkthrough.
-#
-# This image previously ended with
-#     RUN python data/seed_sandbox.py || true
-#     CMD ["streamlit", "run", "ui/app.py", ...]
-# Neither file exists (see README §0). The `|| true` hid the failure at build
-# time and the container then exited immediately on start. It now runs what is
-# actually built.
-
+# CashBridge (SYNTHETIC demo): FastAPI app serving the built React dashboard on port 8000.
+# The React bundle ui/web/dist is committed, so no Node is needed in the image.
 FROM python:3.11-slim
 
 WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    DEMO_MODE=true
+    PYTHONDONTWRITEBYTECODE=1
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Fail the build if the core is broken, rather than shipping a broken image.
-RUN python -m pytest -q
+# Seed the deterministic SYNTHETIC inputs and create a writable runtime folder for the live session.
+# No secrets are baked in: pass LLM_* and OTP_SECRET at run time (.env is excluded by .dockerignore).
+RUN python data/seed_sandbox.py \
+    && useradd --create-home --uid 10001 app \
+    && mkdir -p data/runtime \
+    && chown -R app:app data/runtime
+USER app
 
-CMD ["python", "demo_walkthrough.py"]
+EXPOSE 8000
+
+HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/openapi.json', timeout=2)"
+
+CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
