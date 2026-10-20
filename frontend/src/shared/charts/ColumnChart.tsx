@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { compactUsd } from "../lib/format";
 import { niceStep, ticks } from "./scale";
 
@@ -53,7 +54,7 @@ export function ColumnChart({ items, overlay, overlayTip, width = 720, height = 
             : `M${x} ${top}V${top + h - r}Q${x} ${top + h} ${x + r} ${top + h}H${x + w - r}Q${x + w} ${top + h} ${x + w} ${top + h - r}V${top}Z`;
         return (
           <g key={i}>
-            <path className={d.cls || "cb-s1"} d={path} data-tip={d.tip || d.label} />
+            <path className={d.cls || "cb-s1"} d={path} data-tip={d.tip || d.label} style={{ "--i": i } as CSSProperties} />
             {(!sparseLabels || i % 2 === 0 || items.length < 9) && (
               <text className="ct" x={x + w / 2} y={H - 8} textAnchor="middle">{d.label}</text>
             )}

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="2 20 60 26" fill="none" role="img" aria-label="CashBridge"><g transform="translate(0.0 0.0) scale(1.0)">
+    <defs>
+      <linearGradient id="cbm" x1="10" y1="0" x2="54" y2="0" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#EBCB7C"/><stop offset="1" stop-color="#C8913C"/>
+      </linearGradient>
+    </defs>
+    <g stroke="url(#cbm)" stroke-linecap="round" fill="none">
+      <path d="M14 42 A18 16 0 0 1 50 42" stroke-width="5" stroke-linecap="butt"/>
+      <path d="M23 42 V31 M32 42 V29 M41 42 V31" stroke-width="3"/>
+      <path d="M6 42 H58" stroke-width="4.5"/>
+    </g>
+  </g></svg>

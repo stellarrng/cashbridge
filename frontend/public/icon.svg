@@ -1,1 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="CashBridge"><rect width="512" height="512" rx="112" fill="#1d2125"/><g fill="none" stroke="#e0bd6a" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"><path d="M110 340h66v-84M402 340h-66v-84M176 256c60-104 100-104 160 0"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="CashBridge"><rect width="64" height="64" rx="14" fill="#1C1D20"/><g transform="translate(0 -1.5) scale(1)">
+    <defs>
+      <linearGradient id="cbi" x1="10" y1="0" x2="54" y2="0" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#EBCB7C"/><stop offset="1" stop-color="#C8913C"/>
+      </linearGradient>
+    </defs>
+    <g stroke="url(#cbi)" stroke-linecap="round" fill="none">
+      <path d="M14 42 A18 16 0 0 1 50 42" stroke-width="5" stroke-linecap="butt"/>
+      <path d="M23 42 V31 M32 42 V29 M41 42 V31" stroke-width="3"/>
+      <path d="M6 42 H58" stroke-width="4.5"/>
+    </g>
+  </g></svg>

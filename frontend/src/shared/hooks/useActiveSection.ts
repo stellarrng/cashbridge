@@ -1,43 +1,67 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-/** How far below the top of the screen the "reading line" sits: just under the sticky header. */
-const READING_LINE = 100;
+/** Reading line: just under the sticky header. */
+const LINE = 100;
 
 /**
- * The id of the section the reader is in ("" while the hero is showing), for highlighting the matching nav link.
- * An IntersectionObserver wakes us when a section enters or leaves the screen; the choice itself is made from the
- * sections' positions, so two sections that merely touch can never both count as "current".
+ * Which section the reader is in, for highlighting the matching nav link: `[activeId, pin]`.
+ *
+ * - Scrolling: the current section is the last one whose top has passed the reading line ("" while the hero shows).
+ *   At the very bottom of the page it is the last section, so Install lights up even if it cannot reach the header.
+ * - Clicking a nav link: call `pin(id)`. The clicked link stays highlighted while the page glides there, and until the
+ *   reader scrolls, types or touches. A tall window cannot scroll far enough to bring the last sections up to the
+ *   header, so position alone can never tell which link was clicked.
+ *
+ * An IntersectionObserver wakes the check when a section enters or leaves the screen; scroll events cover the rest.
  */
-export function useActiveSection(ids: readonly string[]): string {
+export function useActiveSection(ids: readonly string[]): [string, (id: string) => void] {
   const [active, setActive] = useState("");
+  const pinned = useRef<string | null>(null);
+
+  const pin = useCallback((id: string) => {
+    pinned.current = id;
+    setActive(id);
+  }, []);
 
   useEffect(() => {
     const els = ids.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => el !== null);
     if (!els.length) return;
+
     const update = () => {
+      if (pinned.current) return;
+      const atBottom = window.scrollY >= document.documentElement.scrollHeight - window.innerHeight - 2 && window.scrollY > 0;
       let current = "";
-      for (const el of els) {
-        const r = el.getBoundingClientRect();
-        if (r.top <= READING_LINE && r.bottom > READING_LINE) current = el.id;
-      }
-      setActive(current);
+      for (const el of els) if (el.getBoundingClientRect().top <= LINE) current = el.id;
+      setActive(atBottom ? els[els.length - 1].id : current);
     };
+    // The reader takes over: stop honouring the click and follow the scroll again.
+    const release = () => {
+      if (pinned.current) {
+        pinned.current = null;
+        update();
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(e.key)) release();
+    };
+
     update();
+    window.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
-    if (typeof IntersectionObserver === "undefined") {
-      window.addEventListener("scroll", update, { passive: true });
-      return () => {
-        window.removeEventListener("resize", update);
-        window.removeEventListener("scroll", update);
-      };
-    }
-    const io = new IntersectionObserver(update, { threshold: Array.from({ length: 21 }, (_, i) => i / 20) });
-    els.forEach((el) => io.observe(el));
+    window.addEventListener("wheel", release, { passive: true });
+    window.addEventListener("touchmove", release, { passive: true });
+    window.addEventListener("keydown", onKey);
+    const io = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver(update, { threshold: Array.from({ length: 21 }, (_, i) => i / 20) });
+    els.forEach((el) => io?.observe(el));
     return () => {
-      io.disconnect();
+      io?.disconnect();
+      window.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
+      window.removeEventListener("wheel", release);
+      window.removeEventListener("touchmove", release);
+      window.removeEventListener("keydown", onKey);
     };
   }, [ids]);
 
-  return active;
+  return [active, pin];
 }

@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 440" fill="none" role="img" aria-label="A lender verifying a released funding pack with a magnifier and a one-time code">
+  <defs>
+    <pattern id="dotsB" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#EAD9AE" fill-opacity="0.12"/>
+    </pattern>
+    <radialGradient id="glowB" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#EAD9AE" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#EAD9AE" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="0" y="0" width="560" height="440" fill="url(#dotsB)"/>
+  <circle cx="250" cy="200" r="200" fill="url(#glowB)"/>
+
+  <!-- document stack -->
+  <g stroke="#EAD9AE" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="156" y="70" width="190" height="240" rx="14" stroke-opacity="0.3" transform="rotate(-6 251 190)"/>
+    <rect x="156" y="70" width="190" height="240" rx="14" stroke-opacity="0.55" fill="#EAD9AE" fill-opacity="0.04" transform="rotate(-2.5 251 190)"/>
+    <rect x="160" y="64" width="190" height="240" rx="14" fill="#1C1D20"/>
+    <rect x="160" y="64" width="190" height="240" rx="14" fill="#EAD9AE" fill-opacity="0.07"/>
+  </g>
+  <!-- document content -->
+  <g fill="#EAD9AE">
+    <rect x="184" y="90" width="92" height="10" rx="5" fill-opacity="0.7"/>
+    <rect x="184" y="108" width="58" height="7" rx="3.5" fill-opacity="0.3"/>
+    <circle cx="322" cy="98" r="12" fill-opacity="0.12"/>
+  </g>
+  <path d="M316 98l4 4 8-9" stroke="#EAD9AE" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- table rows -->
+  <g stroke="#EAD9AE" stroke-width="2" stroke-linecap="round">
+    <path d="M184 140 H326" stroke-opacity="0.25"/>
+    <path d="M184 160 H246 M286 160 H326" stroke-opacity="0.55"/>
+    <path d="M184 180 H232 M296 180 H326" stroke-opacity="0.55"/>
+    <path d="M184 200 H258 M280 200 H326" stroke-opacity="0.55"/>
+    <path d="M184 220 H326" stroke-opacity="0.25"/>
+  </g>
+  <!-- hash blocks -->
+  <g fill="#EAD9AE">
+    <rect x="184" y="240" width="22" height="10" rx="3" fill-opacity="0.55"/>
+    <rect x="210" y="240" width="14" height="10" rx="3" fill-opacity="0.3"/>
+    <rect x="228" y="240" width="26" height="10" rx="3" fill-opacity="0.55"/>
+    <rect x="258" y="240" width="12" height="10" rx="3" fill-opacity="0.3"/>
+    <rect x="274" y="240" width="20" height="10" rx="3" fill-opacity="0.55"/>
+    <rect x="184" y="256" width="16" height="10" rx="3" fill-opacity="0.3"/>
+    <rect x="204" y="256" width="28" height="10" rx="3" fill-opacity="0.55"/>
+    <rect x="236" y="256" width="14" height="10" rx="3" fill-opacity="0.3"/>
+    <rect x="254" y="256" width="22" height="10" rx="3" fill-opacity="0.55"/>
+  </g>
+
+  <!-- magnifier -->
+  <g stroke="#EAD9AE" stroke-linecap="round">
+    <circle cx="340" cy="250" r="54" fill="#1C1D20"/>
+    <circle cx="340" cy="250" r="54" fill="#EAD9AE" fill-opacity="0.08" stroke-width="3.5"/>
+    <circle cx="340" cy="250" r="44" stroke-width="1.5" stroke-opacity="0.35"/>
+    <path d="M379 289 L420 330" stroke-width="10"/>
+    <path d="M318 252 l15 15 28-31" stroke-width="4" stroke-linejoin="round"/>
+  </g>
+
+  <!-- shield (released / verified) -->
+  <g transform="translate(410 70)" stroke="#EAD9AE" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M40 0 L76 12 V44 C76 70 58 86 40 94 C22 86 4 70 4 44 V12 Z" fill="#EAD9AE" fill-opacity="0.08"/>
+    <rect x="28" y="40" width="24" height="22" rx="4"/>
+    <path d="M32 40 V32 a8 8 0 0 1 16 0 V40"/>
+    <circle cx="40" cy="51" r="2.5" fill="#EAD9AE"/>
+  </g>
+
+  <!-- one-time code tiles -->
+  <g transform="translate(40 92)">
+    <rect x="0" y="0" width="92" height="132" rx="14" fill="#EAD9AE" fill-opacity="0.05" stroke="#EAD9AE" stroke-opacity="0.4" stroke-width="2"/>
+    <g stroke="#EAD9AE" stroke-width="2">
+      <rect x="14" y="16" width="28" height="28" rx="7" fill="#EAD9AE" fill-opacity="0.12"/>
+      <rect x="50" y="16" width="28" height="28" rx="7" fill="#EAD9AE" fill-opacity="0.12"/>
+      <rect x="14" y="52" width="28" height="28" rx="7" fill="#EAD9AE" fill-opacity="0.12"/>
+      <rect x="50" y="52" width="28" height="28" rx="7" stroke-opacity="0.5"/>
+      <rect x="14" y="88" width="28" height="28" rx="7" stroke-opacity="0.5"/>
+      <rect x="50" y="88" width="28" height="28" rx="7" stroke-opacity="0.5"/>
+    </g>
+    <g fill="#EAD9AE">
+      <circle cx="28" cy="30" r="4"/><circle cx="64" cy="30" r="4"/><circle cx="28" cy="66" r="4"/>
+    </g>
+  </g>
+  <!-- connector from code to doc -->
+  <path d="M132 158 C146 158 146 176 160 176" stroke="#EAD9AE" stroke-opacity="0.5" stroke-width="2" stroke-dasharray="4 6" stroke-linecap="round">
+    <animate attributeName="stroke-dashoffset" from="20" to="0" dur="1.4s" repeatCount="indefinite"/>
+  </path>
+
+  <!-- ground arch motif -->
+  <g stroke="#EAD9AE" stroke-linecap="round">
+    <path d="M10 370 H550" stroke-width="3"/>
+    <path d="M60 396 H500" stroke-opacity="0.18" stroke-width="2"/>
+    <path d="M130 420 H430" stroke-opacity="0.1" stroke-width="2"/>
+  </g>
+</svg>

@@ -72,6 +72,8 @@ export function LineChart({ labels, series, fmt, yfmt = compactUsd, endLabels, a
         {ordered.map((s, i) => (
           <path
             key={i}
+            className={s.dash ? "line-soft" : "line-draw"}
+            pathLength={s.dash ? undefined : 1}
             fill="none"
             stroke={s.color}
             strokeWidth={s.width || 2}

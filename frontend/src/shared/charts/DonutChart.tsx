@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 export interface DonutPart {
   label: string;
   value: number;
@@ -31,7 +33,7 @@ export function DonutChart({ parts, center, centerSub, label = "" }: Props) {
         ? `M${C - R} ${C}a${R} ${R} 0 1 0 ${2 * R} 0a${R} ${R} 0 1 0 ${-2 * R} 0M${C - r} ${C}a${r} ${r} 0 1 1 ${2 * r} 0a${r} ${r} 0 1 1 ${-2 * r} 0Z`
         : `M${x0} ${y0}A${R} ${R} 0 ${large} 1 ${x1} ${y1}L${x2} ${y2}A${r} ${r} 0 ${large} 0 ${x3} ${y3}Z`;
     a0 = a1;
-    return <path key={i} d={d} fill={p.color} className="dseg" fillRule="evenodd" data-tip={`${p.label}: ${p.display ?? p.value} (${Math.round(frac * 100)}%)`} />;
+    return <path key={i} d={d} fill={p.color} className="dseg" style={{ "--i": i } as CSSProperties} fillRule="evenodd" data-tip={`${p.label}: ${p.display ?? p.value} (${Math.round(frac * 100)}%)`} />;
   });
 
   return (

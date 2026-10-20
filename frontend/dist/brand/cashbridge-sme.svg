@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 440" fill="none" role="img" aria-label="An export factory sending funding packs across a bridge to a bank">
+  <defs>
+    <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#E3C16F" fill-opacity="0.12"/>
+    </pattern>
+    <linearGradient id="glow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E3C16F" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#E3C16F" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E3C16F" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#E3C16F" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- background texture -->
+  <rect x="0" y="0" width="560" height="440" fill="url(#dots)"/>
+  <ellipse cx="280" cy="300" rx="250" ry="120" fill="url(#glow)"/>
+
+  <!-- floating cash-flow card -->
+  <g transform="translate(300 34)">
+    <rect width="220" height="120" rx="16" fill="#E3C16F" fill-opacity="0.06" stroke="#E3C16F" stroke-opacity="0.45" stroke-width="2"/>
+    <rect x="18" y="18" width="70" height="8" rx="4" fill="#E3C16F" fill-opacity="0.55"/>
+    <rect x="18" y="32" width="44" height="6" rx="3" fill="#E3C16F" fill-opacity="0.25"/>
+    <circle cx="190" cy="27" r="9" stroke="#E3C16F" stroke-width="2"/>
+    <path d="M186 27l3 3 5-6" stroke="#E3C16F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M18 100 L52 88 L82 92 L114 72 L146 76 L178 54 L202 48 L202 104 L18 104 Z" fill="url(#area)"/>
+    <path d="M18 100 L52 88 L82 92 L114 72 L146 76 L178 54 L202 48" stroke="#E3C16F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="202" cy="48" r="4" fill="#E3C16F"/>
+  </g>
+
+  <!-- coins rising -->
+  <g stroke="#E3C16F" stroke-width="2">
+    <circle cx="238" cy="96" r="13" fill="#E3C16F" fill-opacity="0.08"/>
+    <circle cx="238" cy="96" r="7" stroke-opacity="0.5"/>
+    <circle cx="262" cy="150" r="9" fill="#E3C16F" fill-opacity="0.08"/>
+    <circle cx="262" cy="150" r="4" stroke-opacity="0.5"/>
+    <circle cx="214" cy="160" r="6" stroke-opacity="0.6"/>
+  </g>
+
+  <!-- factory (left) -->
+  <g stroke="#E3C16F" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M70 196 V146 H86 V196" fill="#E3C16F" fill-opacity="0.06"/>
+    <path d="M60 330 V214 L94 194 V214 L128 194 V214 L162 194 V330 Z" fill="#E3C16F" fill-opacity="0.06"/>
+    <rect x="78" y="244" width="18" height="18" rx="3" stroke-opacity="0.7"/>
+    <rect x="112" y="244" width="18" height="18" rx="3" stroke-opacity="0.7"/>
+    <rect x="94" y="290" width="26" height="40" rx="3"/>
+  </g>
+  <!-- smoke -->
+  <path d="M78 132 c-8-10 6-16 0-28 c-5-10 8-16 4-26" stroke="#E3C16F" stroke-opacity="0.35" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- shipping containers -->
+  <g stroke="#E3C16F" stroke-width="2" stroke-linejoin="round">
+    <rect x="6" y="300" width="46" height="30" rx="3" fill="#E3C16F" fill-opacity="0.12"/>
+    <path d="M17 304 V326 M29 304 V326 M41 304 V326" stroke-opacity="0.5"/>
+    <rect x="12" y="272" width="38" height="28" rx="3" fill="#E3C16F" fill-opacity="0.06"/>
+    <path d="M23 276 V296 M35 276 V296" stroke-opacity="0.5"/>
+  </g>
+
+  <!-- bank (right) -->
+  <g stroke="#E3C16F" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M404 222 L466 186 L528 222 Z" fill="#E3C16F" fill-opacity="0.1"/>
+    <circle cx="466" cy="208" r="6" stroke-opacity="0.7"/>
+    <path d="M410 230 H522"/>
+    <path d="M424 240 V310 M450 240 V310 M482 240 V310 M508 240 V310"/>
+    <path d="M410 318 H522 M402 330 H530" />
+  </g>
+
+  <!-- bridge -->
+  <g stroke="#E3C16F" stroke-linecap="round">
+    <path d="M162 330 H402" stroke-width="3"/>
+    <path d="M176 330 C176 228 388 228 388 330" stroke-width="3"/>
+    <path d="M214 330 V272 M248 330 V259 M282 330 V255 M316 330 V259 M350 330 V272" stroke-width="2" stroke-opacity="0.55"/>
+    <!-- flow along deck -->
+    <path d="M168 342 H396" stroke-width="2" stroke-opacity="0.6" stroke-dasharray="4 10">
+      <animate attributeName="stroke-dashoffset" from="28" to="0" dur="1.6s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- funding packs travelling over bridge -->
+  <g stroke="#E3C16F" stroke-width="2" stroke-linejoin="round">
+    <g transform="translate(196 296)">
+      <path d="M0 0 H18 L26 8 V32 H0 Z" fill="#1C1D20"/>
+      <path d="M0 0 H18 L26 8 V32 H0 Z" fill="#E3C16F" fill-opacity="0.1"/>
+      <path d="M18 0 V8 H26" />
+      <path d="M5 16 H20 M5 23 H15" stroke-opacity="0.6" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(268 290)">
+      <path d="M0 0 H22 L32 10 V38 H0 Z" fill="#1C1D20"/>
+      <path d="M0 0 H22 L32 10 V38 H0 Z" fill="#E3C16F" fill-opacity="0.18"/>
+      <path d="M22 0 V10 H32"/>
+      <path d="M8 22 l5 5 10-11" stroke-linecap="round" stroke-width="2.5"/>
+    </g>
+    <g transform="translate(344 298)">
+      <path d="M0 0 H16 L24 8 V30 H0 Z" fill="#1C1D20"/>
+      <path d="M0 0 H16 L24 8 V30 H0 Z" fill="#E3C16F" fill-opacity="0.1"/>
+      <path d="M16 0 V8 H24"/>
+      <path d="M5 15 H18 M5 21 H14" stroke-opacity="0.6" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <!-- ground -->
+  <path d="M10 330 H550" stroke="#E3C16F" stroke-width="3" stroke-linecap="round"/>
+  <path d="M60 366 H500" stroke="#E3C16F" stroke-opacity="0.18" stroke-width="2" stroke-linecap="round"/>
+  <path d="M130 396 H430" stroke="#E3C16F" stroke-opacity="0.1" stroke-width="2" stroke-linecap="round"/>
+</svg>
