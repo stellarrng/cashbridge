@@ -828,8 +828,8 @@ def create_app(backend_provider: Callable[[], Any] = get_backend, dist_dir: Path
         return chain_call(lambda b: b.chain_status())
 
     @app.post('/api/chain/anchor', tags=['chain'])
-    def chain_anchor(_: Principal = Depends(sme_any("sme:prepare", "sme:approve"))) -> Dict[str, Any]:
-        return chain_call(lambda b: b.chain_anchor())
+    def chain_anchor(principal: Principal = Depends(sme_any("sme:prepare", "sme:approve"))) -> Dict[str, Any]:
+        return chain_call(lambda b: b.chain_anchor(principal.user_id))
 
     @app.get('/api/chain/proof/{entry}', tags=['chain'])
     def chain_proof(entry: int, _: Principal = Depends(sme("sme:read"))) -> Dict[str, Any]:

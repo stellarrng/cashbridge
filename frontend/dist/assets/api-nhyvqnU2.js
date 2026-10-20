@@ -1,1 +1,0 @@
-import{Q as c,p as a,g as e}from"./base-BRAErJZ1.js";const o=s=>`/api/bank/cases/${encodeURIComponent(s)}`,i=()=>e("/api/bank/inbox"),f=s=>e(o(s)),p=s=>a(o(s)+"/verify"),r=(s,n,t)=>a(o(s)+"/decision",{decision:n,note:t}),b=s=>c(o(s)+"/pdf",`${s}.pdf`);export{f as a,b as d,i as f,r,p as v};

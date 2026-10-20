@@ -827,5 +827,8 @@
  "oc.entry": "Dòng nhật ký #",
  "oc.prove": "Bằng chứng bao hàm",
  "oc.proofText": "Dòng seq {seq} ({tool}) nằm trong lần neo #{anchor}: {steps} giá trị băm tái tạo đúng gốc trên chuỗi.",
- "oc.note": "{network}. Bytecode EVM thật; các ngân hàng khác trong liên minh là tài khoản mô phỏng trong tiến trình này. Không ghi thông tin hóa đơn (bên bán, bên mua, số, số tiền) lên chuỗi. Có script triển khai testnet nhưng chưa chạy."
+ "oc.note": "{network}. Bytecode EVM thật; các ngân hàng khác trong liên minh là tài khoản mô phỏng trong tiến trình này. Không ghi thông tin hóa đơn (bên bán, bên mua, số, số tiền) lên chuỗi. Có script triển khai testnet nhưng chưa chạy.",
+ "oc.anchorFailed": "Neo lúc {at} thất bại: {reason}. Bước kiểm tra neo của ngân hàng sẽ hiện lỗi này.",
+ "oc.modeEvm": "Chế độ: đang dùng. Nếu không kiểm tra được sổ đăng ký, khoản tài trợ bị từ chối (fail closed).",
+ "oc.modeRequired": "Chế độ: bắt buộc. Khoản tài trợ bị từ chối mỗi khi sổ đăng ký không khả dụng."
 }

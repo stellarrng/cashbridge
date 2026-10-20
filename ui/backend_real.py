@@ -92,6 +92,7 @@ class RealBackend:
         self._intel_dir = Path(self.coord.audit_path).parent.parent / "intelligence"
         self._last_plan: Optional[Dict[str, Any]] = None
         self._chain: Any = None
+        self._anchor_failures: List[Dict[str, str]] = []
         self._start()
 
     # ------------------------------------------------------------------ setup
@@ -106,6 +107,7 @@ class RealBackend:
         self._last_autopilot = None
         self._lender_review = self._empty_lender_review()
         self._chain = None  # a fresh demo session starts a fresh in-process chain (the audit log is reset too)
+        self._anchor_failures = []
         self._reset_intelligence()
 
     @staticmethod
@@ -798,22 +800,38 @@ class RealBackend:
         self._lender_review.update(status=status, decision=decision, note=note or None, reviewer=reviewer,
                                    decided_at=self.coord._clock().isoformat())
         self._lender_review["history"].append({"event": decision, "by": reviewer, "note": note or None})
-        self._anchor_quietly()
+        self._anchor_quietly("decision")
         return self.bank_case(pack_id)
 
     # ----------------------------------------------- on-chain consortium (Challenge bonus; chain/ledger.py)
     MOCK_LENDER = "CashBridge MOCK Lender"
 
+    def _chain_mode(self) -> str:
+        """off | evm | required. Default: evm in DEMO, required in PRODUCTION (funding is refused without the register).
+        evm without the packages installed behaves as off and says so; required without them refuses funding."""
+        import os
+        from config import runtime_mode
+        raw = os.environ.get("CASHBRIDGE_CHAIN", "").strip().lower()
+        if raw in ("off", "evm", "required"):
+            return raw
+        return "required" if runtime_mode.is_production() else "evm"
+
     def _ledger(self):
         """The in-process EVM consortium, created on first use (about 2 s). Raises ChainUnavailable when off or not installed."""
-        import os
-        from chain.ledger import ChainLedger, ChainUnavailable, consortium_key
-        if os.environ.get("CASHBRIDGE_CHAIN", "evm").strip().lower() == "off":
+        from chain.ledger import ChainLedger, ChainUnavailable, available, consortium_key
+        mode = self._chain_mode()
+        if mode == "off":
             raise ChainUnavailable("turned off (CASHBRIDGE_CHAIN=off)")
+        if not available():
+            raise ChainUnavailable("web3 / eth-tester not installed (pip install -r requirements-chain.txt)")
         if self._chain is None:
             runtime = Path(self.coord.audit_path).parent.parent
             self._chain = ChainLedger(runtime=None, key=consortium_key(runtime))
         return self._chain
+
+    def _chain_audit(self, tool: str, decision: Decision, reason: str, payload: Dict[str, Any]) -> None:
+        self.coord.audit.append(case_id=self.coord.case.case_id, agent="consortium_ledger", tool=tool, tier=Tier.L2_INTERNAL_WRITE,
+                                decision=decision, reason=reason, input_payload=payload, output_payload=payload)
 
     def _audit_hashes(self) -> List[str]:
         path = Path(self.coord.audit_path)
@@ -827,46 +845,84 @@ class RealBackend:
             return None
         return ledger.commitment(inv.seller_tax_id, inv.buyer_id, inv.invoice_no, inv.amount.minor_units, inv.currency.value, inv.issue_date.isoformat())
 
-    def _anchor_quietly(self) -> None:
+    def _anchor_quietly(self, when: str = "release") -> None:
+        """Best-effort anchor at release and decision. A failure never blocks the human action, but it is not silent:
+        it is kept, written to the audit log (BLOCKED), shown on the Trust page and fails the lender's anchor check."""
         try:
             hashes = self._audit_hashes()
             if hashes:
                 self._ledger().anchor(hashes)
-        except Exception:  # anchoring is an extra assurance; it must never block a release or a decision
-            pass
+        except Exception as exc:
+            if self._chain_mode() == "off" or "not installed" in str(exc):
+                return  # module not in use: nothing was promised
+            failure = {"at": when, "reason": f"{type(exc).__name__}: {exc}"[:200]}
+            self._anchor_failures.append(failure)
+            try:
+                self._chain_audit("anchor_audit_root", Decision.BLOCKED, f"anchor at {when} failed", failure)
+            except Exception:
+                pass
 
     def _chain_checks(self) -> List[Dict[str, Any]]:
         try:
             ledger = self._ledger()
         except Exception as exc:
-            return [{"check": "Not financed at another lender", "ok": None, "detail": f"Shared register unavailable: {exc}"}]
+            mode = self._chain_mode()
+            return [{"check": "Not financed at another consortium lender (on-chain register)", "ok": False if mode == "required" else None,
+                     "detail": f"Shared register unavailable ({exc}); "
+                               + ("funding will be refused (CASHBRIDGE_CHAIN=required)" if mode == "required"
+                                  else "not checked: confirm with the lender's own duplicate-financing checks")}]
         commitment = self._invoice_commitment(ledger)
         st = ledger.status(commitment) if commitment else {"active": False, "holder": None}
         other = st["active"] and st["holder"] != self.MOCK_LENDER
         log = ledger.verify_log(self._audit_hashes())
+        failed = self._anchor_failures
+        if failed:
+            anchor_ok, anchor_detail = False, f"anchor at {failed[-1]['at']} FAILED ({failed[-1]['reason']}); " + (
+                f"{len(log['anchors'])} anchor(s) on chain" if log["anchors"] else "no anchor on chain")
+        elif log["anchors"]:
+            anchor_ok, anchor_detail = log["all_reproduced"], f"{len(log['anchors'])} anchor(s), {log['log_entries']} log entries"
+        else:
+            anchor_ok, anchor_detail = None, "no anchor yet"
         return [
             {"check": "Not financed at another consortium lender (on-chain register)", "ok": not other,
              "detail": (f"ACTIVE registration by {st['holder']}: do not fund" if other else
                         "registered by this lender" if st["active"] else "no active registration")
                        + (f"; commitment {commitment[:16]}… (HMAC, no invoice data on chain)" if commitment else "; no nominated invoice")
                        + "; other lenders simulated in-process"},
-            {"check": "Audit log reproduces every on-chain anchor (Merkle root)", "ok": log["all_reproduced"] if log["anchors"] else None,
-             "detail": f"{len(log['anchors'])} anchor(s), {log['log_entries']} log entries" if log["anchors"] else "no anchor yet"},
+            {"check": "Audit log reproduces every on-chain anchor (Merkle root)", "ok": anchor_ok, "detail": anchor_detail},
         ]
 
     def _register_financing(self, pack: Dict[str, Any]) -> None:
+        """Fail closed when the register is in use: an error while checking or registering refuses the funding decision.
+        Only an explicitly disabled or absent module lets funding proceed, and that is written to the audit log."""
+        from chain.ledger import ChainUnavailable
+        mode = self._chain_mode()
         try:
             ledger = self._ledger()
-        except Exception:
-            return  # without the module the lender relies on its own external checks (checklist item)
-        commitment = self._invoice_commitment(ledger)
-        if not commitment:
+        except ChainUnavailable as exc:
+            if mode == "required":
+                raise ValueError(f"Funding refused: the cross-lender register is required but unavailable ({exc}). "
+                                 "Funding was not recorded.") from None
+            self._chain_audit("cross_lender_register", Decision.ALLOWED, "not checked: register off or not installed",
+                              {"pack_id": pack.get("pack_id"), "reason": str(exc)})
+            self._lender_review["history"].append({"event": "REGISTER_NOT_CHECKED", "note": str(exc)})
             return
-        st = ledger.status(commitment)
-        if st["active"] and st["holder"] == self.MOCK_LENDER:
-            return
-        out = ledger.register(self.MOCK_LENDER, commitment, pack.get("bundle_sha256") or "0" * 64)
+        try:
+            commitment = self._invoice_commitment(ledger)
+            if not commitment:
+                raise ValueError("no nominated invoice to register")
+            st = ledger.status(commitment)
+            if st["active"] and st["holder"] == self.MOCK_LENDER:
+                return
+            out = ledger.register(self.MOCK_LENDER, commitment, pack.get("bundle_sha256") or "0" * 64)
+        except Exception as exc:  # fail closed: never fund on an unchecked register
+            self._chain_audit("cross_lender_register", Decision.BLOCKED, "register error: funding refused",
+                              {"pack_id": pack.get("pack_id"), "error": f"{type(exc).__name__}: {exc}"[:200]})
+            raise ValueError(f"Funding refused: the cross-lender register could not be checked ({type(exc).__name__}). "
+                             "Funding was not recorded; try again.") from None
         if not out["registered"]:
+            self._chain_audit("cross_lender_register", Decision.BLOCKED, "duplicate financing refused",
+                              {"pack_id": pack.get("pack_id"), "holder": out["holder"], "block": out["block"]})
             raise ValueError(f"Duplicate financing refused: this invoice is already financed by {out['holder']} "
                              f"(on-chain register, block {out['block']}). Funding was not recorded.")
 
@@ -877,20 +933,26 @@ class RealBackend:
             return {"available": False, "reason": str(exc)}
         commitment = self._invoice_commitment(ledger)
         hashes = self._audit_hashes()
-        return {"available": True, **ledger.info(),
+        return {"available": True, "mode": self._chain_mode(), **ledger.info(),
                 "invoice": ({"invoice_no": self.coord.nominee.invoice_no, "commitment": commitment, **ledger.status(commitment)}
                             if commitment else None),
-                "audit": ledger.verify_log(hashes)}
+                "audit": ledger.verify_log(hashes), "anchor_failures": list(self._anchor_failures)}
 
-    def chain_anchor(self) -> Dict[str, Any]:
+    def chain_anchor(self, actor: str = "") -> Dict[str, Any]:
+        """Manual publication of the audit-log digest by an SME user. It is an internal record (L2), not the L3 pack
+        release, so it needs no OTP; who published it is itself written to the audit log."""
         hashes = self._audit_hashes()
         if not hashes:
             raise ValueError("the audit log is empty")
         ledger = self._ledger()
         last = (ledger.anchors() or [None])[-1]
-        if last and last["entries"] == len(hashes):
-            raise ValueError(f"Already anchored: no new audit entries since anchor #{last['index']}")
+        if last:
+            new = Path(self.coord.audit_path).read_text(encoding="utf-8").splitlines()[last["entries"]:]
+            if all(json.loads(x).get("tool") == "anchor_audit_root" for x in new if x.strip()):
+                raise ValueError(f"Already anchored: no new audit entries since anchor #{last['index']}")
         out = ledger.anchor(hashes)
+        self._chain_audit("anchor_audit_root", Decision.ALLOWED, f"manual anchor by {actor or 'unknown'}",
+                          {"root": out["root"], "entries": out["entries"], "block": out["block"], "by": actor})
         return {**out, "status": self.chain_status()}
 
     def chain_proof(self, entry: int) -> Dict[str, Any]:

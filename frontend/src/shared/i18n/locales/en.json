@@ -827,5 +827,8 @@
  "oc.entry": "Audit entry #",
  "oc.prove": "Inclusion proof",
  "oc.proofText": "Entry seq {seq} ({tool}) is covered by anchor #{anchor}: {steps} hashes recompute the on-chain root.",
- "oc.note": "{network}. Real EVM bytecode; the other consortium lenders are simulated accounts in this process. Nothing about the invoice (seller, buyer, number, amount) is written on chain. A testnet deploy script exists but was not run."
+ "oc.note": "{network}. Real EVM bytecode; the other consortium lenders are simulated accounts in this process. Nothing about the invoice (seller, buyer, number, amount) is written on chain. A testnet deploy script exists but was not run.",
+ "oc.anchorFailed": "Anchor at {at} failed: {reason}. The lender's anchor check shows this.",
+ "oc.modeEvm": "Mode: in use. If the register cannot be checked, funding is refused (fail closed).",
+ "oc.modeRequired": "Mode: required. Funding is refused whenever the register is unavailable."
 }

@@ -97,7 +97,7 @@ def band(title, subtitle, page):
         c.setStrokeColor(RULE); c.setLineWidth(0.5); c.line(15 * mm, 13 * mm, w - 15 * mm, 13 * mm)
         c.setFont(BODY, 7); c.setFillColor(MUTED)
         c.drawString(15 * mm, 9 * mm, "CASHBRIDGE  /  FINTECHATHON SHENZHEN 2026  /  TOPIC E")
-        c.drawRightString(w - 15 * mm, 9 * mm, f"SECURITY  {page:02d} / 02")
+        c.drawRightString(w - 15 * mm, 9 * mm, f"SECURITY SELF-ASSESSMENT  ·  PAGE {doc.page}")
         c.restoreState()
     return draw
 
@@ -124,10 +124,17 @@ def build(out: Path, tests: str) -> None:
         ["L1 Analyse", "Reconcile, 13-week forecast, buyer scoring, financing comparison, simulation; unsigned contract drafts from a fixed clause library.",
          "Named tool must be on the agent allowlist; every decision logged. Drafts are never signed."],
         ["L2 Internal", "Write/lock internal evidence; propose learning/model updates.", "Deterministic matches may proceed; ambiguous writes and decisions require a named human."],
-        ["L3 External", "Release pack / send simulated financing communication; publish the audit-log Merkle root with the release.",
-         "Coordinator only; Director confirms the exact action with a single-use, action-bound OTP."],
+        ["L3 External", "Release a financing pack / send simulated financing communication.",
+         "Coordinator only; Director confirms the exact action and payload with a time-limited, single-use, action-bound OTP. No autonomous submission."],
         ["L4 Funds", "Transfer funds, change payee, execute payment.", "<b>Always forbidden.</b> No money-movement tool on any agent allowlist."],
     ], [22 * mm, 82 * mm, 76 * mm]))
+    s.append(Spacer(1, 4))
+    s.append(Paragraph("<b>Outside the agent tiers (internal records, L2):</b> publishing the audit-log Merkle root is a digest of records the SME "
+                       "already holds. It runs automatically after release and after the lender's decision (best effort: a failure never blocks the "
+                       "human action but is written to the audit log, shown on the Trust page and fails the lender's anchor check), and an "
+                       "Accountant or Director may publish one manually <b>without</b> the pack-release OTP; the publisher is recorded. Registering "
+                       "a funded invoice on the consortium register is performed inside the lender's credit decision. Neither can release a pack, "
+                       "change a payee or move money.", S["p"]))
     s.append(h2("2. SEPARATION OF DUTIES AND RELEASE PATH"))
     s.append(table(["ACTOR", "CAN PERFORM", "CANNOT PERFORM"], [
         ["Accountant", "Analyse; provide evidence; prepare/rework funding pack; draft contracts for counsel.", "Approve own release or act as lender."],
@@ -142,16 +149,19 @@ def build(out: Path, tests: str) -> None:
         ("Identity + release", f"signed role/tenant sessions; Director OTP tied to the approval payload; released-case lender scope ({code('security/auth.py')}; {code('security/otp_verifier.py')}; {code('agents/coordinator.py')})."),
         ("Document custody", f"type by bytes, 10 MB, <b>PDF active-content screen</b> (JavaScript, launch, embedded files, XFA, auto-actions; hex-escaped names and compressed object streams inspected) before parsing or storage; SHA-256; AES-256-GCM bound to tenant/case/file; audited view; lender must open the current file to accept ({code('security/pdf_screen.py')}; {code('workspace/evidence_vault.py')})."),
         ("Financial integrity", f"3-way invoice matching, local duplicate registry, source attestations, fail-closed funding gate, click-to-source provenance ({code('core/financing_gate.py')}; {code('core/provenance.py')})."),
-        ("Consortium ledger (on-chain)", f"Vyper contracts on an EVM: invoice register keyed by HMAC commitments (no invoice data on chain) refuses a second lender at funding; the audit log's Merkle root is anchored at release and decision ({code('chain/contracts/*.vy')}; {code('chain/ledger.py')})."),
+        ("Consortium ledger (optional, in-process EVM)", f"Vyper contracts executed by py-evm/eth-tester inside the server; other lenders are simulated accounts. Invoice register keyed by HMAC commitments (no invoice data on chain) refuses a second lender at funding. Modes ({code('CASHBRIDGE_CHAIN')}): <i>evm</i> (default in DEMO) fails closed, i.e. any register error refuses funding; <i>required</i> (default in PRODUCTION) also refuses funding when the module is absent; <i>off</i> lets funding proceed and records 'register not checked' in the audit log and lender history ({code('chain/ledger.py')}; {code('ui/backend_real.py')})."),
+        ("Conditional control", f"the data reliability gate is always on in PRODUCTION; in DEMO it is off unless {code('CASHBRIDGE_REQUIRE_DATA_GATE=1')} ({code('core/financing_gate.py')})."),
     ])
     s.append(Spacer(1, 5))
-    s.append(note("<b>Security invariant:</b> untrusted content can never grant a role, create a tool, skip evidence checks, confirm an L3 action or "
-                  "unlock L4. A denied action remains visible in the audit record, and the record itself is anchored outside the log file."))
+    s.append(note("<b>Design rule (as implemented and tested, not a proof):</b> document and message text is parsed as data only; no code path lets it "
+                  "grant a role, register a tool, skip an evidence check, confirm an L3 action or reach an L4 tool. The adversarial cases in "
+                  "section 5 exercise these paths. Refusals are written to the hash-chained audit log; its Merkle root is anchored on the "
+                  "in-process EVM, which detects a consistent rewrite of the whole log but is not yet an independent, externally operated anchor."))
     s.append(NextPageTemplate("p2"))
     s.append(PageBreak())
     s.append(Paragraph("<b>Status:</b> mitigations listed are implemented to the extent described in CashBridge v9.1; residual risk is not zero. "
                        "Severity is an engineering prioritisation for this prototype, not a formal quantified risk rating. "
-                       "<b>Changed since v9:</b> 04, 05, 11 (new controls), 12 (new risk).", S["p"]))
+                       "<b>Changed since v9:</b> 04, 05, 06, 11 (controls and residual exposure restated after an internal review), 12 (new).", S["p"]))
     s.append(h2("4. KNOWN RISKS, MITIGATION AND RESIDUAL EXPOSURE"))
     s.append(table(["ID / PRIORITY", "THREAT", "IMPLEMENTED MITIGATION", "REMAINING EXPOSURE"], [
         ["01 / HIGH", "Prompt injection / tool hijacking", "Fixed workflow state machine; untrusted strings treated as data; off-policy proposal refused and logged.", "Local parsing errors still possible."],
@@ -159,23 +169,27 @@ def build(out: Path, tests: str) -> None:
         ["03 / HIGH", "Cross-tenant or role data leak", "Signed sessions, server-side RBAC, lender release scope and denial tests.", "No external IdP/OIDC or enterprise IAM."],
         ["04 / HIGH", "Malicious document / unsafe OCR", "Byte-level type check, 10 MB cap; <b>active-content screen</b> refuses JS, launch, embedded files, XFA, auto-actions (incl. hex-escaped and object-stream names); bomb cap; encrypted PDFs refused; encrypted vault; sandboxed viewer.",
          "Not an antivirus or content disarm; a malformed file aimed at a viewer bug is not detected."],
-        ["05 / MED", "Tampered / stale / duplicate invoices", "SHA-256 and provenance links; 3-way match; fail-closed gate; <b>on-chain consortium register</b> checked at verification; funding refused (409) when another lender holds the invoice.",
-         "Other lenders simulated in-process; needs real members, key custody (HSM) and governance."],
-        ["06 / HIGH", "OTP replay / unauthorised release", "Action-specific, expiring, one-use OTP; authorisation and denial logs.", "Demo OTP is not institutional MFA."],
+        ["05 / HIGH", "Tampered / stale / duplicate invoices", "SHA-256 and provenance links; 3-way match; data gate (always on in PRODUCTION); local registry; <b>consortium register</b> on an in-process EVM checked at verification; funding refused (409) when another lender holds the invoice or the register cannot be checked.",
+         "Other lenders simulated in one process; with CASHBRIDGE_CHAIN=off funding proceeds unchecked (recorded); key custody (HSM) and consortium governance not built."],
+        ["06 / HIGH", "OTP replay / unauthorised release", "Action- and payload-bound, 120 s, one-use TOTP; 5-attempt cap; Director-only endpoint; denial logs.", "Demo OTP secret is public; replay memory is per server process, not a shared store; not institutional MFA."],
         ["07 / MED", "Partner API replay / duplicate effect", "Sandbox adapter validates quotes/webhooks; idempotent outbox and replay checks.", "No real lender connection certified."],
         ["08 / MED", "Confidentiality at rest and in logs", "AES-256-GCM evidence; privacy-filtered/no-store interfaces; export/purge tooling; only commitments and roots on chain.", "Local env secret, no KMS/HSM or third-party audit."],
         ["09 / MED", "Model shift, bias, false confidence", "Calibrated intervals, domain warnings, published backtests, public distress benchmark, risk caps and human review.", "Synthetic SME cases; no real SME credit-default validation."],
         ["10 / MED", "Revoked data still held by recipient", "Revoke released-case access and remove internal evidence; record recipient notice.", "Files downloaded earlier need recipient deletion."],
-        ["11 / MED", "Infrastructure & audit compromise", "Fail-closed production mode, local TLS/CSP checks, hash-chained log; <b>Merkle root anchored on chain</b>: a consistent rewrite of the whole log is detected; anchors cannot shrink.",
-         "Chain runs in-process (independent only when shared); testnet script not run; no independent pentest."],
+        ["11 / MED", "Infrastructure & audit compromise", "Fail-closed production mode, local TLS/CSP checks, hash-chained log; <b>Merkle root anchored</b> on the in-process EVM (a consistent whole-log rewrite is detected in tests; anchors cannot shrink); anchor failures recorded and shown.",
+         "Anchoring is best effort and the chain is controlled by the same operator, so not externally immutable; testnet script not run; no independent pentest."],
         ["12 / MED", "Generated contract mistaken for advice or signed", "Fixed clause library (no LLM); DRAFT watermark, NOT SIGNED header, [●] gaps and listed defaults, review checklist; payee call-back clause; no e-signature.",
          "No jurisdiction-specific mandatory clauses; counsel must approve."],
+        ["13 / MED", "Consortium key exposure", "Commitments are HMAC-SHA256 under a consortium key held off chain; production refuses to start the register without CASHBRIDGE_CONSORTIUM_KEY; demo key in an owner-only runtime file.",
+         "Any key holder can test guessed invoices against the register; no HSM, rotation or membership governance."],
     ], [20 * mm, 36 * mm, 76 * mm, 48 * mm], sev_col=0))
     s.append(h2("5. VERIFICATION, SCOPE AND HANDOVER"))
     s += bullets([
-        ("Archived proof", f"{sec['passed']}/{sec['total']} adversarial cases (new: FIN-04 cross-lender duplicate on chain, EVID-04 whole-log rewrite vs anchor, "
-                           f"DOC-01 hidden-JavaScript PDF) and {agent['passed']}/{agent['total']} agent governance cases ({code('data/execution_evidence/trust_scorecard.md')}); "
-                           f"30/30 local production-mode checks ({code('reports/deploy_verification.md')}); {tests} automated tests. These are team-run reports."),
+        ("Archived proof", f"{sec['passed']}/{sec['total']} adversarial cases (incl. FIN-04 cross-lender duplicate refused, EVID-04 whole-log rewrite caught by the anchor, "
+                           f"DOC-01 hidden-JavaScript PDF refused) and {agent['passed']}/{agent['total']} agent-governance cases ({code('data/execution_evidence/trust_scorecard.md')}); "
+                           f"30/30 local production-mode checks ({code('reports/deploy_verification.md')}); full regression: {tests} ({code('reports/full_pytest_v9_1.txt')}, with the environment it ran in). These are team-run reports, not third-party certification."),
+        ("On-chain evidence", "transaction hashes, blocks and gas come from the <b>in-process EVM</b> (py-evm via eth-tester); they are real EVM executions but "
+                              "<b>not transactions on a public network</b>. The testnet deployment script exists (dry-run tested) and has not been run."),
         ("Important exclusions", "no live money movement, no production bank integration, no certified KYC/AML process, no public-chain deployment, "
                                  "no external penetration test or regulator approval."),
         ("Safe evaluation", "synthetic case credentials only, Director consent for all outward actions, mock credit decisions, verified and anchored audit log, "

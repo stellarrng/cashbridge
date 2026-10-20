@@ -9,7 +9,7 @@
 > consistent rewrite of the whole log is caught. Consortium simulated in-process; testnet script written, not run. See
 > [docs/ONCHAIN_CHALLENGE.md](docs/ONCHAIN_CHALLENGE.md).
 > **Security:** PDFs with JavaScript, launch actions, embedded files, XFA or auto-actions (including hex-escaped names and names
-> hidden in compressed object streams) are refused before parsing and before they reach a lender. Trust scorecard **28/28**; 1672 tests, 0 failures.
+> hidden in compressed object streams) are refused before parsing and before they reach a lender. Trust scorecard **28/28**; full regression 1677 passed, 0 failed ([reports/full_pytest_v9_1.txt](reports/full_pytest_v9_1.txt)).
 > The 2-page **Security Self-Assessment** matching this code: [reports/CashBridge_Security_Self_Assessment.pdf](reports/CashBridge_Security_Self_Assessment.pdf) (`make security-pdf`).
 
 > **v9 (20 Oct 2026): more accurate models, measured on public data, and every number traceable.**

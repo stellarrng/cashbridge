@@ -1,0 +1,1 @@
+import{a as n,j as a}from"./base-B_NA474L.js";const t=["VERIFIED","CALCULATED","MODEL_ESTIMATE","ASSUMPTION","NEEDS_HUMAN","NOT_VERIFIABLE_HERE"];function I({status:E}){const{t:s}=n();return a.jsx("span",{className:"st "+E,children:s("ev."+E)})}export{t as E,I as a};

@@ -81,6 +81,10 @@ export function OnChainPanel() {
             )}
           </div>
         </div>
+        {(s.anchor_failures || []).map((f, i) => (
+          <p key={i} className="pill bad mt-1" role="alert">{t("oc.anchorFailed", { at: f.at, reason: f.reason })}</p>
+        ))}
+        <p className="small mt-1">{t(s.mode === "required" ? "oc.modeRequired" : "oc.modeEvm")}</p>
         <Note>{t("oc.note", { network: s.network || "" })}</Note>
         <p className="small muted">
           {Object.entries(s.contracts || {}).map(([name, c]) => `${name} ${short(c.address, 8)} (${c.compiler}, source ${c.source_sha256.slice(0, 12)})`).join(" · ")}

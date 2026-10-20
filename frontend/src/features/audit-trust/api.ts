@@ -37,6 +37,8 @@ export interface ChainStatus {
   on_chain_data?: string;
   invoice?: { invoice_no: string; commitment: string; active: boolean; holder: string | null } | null;
   audit?: { anchors: ChainAnchor[]; all_reproduced: boolean; log_entries: number };
+  mode?: "evm" | "required" | "off";
+  anchor_failures?: { at: string; reason: string }[];
 }
 export interface ChainProof { entry: number; line_sha256: string; anchor_index: number; root: string; path: [string, string][]; verified: boolean;
   event: { seq: number; agent: string; tool: string; decision: string; reason: string } }

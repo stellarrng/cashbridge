@@ -189,3 +189,74 @@ def test_testnet_deploy_script_dry_run():
     from scripts.deploy_chain_testnet import main
     out = main(["--dry-run"])
     assert out["dry_run"] and set(out["contracts"]) == {"InvoiceRegistry", "AuditAnchor"} and len(out["members"]) == 2
+
+
+# --------------------------------------------------------------------------- fail-closed and visible failures (audit P0)
+def _audit_lines(backend, tool):
+    return [json.loads(x) for x in Path(backend.coord.audit_path).read_text().splitlines() if f'"{tool}"' in x]
+
+
+def test_register_error_fails_closed(app, monkeypatch):
+    backend, client = app
+    pack = _release(client, backend)
+    client.post(f"/api/bank/cases/{pack}/verify")
+    ledger = backend._ledger()
+
+    def broken(*a, **k):
+        raise RuntimeError("node unreachable")
+    monkeypatch.setattr(ledger, "register", broken)
+    r = client.post(f"/api/bank/cases/{pack}/decision", json={"decision": "APPROVE_FUNDING", "note": "ok"})
+    assert r.status_code == 409 and "could not be checked" in r.json()["detail"]
+    assert backend.coord.state.value == "SUBMITTED"
+    assert _audit_lines(backend, "cross_lender_register")[-1]["decision"] == "BLOCKED"
+
+
+def test_required_mode_refuses_funding_without_the_module(app, monkeypatch):
+    backend, client = app
+    pack = _release(client, backend)
+    client.post(f"/api/bank/cases/{pack}/verify")
+    monkeypatch.setenv("CASHBRIDGE_CHAIN", "required")
+    monkeypatch.setattr("chain.ledger.available", lambda: False)
+    r = client.post(f"/api/bank/cases/{pack}/decision", json={"decision": "APPROVE_FUNDING", "note": "ok"})
+    assert r.status_code == 409 and "required but unavailable" in r.json()["detail"]
+    assert backend.coord.state.value == "SUBMITTED"
+
+
+def test_off_mode_funds_but_records_that_the_register_was_not_checked(app, monkeypatch):
+    backend, client = app
+    pack = _release(client, backend)
+    monkeypatch.setenv("CASHBRIDGE_CHAIN", "off")
+    checks = client.post(f"/api/bank/cases/{pack}/verify").json()["checks"]
+    row = next(c for c in checks if "another consortium lender" in c["check"])
+    assert row["ok"] is None and "not checked" in row["detail"]
+    r = client.post(f"/api/bank/cases/{pack}/decision", json={"decision": "APPROVE_FUNDING", "note": "ok"})
+    assert r.status_code == 200
+    assert any(h["event"] == "REGISTER_NOT_CHECKED" for h in r.json()["review"]["history"])
+    assert _audit_lines(backend, "cross_lender_register")[-1]["reason"].startswith("not checked")
+
+
+def test_anchor_failure_is_visible_not_silent(tmp_path, monkeypatch):
+    backend = RealBackend(runtime_dir=tmp_path, clock=StoryClock())
+    client = RoleClient(create_app(lambda: backend, dist_dir=tmp_path / "none"))
+    ledger = backend._ledger()
+
+    def broken(*a, **k):
+        raise RuntimeError("anchor tx reverted")
+    monkeypatch.setattr(ledger, "anchor", broken)
+    pack = _release(client, backend)  # the release itself is not blocked
+    st = client.get("/api/chain/status").json()
+    assert st["anchor_failures"] and st["anchor_failures"][0]["at"] == "release"
+    row = next(c for c in client.post(f"/api/bank/cases/{pack}/verify").json()["checks"] if "anchor" in c["check"])
+    assert row["ok"] is False and "FAILED" in row["detail"]
+    assert _audit_lines(backend, "anchor_audit_root")[-1]["decision"] == "BLOCKED"
+
+
+def test_manual_anchor_records_who_published_it(app):
+    backend, client = app
+    pack = _release(client, backend)
+    assert client.post("/api/chain/anchor").status_code == 409  # already anchored at release, nothing new
+    client.get(f"/api/bank/cases/{pack}")  # the lender reads the case: a new audit line
+    assert client.post("/api/chain/anchor", headers=client.header("sme.minh")).status_code == 200
+    line = _audit_lines(backend, "anchor_audit_root")[-1]
+    assert line["decision"] == "ALLOWED" and "sme.minh" in line["reason"]
+    assert client.post("/api/chain/anchor").status_code == 409  # the record of the anchor is not "new" audit content
