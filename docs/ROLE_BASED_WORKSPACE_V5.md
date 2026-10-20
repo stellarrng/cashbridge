@@ -1,6 +1,6 @@
 # CashBridge v5: least-privilege role workspaces
 
-The web UI is a **prebuilt, no-build** app in `ui/web/dist`. It uses the session's **server-issued permissions** to select task-centric navigation and the default landing page. The frontend does **not** grant authorization: every API request remains subject to backend authentication, role and tenant checks.
+The web UI is a **React + TypeScript** app (`frontend/`, built into `frontend/dist`). It uses the session's **server-issued permissions** to select task-centric navigation and the default landing page. The frontend does **not** grant authorization: every API request remains subject to backend authentication, role and tenant checks.
 
 | Persona | Default | Navigation | Intended workflow |
 |---|---|---|---|

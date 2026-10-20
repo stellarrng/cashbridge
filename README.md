@@ -11,14 +11,14 @@ Every company, person, buyer, lender and API in this repository is **SYNTHETIC**
 
 | What changed | Where | Proof |
 |---|---|---|
-| **Decision Trace**: five steps rebuilt from the run on screen (risk → evidence → scenarios → recommendation with the two runner-up plans and why they lost → approval) | `ui/web/dist/assets/app.js` (`decisionTrace`) | `docs/screenshots/40-decision-trace-vi-dark.png` |
+| **Decision Trace**: five steps rebuilt from the run on screen (risk → evidence → scenarios → recommendation with the two runner-up plans and why they lost → approval) | `frontend/src/features/decision-center/components/DecisionTrace.tsx` | `docs/screenshots/40-decision-trace-vi-dark.png` |
 | **Feasibility certificate**: when no allowed plan reaches the goal, the Core computes the least free cash that would (closed form), the over-borrowing cap, eligible sources, and relaxes one limit at a time on the same scenarios. Diagnostics only: limits never move | `IntelligenceCore.feasibility` | `test_feasibility_certificate_is_a_diagnostic_and_its_cash_bound_is_exact` |
 | **CVaR 95%** of the shortfall for every plan, in the trace and the benchmark (reported, not optimised) | `core/scenario_simulator.py` (`summarize`) | `test_cvar_is_the_mean_of_the_worst_five_percent_and_never_below_p95` |
 | **Operations benchmark**: 100 synthetic events (finance, reconciliation, invoice audit, refunds, support, overdue, cash alerts) grouped into cases; Director notified **7** times vs 100 (every event) and 19 (amount ≥ USD 10k), 0 decisions missed, 0 side effects | `eval/ops_benchmark.py` → `ops_benchmark.{json,md}` | `make ops`, `tests/test_ops_benchmark.py` |
 | **Ablation and calibration** in both benchmarks (see below) | `eval/planner_benchmark.py`, `eval/ops_benchmark.py` | `test_feasibility_ceiling_bounds_every_planner_and_calibration_is_reported` |
-| **Settings page** (System › Settings, every role): language, theme, simple/advanced view, text size, reduced motion, high contrast; applied at once and kept on this device. Account block at the bottom of the side bar (home page, switch account, sign out, user card). Organisation policy shown read-only from the server | `app.js` (`routes.settings`), `GET /api/settings/policy` | `test_organisation_policy_is_read_only_and_needs_a_session` |
-| **Risk chart**: recommended plan emphasised, baselines muted, direct end labels, peak-risk annotation, tooltip delta, "lower is better"; simple view shows two lines | `assets/charts.js` (`lines`) | `docs/screenshots/41-decision-trace-en-light.png` |
-| **Copy quality**: plain Vietnamese and Chinese, SIMULATED pills on simulated numbers, tests for missing keys, placeholders and filler phrases | `assets/i18n.js` | `tests/test_copy_quality.py` |
+| **Settings page** (System › Settings, every role): language, theme, simple/advanced view, text size, reduced motion, high contrast; applied at once and kept on this device. Account block at the bottom of the side bar (home page, switch account, sign out, user card). Organisation policy shown read-only from the server | `frontend/src/features/settings/`, `GET /api/settings/policy` | `test_organisation_policy_is_read_only_and_needs_a_session` |
+| **Risk chart**: recommended plan emphasised, baselines muted, direct end labels, peak-risk annotation, tooltip delta, "lower is better"; simple view shows two lines | `frontend/src/shared/charts/LineChart.tsx` | `docs/screenshots/41-decision-trace-en-light.png` |
+| **Copy quality**: plain Vietnamese and Chinese, SIMULATED pills on simulated numbers, tests for missing keys, placeholders and filler phrases | `frontend/src/shared/i18n/locales/` | `tests/test_copy_quality.py` |
 | **Research basis**: each engine mapped to verified papers, its baseline and the measured result; claims split into implemented / sandbox / roadmap | [`docs/RESEARCH_AND_EVALUATION.md`](docs/RESEARCH_AND_EVALUATION.md) | — |
 
 ![Decision Trace with the feasibility certificate (Vietnamese, dark)](docs/screenshots/40-decision-trace-vi-dark.png)
@@ -61,11 +61,11 @@ dead-letter queue.
 | **Learning under control**: case memory (hash-chained), outcome attribution (collections timing, order slippage, cost overrun, funding too small, objective too narrow), a world-model learner gated leave-one-quarter-out, and activation only by a *different* named person | `agents/intelligence_core.py` (`CaseMemory`, `WorldModelLearner`, `ModelRegistry`) | `test_memory_learning_and_gate`, `test_registry_requires_a_different_human_and_an_accepted_gate` |
 | **Planner benchmark** (SIMULATED): fixed workflow vs planner + memory vs planner + learning on 40 held-out quarters of a hidden test world | `eval/planner_benchmark.py` → `data/execution_evidence/planner_benchmark.{json,md}` | `make bench`, `tests/test_planner_benchmark.py` |
 | **Events and the Director's inbox**: a fixed catalogue of events (buyer pays 30 days late, order cancelled, supplier raises the deposit, early payment) updates a twin of the case; the Core re-plans at once and routes the result to the Director only when a decision is needed (plan changes, the plan in force falls below the goal with no fix, or the first negative week moves earlier); everything else goes to a digest. The Director accepts the new plan or keeps the current one (L2, named) | `agents/intelligence_core.py` (`apply_event`, `assess_event`), `ui/backend_real.py` | `test_events_route_to_digest_or_director_and_never_touch_the_case`, `CORE-04` |
-| **Role-based workspaces (v5)**: the Director lands on a *Decision center* (what is at risk, what the planner did, what needs a decision; analysis and model evidence one tab away), the Chief accountant on an Overview with a work queue (exceptions, credits to reconcile, held emails, pack to prepare), the lender on incoming packs. Every refused API call (401/403) is written to the hash-chained audit log with who tried it | `ui/web/dist/assets/app.js`, `api/main.py` (`record_denials`) | `test_refused_calls_are_written_to_the_audit_chain`, `EVID-03` |
+| **Role-based workspaces (v5)**: the Director lands on a *Decision center* (what is at risk, what the planner did, what needs a decision; analysis and model evidence one tab away), the Chief accountant on an Overview with a work queue (exceptions, credits to reconcile, held emails, pack to prepare), the lender on incoming packs. Every refused API call (401/403) is written to the hash-chained audit log with who tried it | `api/main.py` (`record_denials`) | `test_refused_calls_are_written_to_the_audit_chain`, `EVID-03` |
 | **Every considered plan explained**: each scored plan carries a one-line verdict (why it lost: below goal, dearer, more packs, depends on the supplier) and the page shows how many were scored, refused and reach the goal | `IntelligenceCore._verdict` | `test_plan_in_force_is_kept_within_noise` |
 | **Bank portal**: inbox of released packs only, independent hash/chain re-verification, recorded human decision (approve / request info / decline), director reject + accountant rework | `ui/backend_real.py`, `api/main.py` | `tests/test_bank_portal.py` |
 | **Trust scorecard**: 25 adversarial security cases, 5 agent scenarios, payment model vs baseline (walk-forward Brier), planner benchmark summary | `eval/trust_scorecard.py` → `data/execution_evidence/trust_scorecard.{json,md}` | `make trust`, `tests/test_trust_scorecard.py` |
-| New web UI: landing, two-portal sign-in with one-click demo accounts, SME **Overview dashboard** (KPI cards, weekly balance columns, buyer-concentration donut, funding-cost bars, shortfall drivers, 3-way-match donut), SME and Bank workspaces; **EN / VI / 中文**; light and dark themes in the original graphite-and-gold palette; system fonts, no external requests, CSP `self` | `ui/web/dist/` (`i18n.js`, `charts.js`, `app.js`) | `tests/test_ui_bundle.py` |
+| New web UI: landing, two-portal sign-in with one-click demo accounts, SME **Overview dashboard** (KPI cards, weekly balance columns, buyer-concentration donut, funding-cost bars, shortfall drivers, 3-way-match donut), SME and Bank workspaces; **EN / VI / 中文**; light and dark themes in the original graphite-and-gold palette; system fonts, no external requests, CSP `self` | `frontend/` (React + TypeScript; built into `frontend/dist`) | `tests/test_ui_bundle.py` |
 | Deploy: Vercel (lean serverless build, `/tmp` runtime, NumPy fallback for the risk model) or Render/Docker | `vercel.json`, `vercel_app.py`, `render.yaml`, `Dockerfile` | [`docs/DEPLOY_VI.md`](docs/DEPLOY_VI.md) |
 
 Demo accounts (DEMO mode only, synthetic, names mixed Vietnamese / English / Chinese): Chief accountants `sme.lan` (Nguyễn Thị Lan) and `sme.olivia` (Olivia Bennett); Directors `sme.minh` (Trần Văn Minh) and `sme.chen` (Chen Wei 陈伟); lender reviewers `bank.lihua` (Li Hua 李华) and `bank.daniel` (Daniel Hughes). Passcode is `<first part after the dot>-demo-2026`, e.g. `lan-demo-2026`. Director OTP secret: `JBSWY3DPEHPK3PXP`.
@@ -106,7 +106,7 @@ Read honestly: planning for bad paths is what raises success (A → B), at about
 
 **The control-plane architecture has been changed after the October evaluation.** The LLM no longer chooses tools, performs extraction, drafts funding letters from private inputs, makes lending decisions or sees SME/Bank documents. A **server-side policy workflow** selects a fixed allowlist of local specialist analytical agents from explicit workflow IDs and validated structured input fields. The original synthetic buyer-risk logistic regression and deterministic cash-flow, APR, invoice and budget engines remain in use. The CFO chat now uses local, constrained read-only explanations. An **optional human-facing concept explainer** accepts only fixed PUBLIC finance topics; it is **off by default** and never receives arbitrary chat text, contracts or case data.
 
-This package also includes `POST /api/copilot/ask` (deterministic multi-step agent trace), `POST /api/projects/waterfall` (strict time-indexed receipt/cost schedules), `POST /api/contracts/draft-docx` (unsigned DOCX draft), and **server-side token authorization** for `GET /api/bank/review`. The packaged zero-build UI supports the policy workflow and bank unlock screen. See [privacy-first architecture, threat model and exact API examples](docs/PRIVACY_FIRST_AGENT_ARCHITECTURE.md).
+This package also includes `POST /api/copilot/ask` (deterministic multi-step agent trace), `POST /api/projects/waterfall` (strict time-indexed receipt/cost schedules), `POST /api/contracts/draft-docx` (unsigned DOCX draft), and **server-side token authorization** for `GET /api/bank/review`. The web UI (`frontend/`) supports the policy workflow and the bank sign-in. See [privacy-first architecture, threat model and exact API examples](docs/PRIVACY_FIRST_AGENT_ARCHITECTURE.md).
 
 > All sensitive SME data remains local in this synthetic MVP; this is **not a production security certification**. Since v2 every SME and Bank route requires a signed session with a role and tenant scope (see Version 2 above), but identity is still the built-in demo user store, not an enterprise IdP. Never load real customer information.
 
@@ -140,7 +140,7 @@ Alongside the original 13-week liquidity workflow, this package now includes **w
 | SME / Bank reviewer views | Two presentation workspaces with shared deterministic engines and human-review checklist | **Bank portal now needs a `bank_reviewer` session (v2); legacy static token still accepted. Identity is the demo user store, not production OIDC** |
 | Conversational tools | Offline CFO shortcuts for contract-review summary, marketing impact and finance ratios; original CFO intents retained | Controlled local chat; LLM tool planning is intentionally disabled |
 
-The archive includes an **offline zero-build dashboard** (`ui/web/dist/`) that calls real FastAPI endpoints. The bundled dashboard was exercised in a Chromium browser harness against the in-process FastAPI API, and new screenshots are provided under `docs/screenshots/06–11`. See [implementation notes](docs/INTELLIGENCE_EXTENSION.md) and [3-minute demo story](docs/FINTECHATHON_DEMO_STORY.md).
+The repository includes a **React + TypeScript web app** (`frontend/`, built into the committed `frontend/dist`) that calls real FastAPI endpoints and makes no external requests. The bundled dashboard was exercised in a Chromium browser harness against the in-process FastAPI API, and new screenshots are provided under `docs/screenshots/06–11`. See [implementation notes](docs/INTELLIGENCE_EXTENSION.md) and [3-minute demo story](docs/FINTECHATHON_DEMO_STORY.md).
 
 ### What's new in the earlier green/capital extension
 
@@ -203,7 +203,7 @@ Neither capital planning nor green screening authorizes spending, certifies sust
 
 ## Quickstart
 
-You need Python 3.11 or newer and the Python dependencies in `requirements.txt`. The archive **includes a working no-build offline dashboard** served automatically by FastAPI. No Node or npm is needed: the web app has no build step. For OCR of scanned pages/photos, install the **Tesseract OCR executable** locally; Docker installs it for you.
+You need Python 3.11 or newer and the Python dependencies in `requirements.txt`. The built web app (`frontend/dist`) is committed and served automatically by FastAPI, so **running the app needs no Node**. Node 20+ and npm are only needed to change the UI (`make dev`, see `frontend/README.md`). For OCR of scanned pages/photos, install the **Tesseract OCR executable** locally; Docker installs it for you.
 
 ```bash
 python3 -m venv .venv
@@ -356,7 +356,8 @@ core/       matching, forecasting, scenario_simulator, funding evaluator, invoic
 security/   auth.py (sessions, roles, tenants), permission gatekeeper, audit log, OTP, PII masker, injection guard, number check, BEC detector
 agents/     autopilot, intelligence_core (planner, memory, learner, registry), coordinator, CFO assistant, document agent, collections agent, buyer risk agent (NumPy fallback), LLM client
 api/        FastAPI app and the MOCK lender connector
-ui/         backend_real.py; web/dist/ (the live no-build UI: landing, SME and Bank apps, EN/VI/ZH, light/dark)
+ui/         backend_real.py (shapes engine output into the UI's JSON)
+frontend/   React + TypeScript web app (landing, SME and Bank workspaces, EN/VI/ZH, light/dark); frontend/dist is the committed build
 data/       seed_sandbox.py, loader.py, sandbox_inputs/, execution_evidence/
 scripts/    run_demo_story.py, anchor_head.py, export_ui_snapshot.py
 eval/       tasks.yaml, run_eval.py, trust_scorecard.py (security cases, agent scenarios, model backtest), planner_benchmark.py
@@ -392,14 +393,14 @@ Demo video: _link to be added_
 
 The source includes a **Green Finance** tab with SME/bank reviewer views, environmental evidence checklist, indicative impact calculations and a demo-only human review request. See [`docs/GREEN_FINANCE_MVP.md`](docs/GREEN_FINANCE_MVP.md). This is **not** bank approval, green taxonomy certification, live API ingestion or verified emissions monitoring.
 
-**No Node build is required, and there is no build step at all.** The web app is the hand-written static files in `ui/web/dist/` (HTML, CSS, JS), served by FastAPI exactly as committed. The old React/Vite prototype was removed in v5: its `npm run build` would have overwritten this folder with a different interface.
+**Running the app needs no Node.** The web app is the React + TypeScript project in `frontend/`; its build, `frontend/dist`, is committed and served by FastAPI as-is. To change the UI run `make dev` (one command: API on :8100 and the UI with hot reload on http://localhost:5173), then `make web-build` and commit the new `frontend/dist`.
 
 ## FinTechathon analytics refinement (2026-10-19)
 The Financial Intelligence Lab now includes source-labelled DSO/DIO estimates, operating margin, receivables exposure, inventory intensity and net working capital. DPO and cash-conversion cycle remain explicitly unavailable when trade-payables evidence is missing; no proxy is silently substituted.
 
 Modules integrated in this package: SME finance EDA and cash simulations, project/bid feasibility and aggregate workforce capacity, contract text/PDF extraction, rule-based clause/amount anomalies and human-reviewed unsigned contract drafting, green financing economics, and demo Bank Review. **This is a synthetic demonstration, not production banking software or verified fraud detection.**
 
-Tests: `python -m pytest -q` (including privacy and adversarial suites). The v2 frontend in `ui/web/dist` is hand-written static files (no build step).
+Tests: `python -m pytest -q` (including privacy and adversarial suites). The web app is in `frontend/` (build: `make web-build`).
 
 ## Back-office automation extension (October 2026)
 

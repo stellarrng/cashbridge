@@ -23,4 +23,4 @@
 - OCR/text extraction and the rule engine can miss clauses and produce false positives.
 - A flagged mismatch is not proof of fraud; legal and financial decisions require human review.
 - Bank role switching is a UI demo, not secure authentication or a production-ready lender portal.
-- The web app is the no-build `ui/web/dist`; there is no other UI source (the old React prototype was removed in v5).
+- The web app is the React + TypeScript project in `frontend/` (built into `frontend/dist`); there is no other UI source.

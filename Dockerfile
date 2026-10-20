@@ -1,5 +1,5 @@
 # CashBridge (SYNTHETIC demo): FastAPI app serving the SME + Bank web portals on port 8000.
-# The static web UI in ui/web/dist is committed, so no Node is needed in the image.
+# The built web UI in frontend/dist is committed, so no Node is needed in the image.
 FROM python:3.12-slim
 
 WORKDIR /app

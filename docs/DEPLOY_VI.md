@@ -58,7 +58,7 @@ Lưu ý khi demo trên Vercel: nếu Vercel chạy nhiều instance song song, m
 
 ## 4. Tách frontend (Vercel) và API (Render)
 
-1. Sửa `ui/web/dist/assets/config.js`: `window.CASHBRIDGE_API = "https://<api>.onrender.com";`
+1. Build giao diện với `VITE_API_BASE=https://<api>.onrender.com npm run build` (trong `frontend/`).
 2. Trên Render đặt `CASHBRIDGE_ALLOWED_ORIGINS=https://<project>.vercel.app`.
 3. Trong `vercel.json`, thêm origin API vào `connect-src` của header CSP.
 

@@ -1,0 +1,1 @@
+function c(o){const n=o/4,r=Math.pow(10,Math.floor(Math.log10(n)));return[1,2,2.5,5,10].map(t=>t*r).find(t=>t>=n)??n}function e(o,n,r){const t=[];for(let a=o;a<=n+1e-9;a+=r)t.push(a);return t}export{c as n,e as t};

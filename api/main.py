@@ -36,7 +36,9 @@ from security.auth import LENDER_TENANT, SME_TENANT, AuthError, Principal
 from security.role_access import require_bank_reviewer
 from ui.backend import get_backend
 
-DIST_DIR = BASE_DIR / "ui" / "web" / "dist"
+# The web UI served at "/" and "/app": the built React app (frontend/dist, committed so a fresh clone runs without Node).
+# Set CASHBRIDGE_UI_DIR to serve another build.
+DIST_DIR = (BASE_DIR / os.environ["CASHBRIDGE_UI_DIR"]).resolve() if os.environ.get("CASHBRIDGE_UI_DIR") else BASE_DIR / "frontend" / "dist"
 DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:8000", "http://127.0.0.1:8000"]
 SCORECARD_PATH = EXECUTION_EVIDENCE_DIR / "trust_scorecard.json"
 
@@ -602,7 +604,7 @@ def create_app(backend_provider: Callable[[], Any] = get_backend, dist_dir: Path
 
         @app.get("/", include_in_schema=False)
         def root() -> JSONResponse:
-            return JSONResponse({"app": "CashBridge (SYNTHETIC demo)", "ui": "missing: ui/web/dist is the no-build web app; restore it from the repository", "docs": "/docs"})
+            return JSONResponse({"app": "CashBridge (SYNTHETIC demo)", "ui": "missing: frontend/dist is the built web app; run `make web-build` (or restore it from the repository)", "docs": "/docs"})
 
     return app
 

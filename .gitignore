@@ -19,4 +19,5 @@ data/cases/
 .DS_Store
 data/runtime/
 
-ui/web/node_modules/
+
+frontend/node_modules/
