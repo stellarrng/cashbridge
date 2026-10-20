@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import { isUnauthorized } from "../api/client";
 import { clearSession, signInUrl } from "../api/session";
 import { useI18n } from "../i18n";
+import { LoadingSkeleton } from "./LoadingSkeleton";
 import { PageHead } from "./primitives";
 
 interface Props<T> {
@@ -34,5 +35,5 @@ export function Loadable<T>({ data, error, children }: Props<T>) {
       </>
     );
   }
-  return <p className="muted">{t("app.loading")}</p>;
+  return <LoadingSkeleton />;
 }

@@ -104,7 +104,7 @@ function FinancialHealth({ d }: { d: AnalyticsSummary }) {
         <div>
           {result && (
             <>
-              <div className="kpis cards" style={{ marginTop: 14 }}>
+              <div className="kpis cards mt-2">
                 <Kpi label="Baseline closing cash" value={usd(result.baseline_ending_cash_usd)} />
                 <Kpi label="Scenario closing cash" value={usd(result.scenario_ending_cash_usd)} />
                 <Kpi label="Lowest cash" tone={result.reserve_breach ? "neg" : ""} value={usd(result.minimum_cash_usd)} />

@@ -60,16 +60,16 @@ export default function ContractsScreen(_: ScreenProps) {
       <EngineNote />
       <Panel title="1" sub="PDF / PNG / JPG / TXT ≤ 5 MB">
         <label className="field">File<input type="file" accept=".txt,.pdf,.png,.jpg,.jpeg" onChange={upload} /></label>
-        <label className="field" style={{ marginTop: 10 }}>Contract<textarea rows={9} value={contract} onChange={(e) => editContract(e.target.value)} /></label>
-        <label className="field" style={{ marginTop: 10 }}>Invoice<textarea rows={2} value={invoice} onChange={(e) => editInvoice(e.target.value)} /></label>
-        <div className="row" style={{ marginTop: 12 }}>
+        <label className="field mt-2">Contract<textarea rows={9} value={contract} onChange={(e) => editContract(e.target.value)} /></label>
+        <label className="field mt-2">Invoice<textarea rows={2} value={invoice} onChange={(e) => editInvoice(e.target.value)} /></label>
+        <div className="row mt-2">
           <Button variant="bridge" onClick={() => void review()}>Review contract</Button>
           <Button variant="ghost" onClick={() => void compare()}>Compare with invoice</Button>
         </div>
         <div>
           {outcome?.kind === "review" && (
             <>
-              <div style={{ marginTop: 14 }}>
+              <div className="mt-2">
                 <Kpis>
                   <Kpi label="Review flags" tone={outcome.data.risk_signal_count ? "warn" : "pos"} value={outcome.data.risk_signal_count} />
                   <Kpi label="Payment terms sum" value={outcome.data.extracted.payment_percentage_sum == null ? "–" : outcome.data.extracted.payment_percentage_sum + "%"} />
@@ -82,7 +82,7 @@ export default function ContractsScreen(_: ScreenProps) {
           )}
           {outcome?.kind === "compare" && (
             <>
-              <div style={{ marginTop: 14 }}>
+              <div className="mt-2">
                 <Kpis>
                   <Kpi label="Contract" value={outcome.data.contract_amounts_usd.map((a) => usd(a)).join(", ")} />
                   <Kpi label="Invoice" value={outcome.data.invoice_amounts_usd.map((a) => usd(a)).join(", ")} />
@@ -110,7 +110,7 @@ export default function ContractsScreen(_: ScreenProps) {
             <Button variant="ghost" onClick={() => void act(() => downloadDraftDocx(draftData()))}>.docx</Button>
           </div>
         </form>
-        <label className="field" style={{ marginTop: 12 }}>Draft<textarea rows={14} readOnly value={draft} /></label>
+        <label className="field mt-2">Draft<textarea rows={14} readOnly value={draft} /></label>
         <Note>Not legally reviewed or signed. Have qualified counsel review before use.</Note>
       </Panel>
     </>

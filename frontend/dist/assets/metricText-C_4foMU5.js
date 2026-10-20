@@ -1,1 +1,0 @@
-import{x as r,w as t}from"./premium-ui-BuIbAbqy.js";function n(e,u){return e.unit==="USD"?r(Number(e.value)):e.unit==="%"?t(Number(e.value)):e.unit==="week"?u("lbl.week",{w:e.value}):e.value+" "+e.unit}export{n as m};

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useI18n } from "@/shared/i18n";
-import { human } from "@/shared/lib/format";
+import { human, sentence } from "@/shared/lib/format";
 import { Button, Panel } from "@/shared/ui";
 import type { BankDecision, BankReview } from "../../types";
 
@@ -25,7 +25,7 @@ export function DecisionPanel({ review, decided, checklist, onDecide }: Props) {
   return (
     <Panel title={t("bk.decision")} sub={t("bk.decisionSub")}>
       {decided ? (
-        <p><b>{human(review.decision)}</b> · {review.reviewer}{review.note ? ": " + review.note : ""}</p>
+        <p><b>{sentence(human(review.decision))}</b> · {review.reviewer}{review.note ? ": " + review.note : ""}</p>
       ) : (
         <form onSubmit={submit}>
           <label className="field">
@@ -36,11 +36,11 @@ export function DecisionPanel({ review, decided, checklist, onDecide }: Props) {
               <option value="DECLINE">Decline</option>
             </select>
           </label>
-          <label className="field" style={{ marginTop: 10 }}>
+          <label className="field mt-2">
             Note
             <textarea rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="KYC completed offline; notice of assignment sent to the buyer." />
           </label>
-          <div className="row" style={{ marginTop: 12 }}>
+          <div className="row mt-2">
             <Button variant="bridge" type="submit">{t("bk.record")}</Button>
           </div>
         </form>

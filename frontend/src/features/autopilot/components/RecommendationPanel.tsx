@@ -25,7 +25,7 @@ export function RecommendationPanel({ run, rec, weeks }: { run: AutopilotRun; re
       <h3 className="mini">{t("ap.conditions")}</h3>
       <BulletList items={rec.conditions} />
       {rec.core_plan ? (
-        <div className="row" style={{ marginTop: 12 }}>
+        <div className="row mt-2">
           <a className="btn ghost" href="#core">{t("core.open")}</a>
         </div>
       ) : null}

@@ -20,8 +20,8 @@ export default function InboxScreen(_: ScreenProps) {
         const waiting = items.length - decided;
         return (
           <>
-            <RoleStrip />
             <PageHead title={t("bk.inbox")} lede={t("bk.notice")} />
+            <RoleStrip />
             <Kpis>
               <Kpi highlight label={t("bk.received")} value={items.length} />
               <Kpi label={t("bk.awaiting")} tone={waiting ? "warn" : ""} value={waiting} />

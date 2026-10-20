@@ -24,6 +24,12 @@ export function human(s: unknown): string {
   return String(s ?? "").replaceAll("_", " ").toLowerCase();
 }
 
+/** First letter capital: for status text that stands on its own ("awaiting approval" -> "Awaiting approval"). */
+export function sentence(s: unknown): string {
+  const t = String(s ?? "");
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
 /** Compact axis label: 12500 -> "$13k", 2_500_000 -> "$2.5M". */
 export function compactUsd(v: number): string {
   if (v === 0) return "$0";

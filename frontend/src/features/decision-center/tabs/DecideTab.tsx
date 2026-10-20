@@ -89,7 +89,7 @@ export function DecideTab({ plan, twin, snapshot, onDecide, onApplyEvent, onRese
                 <b>{actionLabel(a)}</b>
                 <span>{a.type === "deposit_cut" ? a.new_pct + "%" : usd2(a.advance_usd != null ? a.advance_usd : a.amount_usd)}</span>
                 <span className="muted">{t("lbl.week", { w: a.week })}</span>
-                {a.type === "deposit_cut" ? <span className="pill warn">supplier</span> : <span className="pill">OTP</span>}
+                {a.type === "deposit_cut" ? <span className="pill warn">Supplier</span> : <span className="pill">OTP</span>}
               </li>
             ))}
           </ul>

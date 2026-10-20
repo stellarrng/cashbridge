@@ -3,7 +3,7 @@ import { StatusPill } from "@/entities/status";
 import { StackBar } from "@/shared/charts";
 import { useAct, useAsync } from "@/shared/hooks";
 import { useI18n } from "@/shared/i18n";
-import { human } from "@/shared/lib/format";
+import { human, sentence } from "@/shared/lib/format";
 import type { ScreenProps } from "@/shared/lib/screen";
 import { Button, Kpi, Kpis, PageHead, Panel, Scroll } from "@/shared/ui";
 import { useAuth } from "../auth";
@@ -48,10 +48,10 @@ function Audit({ snapshot, refresh }: { snapshot: CaseSnapshot | null; refresh: 
       {score.data && <ScorecardView sc={score.data} />}
       {sme && snapshot && ev && (
         <div className="grid2">
-          <Panel title="Audit log" sub={`${ev.chain_ok ? "hash chain intact" : "broken at " + ev.broken_seq} · ${ev.lines_checked}`}>
+          <Panel title="Audit log" sub={`${ev.chain_ok ? "Hash chain intact" : "Broken at " + ev.broken_seq} · ${ev.lines_checked}`}>
             <StackBar
               parts={Object.entries(decisions).map(([k, v]) => ({
-                label: human(k),
+                label: sentence(human(k)),
                 value: v,
                 cls: k === "ALLOWED" || k === "APPROVED" ? "cb-good" : k === "AWAITING_APPROVAL" ? "cb-risk" : "cb-neg",
               }))}
@@ -68,7 +68,7 @@ function Audit({ snapshot, refresh }: { snapshot: CaseSnapshot | null; refresh: 
               </table>
             </Scroll>
           </Panel>
-          <Panel title="Invoice registry" sub="this installation only">
+          <Panel title="Invoice registry" sub="This installation only">
             {ev.registry_blocks.length ? (
               <table>
                 <tbody>
@@ -80,10 +80,10 @@ function Audit({ snapshot, refresh }: { snapshot: CaseSnapshot | null; refresh: 
             ) : (
               <p className="muted">–</p>
             )}
-            <h2 style={{ marginTop: 18 }}>Privacy</h2>
+            <h2 className="mt-3">Privacy</h2>
             <p className="sub">{snapshot.pii_inspector.note}</p>
             <p className="small mono">{snapshot.pii_inspector.before}</p>
-            <p className="small mono" style={{ marginTop: 6 }}>{snapshot.pii_inspector.after}</p>
+            <p className="small mono mt-1">{snapshot.pii_inspector.after}</p>
           </Panel>
         </div>
       )}
@@ -106,7 +106,7 @@ function ScorecardView({ sc }: { sc: Scorecard }) {
           <table>
             <tbody>
               {sc.security.map((c) => (
-                <tr key={c.id}><td className="mono">{c.id}</td><td>{c.title}</td><td>{c.passed ? <span className="pill ok">pass</span> : <span className="pill bad">fail</span>}</td></tr>
+                <tr key={c.id}><td className="mono">{c.id}</td><td>{c.title}</td><td>{c.passed ? <span className="pill ok">Pass</span> : <span className="pill bad">Fail</span>}</td></tr>
               ))}
             </tbody>
           </table>
@@ -118,7 +118,7 @@ function ScorecardView({ sc }: { sc: Scorecard }) {
                 <tr key={c.id}>
                   <td className="mono">{c.id}</td>
                   <td>{c.title}<div className="muted small">{c.got || ""}</div></td>
-                  <td>{c.passed ? <span className="pill ok">pass</span> : <span className="pill bad">fail</span>}</td>
+                  <td>{c.passed ? <span className="pill ok">Pass</span> : <span className="pill bad">Fail</span>}</td>
                 </tr>
               ))}
             </tbody>

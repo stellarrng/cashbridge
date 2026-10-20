@@ -39,7 +39,7 @@ export function VerificationPanel({ verification, onVerify }: { verification: Pa
           <p className="muted">{t("bk.notVerified")}</p>
         )}
       </div>
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row mt-2">
         <Button variant={v ? "ghost" : "bridge"} onClick={onVerify}>{t(v ? "bk.verifyAgain" : "bk.runVerify")}</Button>
       </div>
     </Panel>

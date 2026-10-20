@@ -76,7 +76,7 @@ function CashForecast({ s }: { s: CaseSnapshot }) {
               </label>
             ))}
           </div>
-          <div className="row" style={{ marginTop: 12 }}>
+          <div className="row mt-2">
             <Button small variant="ghost" onClick={() => change(defaults)}>{t("cash.reset")}</Button>
           </div>
         </Panel>

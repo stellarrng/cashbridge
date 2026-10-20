@@ -2,7 +2,7 @@ import { useState } from "react";
 import { DonutChart } from "@/shared/charts";
 import { useAct, useAsync } from "@/shared/hooks";
 import { useI18n } from "@/shared/i18n";
-import { human, usd } from "@/shared/lib/format";
+import { human, sentence, usd } from "@/shared/lib/format";
 import type { ScreenProps } from "@/shared/lib/screen";
 import { Button, EngineNote, Kpi, Kpis, Loadable, Note, PageHead } from "@/shared/ui";
 import { fetchEconomics, fetchGreenProjects, requestReview, type GreenEconomics, type GreenProject } from "./api";
@@ -45,7 +45,7 @@ function ProjectCard({ project: p, onReviewed }: { project: GreenProject; onRevi
               {p.evidence.map((x, i) => (
                 <tr key={i}>
                   <td>{x.label}</td>
-                  <td>{x.status === "missing" ? <span className="pill bad">missing</span> : <span className="pill warn">{human(x.status)}</span>}</td>
+                  <td>{x.status === "missing" ? <span className="pill bad">Missing</span> : <span className="pill warn">{sentence(human(x.status))}</span>}</td>
                 </tr>
               ))}
             </tbody>
@@ -53,14 +53,14 @@ function ProjectCard({ project: p, onReviewed }: { project: GreenProject; onRevi
         </div>
         <DonutChart
           center={p.documentation_completeness_pct + "%"}
-          centerSub="evidence"
+          centerSub="Evidence"
           parts={[
-            { label: "provided", value: provided, color: "var(--good)" },
-            { label: "missing", value: p.evidence.length - provided, color: "var(--deficit)" },
+            { label: "Provided", value: provided, color: "var(--good)" },
+            { label: "Missing", value: p.evidence.length - provided, color: "var(--deficit)" },
           ]}
         />
       </div>
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row mt-2">
         <Button small variant="ghost" onClick={async () => { const x = await act(() => fetchEconomics(p.project_id)); if (x) setEco(x); }}>Payback @ $0.12/kWh</Button>
         <Button small variant={pending ? "ghost" : "bridge"} disabled={pending} onClick={async () => { if (await act(() => requestReview(p.project_id))) onReviewed(); }}>
           {pending ? "Review requested" : "Request internal review"}
@@ -69,7 +69,7 @@ function ProjectCard({ project: p, onReviewed }: { project: GreenProject; onRevi
       <div>
         {eco && (
           <>
-            <div className="kpis cards" style={{ marginTop: 12 }}>
+            <div className="kpis cards mt-2">
               <Kpi label="Net savings / yr" value={usd(eco.estimated_net_savings_usd_per_year)} />
               <Kpi label="Simple payback" value={eco.simple_payback_years == null ? "–" : eco.simple_payback_years + " y"} />
             </div>

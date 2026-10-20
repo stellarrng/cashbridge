@@ -1,11 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { getSession, type Portal } from "@/shared/api/session";
-import { useAsync } from "@/shared/hooks";
+import { useActiveSection, useAsync, useReveal } from "@/shared/hooks";
 import { useI18n } from "@/shared/i18n";
-import { Button, LangSwitch, LogoMark, ThemeButton } from "@/shared/ui";
+import { usePreferences } from "@/shared/preferences";
+import { Button } from "@/shared/ui";
 import { fetchTrustSummary } from "./api";
 import { HeroCashChart } from "./HeroCashChart";
+import { InstallGuide } from "./InstallGuide";
+import { LandingNav } from "./LandingNav";
 import { SignInDialog } from "./SignInDialog";
+
+/** Header and footer are light in the light theme and dark in the dark theme, so the logo has a version for each. */
+const LOGO = { dark: "/brand/cashbridge-logo-dark-bg.svg", light: "/brand/cashbridge-logo-light-bg.svg" } as const;
+const NAV_SECTIONS = ["flow", "portals", "trust", "install"] as const;
+const NAV_LABEL: Record<(typeof NAV_SECTIONS)[number], string> = { flow: "nav.flow", portals: "nav.portals", trust: "land.trust", install: "nav.install" };
 
 const STEPS = [
   { n: 1, who: "agent" }, { n: 2, who: "agent" }, { n: 3, who: "agent" }, { n: 4, who: "director" }, { n: 5, who: "lender" },
@@ -15,8 +23,30 @@ const SME_CANNOT = ["p.sme.x1", "p.sme.x2"];
 const BANK_CAN = ["p.bank.c1", "p.bank.c2", "p.bank.c3", "p.bank.c4"];
 const BANK_CANNOT = ["p.bank.x1", "p.bank.x2"];
 
+type ClaimTone = "ok" | "mock" | "none";
+const CLAIMS: ReadonlyArray<{ tone: ClaimTone; title: string; text: string }> = [
+  { tone: "ok", title: "cl.works", text: "cl.works.d" },
+  { tone: "mock", title: "cl.mock", text: "cl.mock.d" },
+  { tone: "none", title: "cl.not", text: "cl.not.d" },
+];
+
+/** Status marks that differ by shape as well as colour: check (works), half circle (mocked), minus (not claimed). */
+const CLAIM_ICON: Record<ClaimTone, ReactNode> = {
+  ok: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+  ),
+  mock: (
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="2.2" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" /></svg>
+  ),
+  none: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M6 12h12" /></svg>
+  ),
+};
+
 export function LandingPage() {
   const { t } = useI18n();
+  const { resolvedTheme } = usePreferences();
+  const logo = resolvedTheme === "dark" ? LOGO.dark : LOGO.light;
   const params = new URLSearchParams(window.location.search);
   const existing = getSession();
   const returning = existing?.user && params.get("stay") !== "1" ? existing.user.portal : null;
@@ -25,6 +55,8 @@ export function LandingPage() {
   const [portal, setPortal] = useState<Portal>(params.get("signin") === "bank" ? "bank" : "sme");
   const [signedOut, setSignedOut] = useState(params.has("signedout"));
   const scores = useAsync(() => fetchTrustSummary().catch(() => null), []);
+  const activeSection = useActiveSection(NAV_SECTIONS);
+  useReveal();
 
   // Confirm a sign-out once, then drop the flag from the address bar.
   useEffect(() => {
@@ -40,7 +72,7 @@ export function LandingPage() {
   };
 
   /** A person already signed in on this tab gets a direct way back instead of the dialog. */
-  function CtaButton({ target, variant, label }: { target: Portal; variant: "bridge" | "ghost" | ""; label: string }) {
+  function CtaButton({ target, variant, label }: { target: Portal; variant: "bridge" | "bank" | "ghost" | ""; label: string }) {
     const back = returning === target;
     return (
       <Button variant={variant} onClick={() => (back ? (window.location.href = "/app") : open(target))}>
@@ -50,54 +82,58 @@ export function LandingPage() {
   }
 
   const s = scores.data?.summary;
+  const stats = [
+    { value: s ? `${s.security.passed}/${s.security.total}` : t("trust.na"), text: t("trust.sec") },
+    { value: s ? `${s.agent.passed}/${s.agent.total}` : t("trust.na"), text: t("trust.agent") },
+    { value: s ? s.model.brier_model.toFixed(3) : t("trust.na"), text: t("trust.model") },
+  ];
 
   return (
-    <>
+    <div className="land">
       <a className="sr-only" href="#main">Skip to content</a>
-      <header className="nav">
-        <div className="wrap nav-row">
-          <a className="logo" href="#top" aria-label="CashBridge home">
-            <LogoMark />
-            CashBridge
-          </a>
-          <nav className="nav-links" aria-label="Page sections">
-            <a href="#flow">{t("nav.flow")}</a>
-            <a href="#portals">{t("nav.portals")}</a>
-            <a href="#trust">{t("land.trust")}</a>
-          </nav>
-          <div className="nav-tools">
-            <LangSwitch />
-            <ThemeButton />
-            <Button small variant="ghost" onClick={() => open("sme")}>{t("nav.signin")}</Button>
-          </div>
-        </div>
-      </header>
+      <LandingNav
+        logo={logo}
+        active={activeSection}
+        onSignIn={() => open("sme")}
+        links={NAV_SECTIONS.map((id) => ({ id, label: t(NAV_LABEL[id]) }))}
+      />
 
       <main id="main">
-        <section className="hero wrap" id="top">
-          <div className="hero-copy">
-            <p className="kicker">{t("hero.kicker")}</p>
-            <h1>{t("hero.title")}</h1>
-            <p className="lede">{t("hero.lede")}</p>
-            <div className="cta">
-              <CtaButton target="sme" variant="bridge" label={t("hero.sme")} />
-              <CtaButton target="bank" variant="ghost" label={t("hero.bank")} />
+        <section className="hero-wrap" id="top">
+          <div className="hero wrap">
+            <div className="hero-copy on-navy">
+              <p className="kicker rise">{t("hero.kicker")}</p>
+              <h1 className="rise d1">{t("hero.title")}</h1>
+              <p className="lede rise d2">{t("hero.lede")}</p>
+              <div className="cta rise d3">
+                <CtaButton target="sme" variant="bridge" label={t("hero.sme")} />
+                <CtaButton target="bank" variant="ghost" label={t("hero.bank")} />
+              </div>
+              <p className="fineprint rise d3">{t("hero.fine")}</p>
             </div>
-            <p className="fineprint">{t("hero.fine")}</p>
+            <HeroCashChart />
           </div>
-          <HeroCashChart />
+          <div className="stats on-navy wrap rise d4">
+            {stats.map((x, i) => (
+              <div key={i} className="stat">
+                <b>{x.value}</b>
+                <span>{x.text}</span>
+              </div>
+            ))}
+          </div>
         </section>
 
-        <section className="band" id="flow">
+        <section className="sec sec--surface" id="flow">
           <div className="wrap">
-            <div className="section-head">
+            <div className="section-head reveal">
               <h2>{t("flow.title")}</h2>
               <p>{t("flow.lede")}</p>
             </div>
             <ol className="steps">
               {STEPS.map(({ n, who }) => (
-                <li key={n}>
-                  <span className={"who " + (who === "agent" ? "agent" : "person")}>{t("who." + who)}</span>
+                <li key={n} className="reveal">
+                  <span className="step-no" aria-hidden="true">{String(n).padStart(2, "0")}</span>
+                  <span className={"who " + who}>{t("who." + who)}</span>
                   <h3>{t(`s${n}.t`)}</h3>
                   <p>{t(`s${n}.d`)}</p>
                 </li>
@@ -106,54 +142,83 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="wrap portals" id="portals">
-          <div className="section-head">
-            <h2>{t("portals.title")}</h2>
-            <p>{t("portals.lede")}</p>
-          </div>
-          <div className="split">
-            <PortalCard kind="sme" can={SME_CAN} cannot={SME_CANNOT} action={<CtaButton target="sme" variant="bridge" label={t("p.sme.b")} />} />
-            <PortalCard kind="bank" can={BANK_CAN} cannot={BANK_CANNOT} action={<CtaButton target="bank" variant="" label={t("p.bank.b")} />} />
+        <section className="sec sec--paper" id="portals">
+          <div className="wrap">
+            <div className="section-head reveal">
+              <h2>{t("portals.title")}</h2>
+              <p>{t("portals.lede")}</p>
+            </div>
+            <div className="split reveal">
+              <PortalCard kind="sme" can={SME_CAN} cannot={SME_CANNOT} action={<CtaButton target="sme" variant="bridge" label={t("p.sme.b")} />} />
+              <PortalCard kind="bank" can={BANK_CAN} cannot={BANK_CANNOT} action={<CtaButton target="bank" variant="bank" label={t("p.bank.b")} />} />
+            </div>
           </div>
         </section>
 
-        <section className="band" id="trust">
+        <section className="sec sec--surface" id="trust">
           <div className="wrap">
-            <div className="section-head">
+            <div className="section-head reveal">
               <h2>{t("trust.title")}</h2>
-              <p dangerouslySetInnerHTML={{ __html: t("trust.lede") }} />
+              <p><RichCode text={t("trust.lede")} /></p>
             </div>
-            <div className="scores">
-              <div className="score"><b>{s ? `${s.security.passed}/${s.security.total}` : "25/25"}</b><span>{t("trust.sec")}</span></div>
-              <div className="score"><b>{s ? `${s.agent.passed}/${s.agent.total}` : "5/5"}</b><span>{t("trust.agent")}</span></div>
-              <div className="score"><b>{s ? `${s.model.brier_model.toFixed(3)} vs ${s.model.brier_baseline.toFixed(3)}` : "0.091 vs 0.146"}</b><span>{t("trust.model")}</span></div>
+            <div className="scores reveal">
+              <div className={"score" + (s ? "" : " na")}>
+                <b>{s ? `${s.security.passed}/${s.security.total}` : t("trust.na")}</b>
+                <span>{t("trust.sec")}</span>
+              </div>
+              <div className={"score" + (s ? "" : " na")}>
+                <b>{s ? `${s.agent.passed}/${s.agent.total}` : t("trust.na")}</b>
+                <span>{t("trust.agent")}</span>
+              </div>
+              <div className={"score model" + (s ? "" : " na")}>
+                <b>{s ? `${s.model.brier_model.toFixed(3)} vs ${s.model.brier_baseline.toFixed(3)}` : t("trust.na")}</b>
+                <em className="score-note">{t("trust.lower")}</em>
+                <span>{t("trust.model")}</span>
+              </div>
             </div>
-            <div className="claims">
-              <div><h3>{t("cl.works")}</h3><p>{t("cl.works.d")}</p></div>
-              <div><h3>{t("cl.mock")}</h3><p>{t("cl.mock.d")}</p></div>
-              <div><h3>{t("cl.not")}</h3><p>{t("cl.not.d")}</p></div>
+            <div className="claims reveal">
+              {CLAIMS.map((c) => (
+                <div key={c.title} className={"claim " + c.tone}>
+                  <span className="claim-ico">{CLAIM_ICON[c.tone]}</span>
+                  <div>
+                    <h3>{t(c.title)}</h3>
+                    <p>{t(c.text)}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </section>
+
+        <InstallGuide />
       </main>
 
-      <footer className="wrap foot">
-        <span className="logo small">CashBridge</span>
-        <span>{t("foot")}</span>
-        <a href="/docs">{t("foot.api")}</a>
+      <footer className="foot on-navy">
+        <div className="wrap foot-row">
+          <a className="logo" href="#top" aria-label="CashBridge home">
+            <img src={logo} alt="CashBridge" width="150" height="30" />
+          </a>
+          <span>{t("foot")}</span>
+          <a href="/docs">{t("foot.api")}</a>
+        </div>
       </footer>
 
       <SignInDialog open={authOpen} portal={portal} onPortal={setPortal} onClose={() => setAuthOpen(false)} />
       {signedOut && (
-        <div role="status" style={{ position: "fixed", left: "50%", bottom: 24, transform: "translateX(-50%)", zIndex: 90, background: "var(--ink)", color: "var(--paper)", padding: "10px 16px", borderRadius: 10, maxWidth: "calc(100% - 32px)" }}>
+        <div role="status" className="toast show">
           {t("auth.signedOut")}
         </div>
       )}
-    </>
+    </div>
   );
 }
 
-function PortalCard({ kind, can, cannot, action }: { kind: "sme" | "bank"; can: string[]; cannot: string[]; action: React.ReactNode }) {
+/** Renders `<code>…</code>` spans from a translation as real elements, so no HTML is ever injected. */
+function RichCode({ text }: { text: string }) {
+  return <>{text.split(/(<code>.*?<\/code>)/g).map((part, i) => (part.startsWith("<code>") ? <code key={i}>{part.slice(6, -7)}</code> : part))}</>;
+}
+
+function PortalCard({ kind, can, cannot, action }: { kind: "sme" | "bank"; can: string[]; cannot: string[]; action: ReactNode }) {
   const { t } = useI18n();
   return (
     <article className={"portal " + kind}>

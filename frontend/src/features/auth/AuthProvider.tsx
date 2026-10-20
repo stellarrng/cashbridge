@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [user, config, signOut, switchAccount, viewAs],
   );
 
-  if (!value) return <p className="muted" style={{ padding: 24 }}>{t("app.loading")}</p>;
+  if (!value) return <p className="muted mt-3">{t("app.loading")}</p>;
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

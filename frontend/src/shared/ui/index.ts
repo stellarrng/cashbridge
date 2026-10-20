@@ -8,3 +8,4 @@ export { Loadable } from "./Loadable";
 export { EngineNote } from "./EngineNote";
 export { Modal } from "./Modal";
 export { NumberField, readNumbers } from "./Field";
+export { LoadingSkeleton } from "./LoadingSkeleton";

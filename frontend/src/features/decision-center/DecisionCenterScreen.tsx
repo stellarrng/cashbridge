@@ -69,12 +69,12 @@ export default function DecisionCenterScreen({ arg }: ScreenProps) {
     <Loadable data={intel.data} error={intel.error}>
       {(data) => (
         <>
-          {tab === "decide" && <RoleStrip />}
           <PageHead
             title={t(tab === "decide" ? "core.dc.title" : "nav.core")}
             lede={t(tab === "decide" ? "core.dc.lede" : "core.lede")}
             actions={<Button variant="bridge" onClick={() => void run()}>{t("core.run")}</Button>}
           />
+          {tab === "decide" && <RoleStrip />}
           <div className="tabs" role="tablist">
             {TABS.map((k) => (
               <a key={k} role="tab" href={"#core/" + k} aria-selected={tab === k} className={(tab === k ? "on" : "") + (k === "decide" ? "" : " adv")}>

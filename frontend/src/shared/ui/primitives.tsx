@@ -80,7 +80,7 @@ export function Meter({ ratio, tip, low }: { ratio: number; tip: string; low?: b
   );
 }
 
-type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "bridge" | "ghost" | "danger" | ""; small?: boolean };
+type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "bridge" | "bank" | "ghost" | "danger" | ""; small?: boolean };
 
 export function Button({ variant = "", small, className = "", type = "button", ...rest }: BtnProps) {
   return <button type={type} className={["btn", variant, small ? "small" : "", className].filter(Boolean).join(" ")} {...rest} />;

@@ -93,7 +93,7 @@ export default function SettingsScreen(_: ScreenProps) {
           </Row>
           {pol && <Row title={t("set.mode")}><span className="mono">{pol.mode}</span></Row>}
           {session?.expires_at && <Row title={t("set.expires")}><span>{formatExpiry(session.expires_at, lang)}</span></Row>}
-          <div className="row" style={{ marginTop: 12 }}>
+          <div className="row mt-2">
             <Button small variant="ghost" onClick={() => void switchAccount()}>{t("app.switch")}</Button>
             <Button small variant="ghost" onClick={() => void signOut()}>{t("app.logout")}</Button>
             {can("demo:reset") && (

@@ -74,7 +74,7 @@ export function LearningPanel({ data, hasPlan, onChanged }: { data: Intelligence
           )}
         </div>
       </div>
-      <div className="row" style={{ marginTop: 10 }}>
+      <div className="row mt-2">
         {hasPlan && <Button variant="ghost" onClick={() => void simulate()}>{t("core.simulate")}</Button>}
         {can("sme:prepare") && <Button variant="ghost" onClick={() => void propose()}>{t("core.propose")}</Button>}
       </div>

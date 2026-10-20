@@ -16,7 +16,7 @@ export function EventSimulator({ twin, onApply, onReset }: { twin: Twin; onApply
         ))}
         <Button small variant="ghost" onClick={onReset}>{t("core.evReset")}</Button>
       </div>
-      <p className="small muted" style={{ marginTop: 8 }}>{t("core.evCount", { e: twin.counts.events, a: twin.counts.director_alerts })}</p>
+      <p className="small muted mt-1">{t("core.evCount", { e: twin.counts.events, a: twin.counts.director_alerts })}</p>
     </>
   );
 }

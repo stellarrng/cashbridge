@@ -68,7 +68,7 @@ function CaseView({ packId }: { packId: string }) {
                     {c.locked_metrics.map((m) => <tr key={m.label}><td>{m.label}</td><td className="num">{metricText(m, t)}</td></tr>)}
                   </tbody>
                 </table>
-                <p className="hashline" style={{ marginTop: 10 }}>bundle <span className="mono">{c.bundle_sha256}</span></p>
+                <p className="hashline mt-2">bundle <span className="mono">{c.bundle_sha256}</span></p>
               </Panel>
               <Panel title={t("fund.letter")}><div className="letter">{c.letter_text}</div></Panel>
             </div>

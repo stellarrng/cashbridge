@@ -3,6 +3,7 @@ import { useI18n } from "@/shared/i18n";
 import { useAuth, homeRoute } from "../auth";
 import { AssistantDrawer } from "../assistant";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { LoadingSkeleton } from "@/shared/ui";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { allowedScreens } from "./nav";
@@ -15,6 +16,7 @@ export function WorkspaceApp() {
   const { user } = useAuth();
   const route = useHashRoute();
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const main = useRef<HTMLElement>(null);
 
   const home = homeRoute(user);
@@ -29,17 +31,26 @@ export function WorkspaceApp() {
 
   useEffect(() => {
     main.current?.focus({ preventScroll: true });
+    setMenuOpen(false);
   }, [target, arg]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
 
   return (
     <>
-      <Topbar onAssistant={() => setAssistantOpen(true)} />
+      <Topbar onAssistant={() => setAssistantOpen(true)} onMenu={() => setMenuOpen((o) => !o)} menuOpen={menuOpen} />
       <div className="shell">
-        <Sidebar current={target === "case" ? "inbox" : target} />
+        <Sidebar current={target === "case" ? "inbox" : target} open={menuOpen} onNavigate={() => setMenuOpen(false)} />
+        {menuOpen && <div className="side-scrim" onClick={() => setMenuOpen(false)} />}
         <main className="page" id="page" tabIndex={-1} ref={main}>
           <ErrorBoundary title={t("app.error")} resetKey={target + "/" + (arg ?? "")}>
-            <Suspense fallback={<p className="muted">{t("app.loading")}</p>}>
-              <Screen arg={arg} />
+            <Suspense fallback={<LoadingSkeleton />}>
+              <div className="screen" key={target + "/" + (arg ?? "")}><Screen arg={arg} /></div>
             </Suspense>
           </ErrorBoundary>
         </main>

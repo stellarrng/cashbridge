@@ -63,7 +63,7 @@ export function HeroCashChart() {
       : "";
 
   return (
-    <figure className="hero-chart" aria-labelledby="chartCaption">
+    <figure className="hero-chart glass" aria-labelledby="chartCaption">
       <div className="chart-head">
         <div>
           <span className="chart-company">{d.company.replace(" Co., Ltd.", "").replace("(SYNTHETIC)", "(synthetic)")}</span>
@@ -94,6 +94,7 @@ export function HeroCashChart() {
             )}
           </>
         )}
+        <circle className="pulse" cx={x(fi)} cy={y(d.weeks[fi])} r={6} />
         {d.weeks.map((v, i) => v < 0 && <circle key={i} className="dot-neg" cx={x(i)} cy={y(v)} r={3.5} />)}
         <text className="label deficit" x={x(fi) - 8} y={y(d.weeks[fi]) + 4} textAnchor="end">W{d.firstWeek}: −{usd(d.shortfall)}</text>
       </svg>

@@ -4,7 +4,7 @@ import { useAuth, UserCard } from "../auth";
 import { useSnapshotContext } from "@/entities/case";
 import { navigationFor } from "./nav";
 
-export function Sidebar({ current }: { current: string }) {
+export function Sidebar({ current, open, onNavigate }: { current: string; open: boolean; onNavigate: () => void }) {
   const { t } = useI18n();
   const { user, can, signOut, switchAccount } = useAuth();
   const { snapshot } = useSnapshotContext();
@@ -13,7 +13,7 @@ export function Sidebar({ current }: { current: string }) {
   const alerts = snapshot && can("sme:approve") ? snapshot.meta.director_alerts_open ?? 0 : 0;
 
   return (
-    <nav className="side" aria-label="Sections">
+    <nav className={"side" + (open ? " open" : "")} id="sidenav" aria-label="Sections" onClick={(e) => (e.target as HTMLElement).closest("a") && onNavigate()}>
       {navigationFor(user).map(([title, items]) => (
         <Fragment key={title}>
           <h4>{t(title)}</h4>

@@ -2,7 +2,7 @@ import { useCase, type CaseSnapshot } from "@/entities/case";
 import { StatusPill } from "@/entities/status";
 import { DonutChart, HBars } from "@/shared/charts";
 import { useI18n } from "@/shared/i18n";
-import { human, usd, usd2 } from "@/shared/lib/format";
+import { human, sentence, usd, usd2 } from "@/shared/lib/format";
 import type { ScreenProps } from "@/shared/lib/screen";
 import { EngineNote, Loadable, Meter, Note, PageHead, Panel, Scroll } from "@/shared/ui";
 
@@ -26,17 +26,17 @@ function Receivables({ s }: { s: CaseSnapshot }) {
         <Panel title={t("evd.recon")}>
           <DonutChart
             center={`${reconCount("BOOKED")}/${recon.length}`}
-            centerSub={human("BOOKED")}
+            centerSub={t("st.BOOKED")}
             parts={[
-              { label: human("BOOKED"), value: reconCount("BOOKED"), color: "var(--good)" },
-              { label: human("NEEDS_HUMAN"), value: reconCount("NEEDS_HUMAN"), color: "var(--risk)" },
+              { label: t("st.BOOKED"), value: reconCount("BOOKED"), color: "var(--good)" },
+              { label: t("st.NEEDS_HUMAN"), value: reconCount("NEEDS_HUMAN"), color: "var(--risk)" },
             ]}
           />
         </Panel>
         <Panel title={t("ov.checks")}>
           <DonutChart
             center={String(s.verification.length)}
-            centerSub="invoices"
+            centerSub="Invoices"
             parts={[
               { label: t("st.ELIGIBLE"), value: checkCount("ELIGIBLE"), color: "var(--good)" },
               { label: t("st.FLAGGED"), value: checkCount("FLAGGED"), color: "var(--risk)" },
@@ -50,7 +50,7 @@ function Receivables({ s }: { s: CaseSnapshot }) {
             <HBars
               items={[
                 ...wire.invoices.map((i) => ({ label: i.id, value: i.amount, display: usd(i.amount), cls: "cb-accent" })),
-                { label: "gap", value: wire.gap, display: usd2(wire.gap), cls: "cb-muted" },
+                { label: "Gap", value: wire.gap, display: usd2(wire.gap), cls: "cb-muted" },
               ]}
             />
             <Note>{wire.explanation}</Note>
@@ -91,7 +91,7 @@ function Receivables({ s }: { s: CaseSnapshot }) {
                   <td className="num">{v.currency} {Number(v.amount).toLocaleString()}</td>
                   <td>{v.due_date}</td>
                   <td><StatusPill status={v.status} /></td>
-                  <td className="small">{human(v.registry_status)}</td>
+                  <td className="small">{sentence(human(v.registry_status))}</td>
                   <td className="small">{v.differences.join("; ")}</td>
                 </tr>
               ))}
@@ -105,7 +105,7 @@ function Receivables({ s }: { s: CaseSnapshot }) {
             <tbody>
               {s.scans.map((d) => (
                 <tr key={d.doc_id}>
-                  <td>{d.doc_id}<div className="muted small">{human(d.doc_type)}</div></td>
+                  <td>{d.doc_id}<div className="muted small">{sentence(human(d.doc_type))}</div></td>
                   <td><StatusPill status={d.status} /></td>
                   <td><Meter ratio={d.min_confidence} low={d.min_confidence < 0.85} tip={Number(d.min_confidence).toFixed(2)} /></td>
                   <td className="small">{d.reason || (d.matches_record ? "matches the record" : d.differences.join("; "))}</td>

@@ -5,7 +5,7 @@ import { StatusPill } from "@/entities/status";
 import { HBars } from "@/shared/charts";
 import { useAct } from "@/shared/hooks";
 import { useI18n } from "@/shared/i18n";
-import { human, pct, usd2 } from "@/shared/lib/format";
+import { human, pct, sentence, usd2 } from "@/shared/lib/format";
 import type { ScreenProps } from "@/shared/lib/screen";
 import { Button, Empty, EngineNote, Loadable, PageHead, Panel, Scroll, useToast } from "@/shared/ui";
 import { useAuth } from "../auth";
@@ -147,8 +147,8 @@ function Funding({ s, refresh }: { s: CaseSnapshot; refresh: () => Promise<unkno
                 ))}
               </tbody>
             </table>
-            <p className="hashline" style={{ marginTop: 10 }}>action <span className="mono">{pack.action_hash}</span></p>
-            <div className="row" style={{ marginTop: 10 }}>
+            <p className="hashline mt-2">action <span className="mono">{pack.action_hash}</span></p>
+            <div className="row mt-2">
               <Button small variant="ghost" onClick={() => void act(() => downloadPackPdf(pack.pack_id as string))}>{t("fund.pdf")}</Button>
               {preparer && (
                 <Button small variant="ghost" onClick={() => void act(tamperDraft, (r) => (r.ok ? "Unexpected: accepted" : `Rejected: ${r.offending.join(", ")} is not a locked figure`))}>
@@ -174,7 +174,7 @@ function Funding({ s, refresh }: { s: CaseSnapshot; refresh: () => Promise<unkno
           {lender.note && <p>{lender.note}</p>}
           <ul className="list small">
             {lender.history.map((h, i) => (
-              <li key={i}>{human(h.event)}{h.by ? " · " + h.by : ""}{h.note ? ": " + h.note : ""}</li>
+              <li key={i}>{sentence(human(h.event))}{h.by ? " · " + h.by : ""}{h.note ? ": " + h.note : ""}</li>
             ))}
           </ul>
         </Panel>

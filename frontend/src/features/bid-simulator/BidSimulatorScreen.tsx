@@ -36,7 +36,7 @@ export default function BidSimulatorScreen(_: ScreenProps) {
         <div>
           {x && (
             <>
-              <div className="kpis cards" style={{ marginTop: 14 }}>
+              <div className="kpis cards mt-2">
                 <Kpi label="Upfront funding gap" tone={x.initial_funding_gap_usd > 0 ? "neg" : "pos"} value={usd(x.initial_funding_gap_usd)} />
                 <Kpi label="Gap under stress" tone="neg" value={usd(stress)} />
                 <Kpi label="Indicative margin" value={pct(x.estimated_margin_pct)} />

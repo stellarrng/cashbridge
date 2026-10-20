@@ -1,1 +1,0 @@
-import{j as s}from"./premium-ui-BuIbAbqy.js";function a({name:e,value:r,label:t}){return s.jsxs("label",{className:"field",children:[t??e.replaceAll("_"," "),s.jsx("input",{name:e,type:"number",step:"any",defaultValue:r,required:!0})]})}function n(e){return Object.fromEntries([...new FormData(e).entries()].map(([r,t])=>[r,Number(t)]))}export{a as N,n as r};

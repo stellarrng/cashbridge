@@ -8,10 +8,10 @@ export type Lang = "en" | "vi" | "zh";
 export type Vars = Record<string, string | number>;
 
 const DICTIONARIES: Record<Lang, Record<string, string>> = { en, vi, zh };
-export const LANGS: ReadonlyArray<{ id: Lang; label: string }> = [
-  { id: "en", label: "EN" },
-  { id: "vi", label: "VI" },
-  { id: "zh", label: "中文" },
+export const LANGS: ReadonlyArray<{ id: Lang; label: string; name: string }> = [
+  { id: "en", label: "EN", name: "English" },
+  { id: "vi", label: "VI", name: "Tiếng Việt" },
+  { id: "zh", label: "中文", name: "中文" },
 ];
 
 const STORAGE_KEY = "cb.lang";

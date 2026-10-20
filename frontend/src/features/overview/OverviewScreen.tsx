@@ -30,8 +30,9 @@ function Overview({ s }: { s: CaseSnapshot }) {
 
   return (
     <>
-      <RoleStrip />
       <PageHead title={t("ov.title")} lede={t("ov.lede")} />
+      <RoleStrip />
+      <Panel title={t("ov.next")} className="primary"><NextStep s={s} /></Panel>
       <WorkQueue s={s} director={can("sme:approve")} />
       <Kpis>
         <Kpi highlight label={t("ov.cash")} value={usd(k.cash_today_usd)} foot={t("ov.cashFoot")} />
@@ -58,9 +59,6 @@ function Overview({ s }: { s: CaseSnapshot }) {
           <Panel title={t("ov.drivers", { w: k.first_shortfall_week || "–" })} sub={t("ov.driversSub")}><DriverBars drivers={s.forecast.attribution} /></Panel>
         </div>
         <Panel title={t("ov.checks")}><CheckSummary verification={s.verification} /></Panel>
-        <div className="span2">
-          <Panel title={t("ov.next")}><NextStep s={s} /></Panel>
-        </div>
       </div>
     </>
   );

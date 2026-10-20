@@ -22,7 +22,7 @@ export function RejectDialog({ open, onClose, onSubmit }: { open: boolean; onClo
         <label className="field">
           <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} required minLength={3} />
         </label>
-        <div className="row" style={{ marginTop: 12 }}>
+        <div className="row mt-2">
           <Button variant="danger" type="submit" disabled={reason.trim().length < 3}>{t("fund.reject")}</Button>
           <Button variant="ghost" onClick={onClose}>{t("otp.cancel")}</Button>
         </div>

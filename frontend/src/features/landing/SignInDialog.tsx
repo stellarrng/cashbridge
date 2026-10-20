@@ -89,9 +89,9 @@ export function SignInDialog({ open, portal, onPortal, onClose }: Props) {
 
   return (
     <div className="auth" role="dialog" aria-modal="true" aria-labelledby="authTitle" hidden={!open} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="auth-box" ref={box}>
-        <aside className={"auth-side" + (portal === "bank" ? " bank" : "")}>
-          <div className="seg big" role="tablist" aria-label="Portal">
+      <div className={"auth-box" + (portal === "bank" ? " bank" : "")} ref={box}>
+        <aside className={"auth-side on-navy" + (portal === "bank" ? " bank" : "")}>
+          <div className="seg tabs2" role="tablist" aria-label="Portal">
             {(["sme", "bank"] as const).map((p) => (
               <button key={p} type="button" role="tab" ref={(el) => { tabs.current[p] = el; }} aria-selected={portal === p} onClick={() => onPortal(p)}>
                 {t(p === "sme" ? "auth.sme" : "auth.bank")}
@@ -100,15 +100,17 @@ export function SignInDialog({ open, portal, onPortal, onClose }: Props) {
           </div>
           <h2 id="authTitle">{t(`auth.${portal}.title`)}</h2>
           <p>{t(`auth.${portal}.lede`)}</p>
-          <svg className="auth-art" viewBox="0 0 300 120" aria-hidden="true">
+          <svg className="auth-art" viewBox="0 0 300 120" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
             <path d="M10 96h60V70M290 96h-60V70M70 70c40-58 120-58 160 0" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
             <path d="M80 96v-14M110 96V62M150 96V52M190 96V62M220 96v-14" stroke="currentColor" strokeWidth="1.5" opacity=".5" />
           </svg>
         </aside>
         <div className="auth-main">
           <button className="close" type="button" onClick={onClose} aria-label="Close sign-in">×</button>
-          <h3>{t("auth.demo")}</h3>
-          <p className="muted small-text">{t("auth.demo.d")}</p>
+          <div className="auth-head">
+            <h3>{t("auth.demo")}</h3>
+            <p className="muted small-text">{t("auth.demo.d")}</p>
+          </div>
           <div className="accounts">
             {loadError ? (
               <p className="err">{loadError}</p>
@@ -120,8 +122,10 @@ export function SignInDialog({ open, portal, onPortal, onClose }: Props) {
               list.map((a) => (
                 <button key={a.user_id} type="button" className="acc" onClick={() => void quick(a.user_id)}>
                   <span className="av" aria-hidden="true">{a.initials}</span>
-                  <span><b>{a.name}</b><span className="meta">{a.org}</span></span>
-                  <span className="role">{t("role." + a.role)}</span>
+                  <span className="acc-text">
+                    <b>{a.name}</b>
+                    <span className="acc-sub"><span className="role-badge">{t("role." + a.role)}</span><span className="meta">{a.org}</span></span>
+                  </span>
                 </button>
               ))
             ) : (
@@ -139,7 +143,7 @@ export function SignInDialog({ open, portal, onPortal, onClose }: Props) {
               <input name="password" type="password" autoComplete="current-password" required value={pass} onChange={(e) => setPass(e.target.value)} />
             </label>
             <p className="err" role="alert">{error}</p>
-            <Button variant="bridge" type="submit" disabled={busy}>{t("auth.submit")}</Button>
+            <Button variant={portal === "bank" ? "bank" : "bridge"} type="submit" disabled={busy}>{t("auth.submit")}</Button>
           </form>
         </div>
       </div>

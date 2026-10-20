@@ -5,7 +5,7 @@ export function LangSwitch() {
   return (
     <div className="lang" role="group" aria-label="Language">
       {LANGS.map((l) => (
-        <button key={l.id} type="button" aria-pressed={l.id === lang} onClick={() => setLang(l.id)}>
+        <button key={l.id} type="button" aria-pressed={l.id === lang} aria-label={l.name} lang={l.id} onClick={() => setLang(l.id)}>
           {l.label}
         </button>
       ))}
