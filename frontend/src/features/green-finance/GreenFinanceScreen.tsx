@@ -5,7 +5,7 @@ import { useI18n } from "@/shared/i18n";
 import { human, sentence, usd } from "@/shared/lib/format";
 import type { ScreenProps } from "@/shared/lib/screen";
 import { Button, EngineNote, Kpi, Kpis, Loadable, Note, PageHead } from "@/shared/ui";
-import { fetchEconomics, fetchGreenProjects, requestReview, type GreenEconomics, type GreenProject } from "./api";
+import { fetchCashImpact, fetchEconomics, fetchGreenProjects, requestReview, type CashImpactScenario, type GreenCashImpact, type GreenEconomics, type GreenProject } from "./api";
 
 export default function GreenFinanceScreen(_: ScreenProps) {
   const { t } = useI18n();
@@ -25,7 +25,9 @@ export default function GreenFinanceScreen(_: ScreenProps) {
 
 function ProjectCard({ project: p, onReviewed }: { project: GreenProject; onReviewed: () => void }) {
   const act = useAct();
+  const { t } = useI18n();
   const [eco, setEco] = useState<GreenEconomics | null>(null);
+  const [cash, setCash] = useState<GreenCashImpact | null>(null);
   const provided = p.evidence.filter((x) => x.status !== "missing").length;
   const pending = p.review_status === "PENDING_HUMAN_REVIEW";
 
@@ -62,6 +64,7 @@ function ProjectCard({ project: p, onReviewed }: { project: GreenProject; onRevi
       </div>
       <div className="row mt-2">
         <Button small variant="ghost" onClick={async () => { const x = await act(() => fetchEconomics(p.project_id)); if (x) setEco(x); }}>Payback @ $0.12/kWh</Button>
+        <Button small variant="ghost" data-cash={p.project_id} onClick={async () => { const x = await act(() => fetchCashImpact(p.project_id)); if (x) setCash(x); }}>{t("grn.cash")}</Button>
         <Button small variant={pending ? "ghost" : "bridge"} disabled={pending} onClick={async () => { if (await act(() => requestReview(p.project_id))) onReviewed(); }}>
           {pending ? "Review requested" : "Request internal review"}
         </Button>
@@ -76,7 +79,43 @@ function ProjectCard({ project: p, onReviewed }: { project: GreenProject; onRevi
             <Note>{eco.limitation}</Note>
           </>
         )}
+        {cash && <CashImpact x={cash} />}
       </div>
     </section>
+  );
+}
+
+/** Green investment against the 13-week cash buffer: no project, paid in cash, or with the case's loan quote. */
+function CashImpact({ x }: { x: GreenCashImpact }) {
+  const { t } = useI18n();
+  const row = (label: string, s: CashImpactScenario) => (
+    <tr key={label}>
+      <td>{label}</td>
+      <td className={"num" + (s.min_closing_usd < 0 ? " neg" : "")}>{usd(s.min_closing_usd)}</td>
+      <td className="num">{s.weeks_below_buffer.length}</td>
+      <td className="num">{s.extra_funding_to_hold_buffer_usd == null ? "–" : usd(s.extra_funding_to_hold_buffer_usd)}</td>
+      <td className="num">{s.monthly_instalment_usd ? usd(s.monthly_instalment_usd) : "–"}</td>
+    </tr>
+  );
+  return (
+    <>
+      <h3 className="mini">{t("grn.cash")}</h3>
+      <div className="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>{t("grn.scenario")}</th><th className="num">{t("grn.lowest")}</th><th className="num">{t("grn.weeksBelow")}</th>
+              <th className="num">{t("grn.extra")}</th><th className="num">{t("grn.instalment")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {row(t("grn.noProject"), x.without_project)}
+            {row(t("grn.cashFunded"), x.cash_funded)}
+            {row(t("grn.loanFunded", { p: x.loan_funded.financed_pct, apr: x.loan_apr_pct.toFixed(2) }), x.loan_funded)}
+          </tbody>
+        </table>
+      </div>
+      <p className="note">{t("grn.cashNote", { w: x.capex_week, b: usd(x.buffer_usd), s: usd(x.weekly_net_saving_usd) })} {x.limitation}</p>
+    </>
   );
 }

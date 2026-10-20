@@ -18,7 +18,7 @@ export function Topbar({ onAssistant, onMenu, menuOpen }: { onAssistant: () => v
 
   return (
     <header className="top on-navy">
-      <button type="button" className="icon-btn burger" aria-label={t("app.menu")} aria-expanded={menuOpen} aria-controls="sidenav" onClick={onMenu}>
+      <button type="button" className="icon-btn burger" aria-label={t("app.menu")} aria-expanded={menuOpen} aria-controls="side" onClick={onMenu}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
       </button>
       <a className="logo" href="/?stay=1" aria-label="CashBridge home">
@@ -27,7 +27,7 @@ export function Topbar({ onAssistant, onMenu, menuOpen }: { onAssistant: () => v
       </a>
       <span className={"portal-tag" + (bank ? " bank" : "")}>{portalName}</span>
       <div className="top-right">
-        <span className="case">{bank ? user.org : snapshot ? `${snapshot.meta.case_id} · ${sentence(human(snapshot.meta.case_state))}` : ""}</span>
+        <span className="case" id="caseTag">{bank ? user.org : snapshot ? `${snapshot.meta.case_id} · ${sentence(human(snapshot.meta.case_state))}` : ""}</span>
         <LangSwitch />
         <ThemeButton />
         {!bank && <Button small variant="ghost" onClick={onAssistant}>{t("app.assistant")}</Button>}

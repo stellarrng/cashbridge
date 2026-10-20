@@ -13,14 +13,24 @@ router = APIRouter(prefix='/api/automation', tags=['local-cloud-automation'])
 def auth(authorization: str | None, require_reviewer: bool=False):
     secret = os.environ.get('CASHBRIDGE_AUTOMATION_TOKEN','')
     reviewer_secret = os.environ.get('CASHBRIDGE_AUDIT_REVIEWER_TOKEN','') if require_reviewer else secret
+    if require_reviewer and reviewer_secret and hmac.compare_digest(reviewer_secret.encode(), secret.encode()):
+        raise HTTPException(503, 'Reviewer token must differ from the operator token (four-eyes)')
     if not secret or not reviewer_secret or not authorization or not authorization.startswith('Bearer '):
         raise HTTPException(503 if not secret else 401, 'Automation authentication unavailable or required')
     if not hmac.compare_digest(authorization[7:].encode(), reviewer_secret.encode()):
         raise HTTPException(403,'Insufficient authorization')
 
 
+def default_db() -> Path:
+    """Inside the writable runtime folder (the Docker image runs as a non-root user that can only write there)."""
+    from config import runtime_mode
+    from config.settings import BASE_DIR
+    configured = os.getenv('CASHBRIDGE_AUTOMATION_DB', '').strip()
+    return Path(configured) if configured else runtime_mode.runtime_dir(BASE_DIR) / 'automation_jobs.sqlite3'
+
+
 def store():
-    return AutomationStore(Path(os.getenv('CASHBRIDGE_AUTOMATION_DB','data/automation_jobs.sqlite3')))
+    return AutomationStore(default_db())
 
 class JobBody(BaseModel):
     kind: str
@@ -43,6 +53,19 @@ def enqueue(body: JobBody, authorization: str | None = Header(default=None)):
 def jobs(authorization: str | None = Header(default=None)):
     auth(authorization)
     return store().list_jobs()
+
+@router.get('/dead-letters')
+def dead_letters(authorization: str | None = Header(default=None)):
+    auth(authorization, require_reviewer=True)
+    return store().dead_letters()
+
+@router.post('/dead-letters/{job_id}/redrive')
+def redrive(job_id: str, authorization: str | None = Header(default=None)):
+    auth(authorization, require_reviewer=True)
+    try:
+        return store().redrive(job_id)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
 
 @router.post('/audit/{job_id}/review')
 def audit_review(job_id: str, body:ReviewBody,authorization: str | None = Header(default=None)):

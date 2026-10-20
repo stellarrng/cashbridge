@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Dict, List, NamedTuple, Optional
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from config.settings import (
     FORECAST_WEEKS,
@@ -145,6 +145,20 @@ def _receipts(views: List[_InvoiceView]) -> List[_Receipt]:
         if view.late > 0 and late_week <= FORECAST_WEEKS:
             receipts.append(_Receipt(invoice_id, late_week, view.late, foreign))
     return receipts
+
+
+def invoice_receipt_schedule(inputs: ForecastInputs, invoice_id: str) -> List[Tuple[date, Decimal]]:
+    """Dated expected receipts of one invoice exactly as the forecast books them (on-time part, late part)."""
+    for view in _invoice_views(inputs):
+        if view.receivable.invoice_id != invoice_id:
+            continue
+        rec = view.receivable
+        due = rec.promised_date if rec.promised_date is not None else rec.due_date + timedelta(days=inputs.dso_shift_days)
+        out = [(due, view.on_time)] if view.on_time > 0 else []
+        if view.late > 0:
+            out.append((due + timedelta(weeks=LATE_PAYMENT_DELAY_WEEKS), view.late))
+        return out
+    return []
 
 
 # ------------------------------------------------------------------- outflows

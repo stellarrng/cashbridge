@@ -16,6 +16,7 @@ export const SCREENS: Record<string, Screen> = {
   contracts: lazy(() => import("../contracts")),
   green: lazy(() => import("../green-finance")),
   trust: lazy(() => import("../audit-trust")),
+  workspace: lazy(() => import("../collaboration")),
   settings: lazy(() => import("../settings")),
   inbox: lazy(() => import("../bank/inbox")),
   case: lazy(() => import("../bank/case")),

@@ -3,6 +3,7 @@
 # PDF/OCR reading (PyMuPDF, pytesseract) is optional too: without it, upload TXT or paste the text.
 # Keeping this list lean keeps the Vercel function under its 250 MB limit.
 fastapi==0.143.2
+httpx==0.28.1
 uvicorn==0.54.0
 pydantic==2.14.1
 fpdf2==2.8.9
@@ -12,3 +13,4 @@ numpy==2.5.4
 Pillow==12.3.0
 python-multipart==0.0.29
 python-docx==1.2.0
+cryptography==50.0.2

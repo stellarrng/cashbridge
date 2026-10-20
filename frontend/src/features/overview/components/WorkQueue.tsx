@@ -20,7 +20,7 @@ export function WorkQueue({ s, director }: { s: CaseSnapshot; director: boolean 
   const state = s.meta.case_state;
   const exceptions = s.verification.filter((v) => v.status !== "ELIGIBLE").length + s.scans.filter((x) => x.status !== "READ").length;
   const unmatched = s.reconciliation.rows.filter((r) => r.status === "NEEDS_HUMAN").length;
-  const readyToPrepare = ["INVOICE_VERIFIED", "OPTIONS_RANKED"].includes(state) || s.pack.status === "REJECTED_BY_DIRECTOR" ? 1 : 0;
+  const readyToPrepare = ["INVOICE_VERIFIED", "OPTIONS_RANKED"].includes(state) || ["REJECTED_BY_DIRECTOR", "WITHDRAWN_BY_SME"].includes(s.pack.status) ? 1 : 0;
 
   return (
     <div className="work-queue">
@@ -33,10 +33,11 @@ export function WorkQueue({ s, director }: { s: CaseSnapshot; director: boolean 
         </>
       ) : (
         <>
+          {/* The accountant's main job first, so it is on the first screen even on a phone. */}
+          <Tile label={t("wq.prepare")} n={readyToPrepare} href="#autopilot" icon={ICON.pack} foot={t("wq.prepareF")} />
           <Tile label={t("wq.exceptions")} n={exceptions} href="#evidence" icon={ICON.check} foot={t("wq.exceptionsF")} />
           <Tile label={t("wq.unmatched")} n={unmatched} href="#evidence" icon={ICON.bank} foot={t("wq.unmatchedF")} />
           <Tile label={t("wq.held")} n={s.alerts.length} href="#evidence" icon={ICON.inbox} foot={t("wq.heldF")} />
-          <Tile label={t("wq.prepare")} n={readyToPrepare} href="#autopilot" icon={ICON.pack} foot={t("wq.prepareF")} />
         </>
       )}
     </div>

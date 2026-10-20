@@ -13,7 +13,7 @@ export function Sidebar({ current, open, onNavigate }: { current: string; open: 
   const alerts = snapshot && can("sme:approve") ? snapshot.meta.director_alerts_open ?? 0 : 0;
 
   return (
-    <nav className={"side" + (open ? " open" : "")} id="sidenav" aria-label="Sections" onClick={(e) => (e.target as HTMLElement).closest("a") && onNavigate()}>
+    <nav className={"side" + (open ? " open" : "")} id="side" aria-label="Sections" onClick={(e) => (e.target as HTMLElement).closest("a") && onNavigate()}>
       {navigationFor(user).map(([title, items]) => (
         <Fragment key={title}>
           <h4>{t(title)}</h4>
@@ -29,7 +29,7 @@ export function Sidebar({ current, open, onNavigate }: { current: string; open: 
       <h4>{t("grp.account")}</h4>
       <a href="/?stay=1">{t("nav.landing")}</a>
       <button type="button" className="side-btn" onClick={() => void switchAccount()}>{t("app.switch")}</button>
-      <button type="button" className="side-btn" onClick={() => void signOut()}>{t("app.logout")}</button>
+      <button type="button" className="side-btn" id="sideLogout" onClick={() => void signOut()}>{t("app.logout")}</button>
       <div className="side-user"><UserCard user={user} /></div>
     </nav>
   );

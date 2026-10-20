@@ -34,6 +34,8 @@ export interface ChosenPlan {
   closing_p10_by_week: number[];
   closing_p50_by_week: number[];
   shortfall_cvar95_usd?: number | null;
+  /** The same plan scored in each world of the fixed ambiguity set (v9). */
+  stress_test?: Array<{ world: string; p_goal: number }>;
   why: string[];
   incumbent?: { kept?: boolean; instead_of?: string; reason: string } | null;
 }
@@ -45,6 +47,7 @@ export interface RankedPlan {
   p_goal: number;
   cost_usd: number;
   packs: number;
+  shortfall_cvar95_usd?: number | null;
 }
 
 export interface Feasibility {

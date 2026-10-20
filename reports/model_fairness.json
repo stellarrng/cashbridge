@@ -1,0 +1,222 @@
+{
+  "synthetic": true,
+  "n_history": 185,
+  "n_walk_forward": 167,
+  "intended_use": "Expected timing of buyer payments inside the SME's 13-week cash forecast.",
+  "out_of_scope": [
+    "Credit-scoring the SME or any person",
+    "Automatic lending decisions",
+    "Buyers in markets or sizes outside the training range"
+  ],
+  "features": [
+    "buyer identity (one-hot)",
+    "payment terms / 30 days",
+    "invoice size / buyer's median invoice"
+  ],
+  "protected_or_personal_attributes": [],
+  "domain": {
+    "terms_days": [
+      45,
+      90
+    ],
+    "size_vs_usual": [
+      0.503,
+      1.571
+    ],
+    "buyers_with_history": [
+      "B-CN-01",
+      "B-JP-01",
+      "B-US-01"
+    ]
+  },
+  "overall": {
+    "brier_full": 0.0906,
+    "brier_without_buyer_identity": 0.1481
+  },
+  "by_market": [
+    {
+      "group": "CN",
+      "n": 27,
+      "predicted_on_time": 0.881,
+      "observed_on_time": 0.926,
+      "observed_wilson95": [
+        0.766,
+        0.979
+      ],
+      "calibration_gap": -0.045,
+      "within_interval": true,
+      "brier": 0.0976
+    },
+    {
+      "group": "JP",
+      "n": 18,
+      "predicted_on_time": 0.969,
+      "observed_on_time": 1.0,
+      "observed_wilson95": [
+        0.824,
+        1.0
+      ],
+      "calibration_gap": -0.031,
+      "within_interval": true,
+      "brier": 0.0018
+    },
+    {
+      "group": "US",
+      "n": 122,
+      "predicted_on_time": 0.793,
+      "observed_on_time": 0.779,
+      "observed_wilson95": [
+        0.697,
+        0.843
+      ],
+      "calibration_gap": 0.015,
+      "within_interval": true,
+      "brier": 0.1022
+    }
+  ],
+  "by_size": [
+    {
+      "group": "larger than usual",
+      "n": 61,
+      "predicted_on_time": 0.646,
+      "observed_on_time": 0.59,
+      "observed_wilson95": [
+        0.465,
+        0.705
+      ],
+      "calibration_gap": 0.056,
+      "within_interval": true,
+      "brier": 0.185
+    },
+    {
+      "group": "smaller than usual",
+      "n": 73,
+      "predicted_on_time": 0.961,
+      "observed_on_time": 1.0,
+      "observed_wilson95": [
+        0.95,
+        1.0
+      ],
+      "calibration_gap": -0.039,
+      "within_interval": true,
+      "brier": 0.0022
+    },
+    {
+      "group": "usual",
+      "n": 33,
+      "predicted_on_time": 0.862,
+      "observed_on_time": 0.879,
+      "observed_wilson95": [
+        0.727,
+        0.952
+      ],
+      "calibration_gap": -0.017,
+      "within_interval": true,
+      "brier": 0.1118
+    }
+  ],
+  "by_terms": [
+    {
+      "group": "<=45 days",
+      "n": 33,
+      "predicted_on_time": 0.847,
+      "observed_on_time": 0.788,
+      "observed_wilson95": [
+        0.622,
+        0.893
+      ],
+      "calibration_gap": 0.059,
+      "within_interval": true,
+      "brier": 0.1016
+    },
+    {
+      "group": ">45 days",
+      "n": 134,
+      "predicted_on_time": 0.821,
+      "observed_on_time": 0.836,
+      "observed_wilson95": [
+        0.764,
+        0.889
+      ],
+      "calibration_gap": -0.014,
+      "within_interval": true,
+      "brier": 0.0879
+    }
+  ],
+  "by_market_without_identity": [
+    {
+      "group": "CN",
+      "n": 27,
+      "predicted_on_time": 0.828,
+      "observed_on_time": 0.926,
+      "observed_wilson95": [
+        0.766,
+        0.979
+      ],
+      "calibration_gap": -0.098,
+      "within_interval": true,
+      "brier": 0.0839
+    },
+    {
+      "group": "JP",
+      "n": 18,
+      "predicted_on_time": 0.646,
+      "observed_on_time": 1.0,
+      "observed_wilson95": [
+        0.824,
+        1.0
+      ],
+      "calibration_gap": -0.354,
+      "within_interval": false,
+      "brier": 0.1516
+    },
+    {
+      "group": "US",
+      "n": 122,
+      "predicted_on_time": 0.835,
+      "observed_on_time": 0.779,
+      "observed_wilson95": [
+        0.697,
+        0.843
+      ],
+      "calibration_gap": 0.057,
+      "within_interval": true,
+      "brier": 0.1619
+    }
+  ],
+  "new_buyer": {
+    "p_on_time": 0.96,
+    "portfolio_mean_of_known": 0.9583,
+    "known": {
+      "B-CN-01": 0.97,
+      "B-JP-01": 0.98,
+      "B-US-01": 0.9
+    }
+  },
+  "explanation_check": {
+    "buyer": "B-JP-01",
+    "log_odds": 5.7773,
+    "reconstructed": 5.7772,
+    "contributions": [
+      {
+        "feature": "size_vs_usual",
+        "value": 1.0,
+        "coefficient": -6.4183,
+        "contribution_log_odds": -6.4183
+      },
+      {
+        "feature": "buyer B-JP-01",
+        "value": 1.0,
+        "coefficient": 1.8978,
+        "contribution_log_odds": 1.8978
+      },
+      {
+        "feature": "terms_30_days",
+        "value": 2.0,
+        "coefficient": 0.2143,
+        "contribution_log_odds": 0.4287
+      }
+    ]
+  },
+  "confound": "Each market has exactly one buyer in this history (US 135 invoices, CN 30, JP 20), so a market effect cannot be separated from that buyer's own payment record."
+}

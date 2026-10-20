@@ -46,6 +46,11 @@ export function DecideTab({ plan, twin, snapshot, onDecide, onApplyEvent, onRese
 
   const sim = <><span className="pill sim">{t("lbl.sim")}</span>{" "}</>;
   const canDecide = can("sme:approve");
+  // Two different queues, never one ambiguous message: cash-flow alerts (from events) and the funding-pack approval.
+  const packWaiting = snapshot?.meta.case_state === "AWAITING_APPROVAL";
+  // A plan below the goal is the best available one, never shown as a success.
+  const below = plan.status === "GOAL_NOT_REACHABLE";
+  const goalP = pp(plan.goal.min_probability);
 
   return (
     <>
@@ -55,11 +60,20 @@ export function DecideTab({ plan, twin, snapshot, onDecide, onApplyEvent, onRese
           <p>{t("core.dc.sub")}</p>
         </div>
       </div>
+      {packWaiting && (
+        <div className="decision warn" id="packWaiting">
+          <div>
+            <h2>{t("core.dc.pack")}</h2>
+            <p>{t("core.dc.packSub")}</p>
+          </div>
+          <div className="row"><a className="btn bridge" href="#funding">{t("btn.openFunding")}</a></div>
+        </div>
+      )}
       <EngineNote />
       <Kpis>
         <Kpi label={t("core.k.none")} tone="neg" value={pp(risk.p_no_negative_week)} foot={<>{sim}{t("core.k.foot")}</>} />
         <Kpi label={t("core.k.fixed")} tone="warn" value={fx ? pp(fx.p_goal) : "–"} foot={<>{sim}{fx ? fx.description : ""}</>} />
-        <Kpi highlight label={t("core.k.plan")} value={pp(ch.p_goal)} foot={<>{sim}{t("core.status." + plan.status)}</>} />
+        <Kpi highlight={!below} tone={below ? "warn" : ""} label={below ? t("core.k.planBelow", { g: goalP }) : t("core.k.plan")} value={pp(ch.p_goal)} foot={<>{sim}{t("core.status." + plan.status)}</>} />
         <Kpi label={t("core.k.cost")} value={usd(ch.cost_usd)} foot={`${ch.packs} ${t("col.packs").toLowerCase()}`} />
       </Kpis>
       <DecisionTrace plan={plan} twin={twin} snapshot={snapshot} open={open} />
@@ -82,7 +96,7 @@ export function DecideTab({ plan, twin, snapshot, onDecide, onApplyEvent, onRese
             <EventSimulator twin={twin} onApply={onApplyEvent} onReset={onResetEvents} />
           </Panel>
         </div>
-        <Panel title={t("core.chosen")} sub={t("core.status." + plan.status)}>
+        <Panel title={below ? t("core.chosenBelow", { g: goalP }) : t("core.chosen")} sub={t("core.status." + plan.status)}>
           <ul className="plan-actions">
             {ch.actions.map((a, i) => (
               <li key={i}>
@@ -94,6 +108,22 @@ export function DecideTab({ plan, twin, snapshot, onDecide, onApplyEvent, onRese
             ))}
           </ul>
           <ul className="list small">{ch.why.slice(0, 2).map((w, i) => <li key={i}>{w}</li>)}</ul>
+          {ch.stress_test && ch.stress_test.length > 0 && (
+            <>
+              <h3 className="mini">{t("core.stress")}</h3>
+              <table className="small">
+                <tbody>
+                  {ch.stress_test.map((x) => (
+                    <tr key={x.world}>
+                      <td>{x.world === "nominal" ? t("core.stress.nominal") : x.world}</td>
+                      <td className={"num" + (x.p_goal < plan.goal.min_probability ? " warn" : "")}>{pp(x.p_goal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <Note>{t("core.stress.note")}</Note>
+            </>
+          )}
           <div className="row">
             <a className="btn ghost small" href="#core/analysis">{t("core.dc.compare")}</a>
             <a className="btn ghost small" href="#core/evidence">{t("core.dc.evidence")}</a>

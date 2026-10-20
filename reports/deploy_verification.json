@@ -1,0 +1,154 @@
+{
+  "results": [
+    {
+      "check": "Production refuses to start with the public demo OTP secret",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "Starts in PRODUCTION mode over HTTPS",
+      "ok": true,
+      "detail": "healthy after 2.49 s on https://127.0.0.1:48227"
+    },
+    {
+      "check": "smoke: health",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: https_and_hsts",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: page_headers",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: api_no_store",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: auth_config",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: demo_login_disabled",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: demo_routes_disabled",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: api_docs_hidden",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: protected_routes",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: cors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: wrong_passcode",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: no_internal_leaks",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: body_limit",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: static_assets",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: traversal",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: webhook_needs_signature",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: signed_in_role_boundaries",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "smoke: bank role boundaries",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "Planning request created before restart",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "check": "Financing blocked in production without verified data (gate on by default)",
+      "ok": true,
+      "detail": "A server-verified quality manifest is required before any financing action"
+    },
+    {
+      "check": "Session survives restart (shared signing secret)",
+      "ok": true,
+      "detail": "restart took 2.46 s"
+    },
+    {
+      "check": "Workspace requests survive restart",
+      "ok": true,
+      "detail": "1 request(s)"
+    },
+    {
+      "check": "Previous session's audit log archived with an intact hash chain",
+      "ok": true,
+      "detail": "1 archive(s); lines [109]"
+    },
+    {
+      "check": "The pre-restart gate refusal is in the archived audit evidence",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "3 workers: a signed-out token is refused by every worker (shared session store)",
+      "ok": true,
+      "detail": "codes [401]"
+    },
+    {
+      "check": "3 workers: the sign-in throttle counts failures from every worker",
+      "ok": true,
+      "detail": "codes [401, 401, 401, 401, 401, 401, 401, 429, 429]"
+    },
+    {
+      "check": "Server log contains no secrets, passcodes, tokens or personal names",
+      "ok": true,
+      "detail": "149 log lines scanned"
+    },
+    {
+      "check": "Server log has no stack traces",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

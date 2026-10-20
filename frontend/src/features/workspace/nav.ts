@@ -5,23 +5,23 @@ export type NavGroup = readonly [titleKey: string, items: readonly string[]];
 const ACCOUNTANT: NavGroup[] = [
   ["grp.decide", ["overview", "autopilot", "evidence", "cash", "funding"]],
   ["grp.analyse", ["analytics", "project", "contracts", "green"]],
-  ["grp.control", ["trust"]],
+  ["grp.control", ["trust", "workspace"]],
   ["grp.system", ["settings"]],
 ];
 const DIRECTOR: NavGroup[] = [
   ["grp.decide", ["core", "funding", "cash"]],
   ["grp.analyse", ["analytics", "project", "green"]],
-  ["grp.control", ["trust"]],
+  ["grp.control", ["trust", "workspace"]],
   ["grp.system", ["settings"]],
 ];
 const SME_ALL: NavGroup[] = [
   ["grp.decide", ["overview", "autopilot", "core", "cash", "evidence", "funding"]],
   ["grp.analyse", ["analytics", "project", "contracts", "green"]],
-  ["grp.control", ["trust"]],
+  ["grp.control", ["trust", "workspace"]],
   ["grp.system", ["settings"]],
 ];
 const BANK: NavGroup[] = [
-  ["grp.review", ["inbox", "trust"]],
+  ["grp.review", ["inbox", "trust", "workspace"]],
   ["grp.system", ["settings"]],
 ];
 
@@ -40,6 +40,6 @@ export function navigationFor(user: SessionUser): NavGroup[] {
 
 /** Screens a person may open (a hidden link is not a permission, this just keeps the URL tidy). */
 export function allowedScreens(user: SessionUser): string[] {
-  if (user.portal === "bank") return ["inbox", "case", "trust", "settings"];
+  if (user.portal === "bank") return ["inbox", "case", "workspace", "trust", "settings"];
   return navigationFor(user).flatMap((g) => [...g[1]]);
 }

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-20T00:26:40+00:00",
+  "generated_at": "2026-10-20T11:39:54+00:00",
   "synthetic": true,
   "summary": {
     "security": {
@@ -28,20 +28,20 @@
       },
       "planner_memory": {
         "label": "B. Planner + memory",
-        "goal_success_mean": 0.6487,
+        "goal_success_mean": 0.6616,
         "expected_cost_mean_usd": 4085.6,
         "policy_violations": 0,
-        "overconfidence_pp": 19.3,
+        "overconfidence_pp": 18.5,
         "stability_pct": 70.0,
-        "same_plan_pct": 55.0
+        "same_plan_pct": 65.0
       },
       "planner_learning": {
         "label": "C. Planner + learning",
-        "goal_success_mean": 0.668,
-        "expected_cost_mean_usd": 4012.29,
+        "goal_success_mean": 0.6704,
+        "expected_cost_mean_usd": 4015.1,
         "policy_violations": 0,
-        "overconfidence_pp": 9.3,
-        "stability_pct": 77.5,
+        "overconfidence_pp": 9.2,
+        "stability_pct": 75.0,
         "same_plan_pct": 77.5
       }
     },
@@ -273,7 +273,7 @@
     "caveat": "Only 167 out-of-sample predictions on SYNTHETIC history: indicative, not statistically significant."
   },
   "planner": {
-    "generated_at": "2026-10-20T00:19:46+00:00",
+    "generated_at": "2026-10-20T11:39:10+00:00",
     "protocol": {
       "test_cases": 40,
       "train_episodes": 8,
@@ -308,20 +308,20 @@
       },
       "planner_memory": {
         "label": "B. Planner + memory",
-        "goal_success_mean": 0.6487,
+        "goal_success_mean": 0.6616,
         "expected_cost_mean_usd": 4085.6,
         "policy_violations": 0,
-        "overconfidence_pp": 19.3,
+        "overconfidence_pp": 18.5,
         "stability_pct": 70.0,
-        "same_plan_pct": 55.0
+        "same_plan_pct": 65.0
       },
       "planner_learning": {
         "label": "C. Planner + learning",
-        "goal_success_mean": 0.668,
-        "expected_cost_mean_usd": 4012.29,
+        "goal_success_mean": 0.6704,
+        "expected_cost_mean_usd": 4015.1,
         "policy_violations": 0,
-        "overconfidence_pp": 9.3,
-        "stability_pct": 77.5,
+        "overconfidence_pp": 9.2,
+        "stability_pct": 75.0,
         "same_plan_pct": 77.5
       }
     }

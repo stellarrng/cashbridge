@@ -120,7 +120,7 @@ export function SignInDialog({ open, portal, onPortal, onClose }: Props) {
               <p className="muted">{t("auth.off")}</p>
             ) : list.length ? (
               list.map((a) => (
-                <button key={a.user_id} type="button" className="acc" onClick={() => void quick(a.user_id)}>
+                <button key={a.user_id} type="button" className="acc" data-user={a.user_id} onClick={() => void quick(a.user_id)}>
                   <span className="av" aria-hidden="true">{a.initials}</span>
                   <span className="acc-text">
                     <b>{a.name}</b>
@@ -136,14 +136,14 @@ export function SignInDialog({ open, portal, onPortal, onClose }: Props) {
             <h3>{t("auth.form")}</h3>
             <label className="field">
               <span>{t("auth.user")}</span>
-              <input name="username" autoComplete="username" required placeholder={portal === "sme" ? "sme.lan" : "bank.lihua"} value={user} onChange={(e) => setUser(e.target.value)} />
+              <input id="loginUser" name="username" autoComplete="username" required placeholder={portal === "sme" ? "sme.lan" : "bank.lihua"} value={user} onChange={(e) => setUser(e.target.value)} />
             </label>
             <label className="field">
               <span>{t("auth.pass")}</span>
-              <input name="password" type="password" autoComplete="current-password" required value={pass} onChange={(e) => setPass(e.target.value)} />
+              <input id="loginPass" name="password" type="password" autoComplete="current-password" required value={pass} onChange={(e) => setPass(e.target.value)} />
             </label>
             <p className="err" role="alert">{error}</p>
-            <Button variant={portal === "bank" ? "bank" : "bridge"} type="submit" disabled={busy}>{t("auth.submit")}</Button>
+            <Button id="loginBtn" variant={portal === "bank" ? "bank" : "bridge"} type="submit" disabled={busy}>{t("auth.submit")}</Button>
           </form>
         </div>
       </div>

@@ -1,0 +1,247 @@
+{
+  "dataset": "IBM accounts-receivable sample (public; SHA-256 pinned)",
+  "label": "paid within 3 days of due",
+  "prediction_time": "invoice issue date",
+  "splits": [
+    {
+      "split": "temporal (test: issued 2013)",
+      "n_train": 1189,
+      "n_test": 1189,
+      "test_customers": 100,
+      "shared_customers": 100,
+      "metrics": {
+        "M0_base_rate": {
+          "brier": 0.1907,
+          "log_loss": 0.5701,
+          "roc_auc": 0.5,
+          "pr_auc": 0.7459,
+          "ece": 0.0572,
+          "prediction_mean": 0.693,
+          "observed_rate": 0.7502,
+          "pr_auc_late": 0.2586
+        },
+        "M1_cashbridge_v8": {
+          "brier": 0.1319,
+          "log_loss": 0.416,
+          "roc_auc": 0.8627,
+          "pr_auc": 0.9469,
+          "ece": 0.0712,
+          "prediction_mean": 0.6815,
+          "observed_rate": 0.7502,
+          "pr_auc_late": 0.6473
+        },
+        "M2_behavioural_v9": {
+          "brier": 0.121,
+          "log_loss": 0.38,
+          "roc_auc": 0.8719,
+          "pr_auc": 0.9529,
+          "ece": 0.0208,
+          "prediction_mean": 0.7408,
+          "observed_rate": 0.7502,
+          "pr_auc_late": 0.6901
+        }
+      },
+      "bootstrap_brier": {
+        "metric": "brier",
+        "resampled": "customers",
+        "n": 500,
+        "ci95": {
+          "M0_base_rate": [
+            0.1703,
+            0.2124
+          ],
+          "M1_cashbridge_v8": [
+            0.1089,
+            0.1565
+          ],
+          "M2_behavioural_v9": [
+            0.0993,
+            0.1439
+          ]
+        },
+        "difference_vs_M0_base_rate": {
+          "M1_cashbridge_v8": [
+            -0.0775,
+            -0.0405
+          ],
+          "M2_behavioural_v9": [
+            -0.0883,
+            -0.0541
+          ]
+        }
+      },
+      "bootstrap_auc": {
+        "metric": "roc_auc",
+        "resampled": "customers",
+        "n": 500,
+        "ci95": {
+          "M0_base_rate": [
+            0.5,
+            0.5
+          ],
+          "M1_cashbridge_v8": [
+            0.8245,
+            0.8961
+          ],
+          "M2_behavioural_v9": [
+            0.8356,
+            0.9059
+          ]
+        },
+        "difference_vs_M0_base_rate": {
+          "M1_cashbridge_v8": [
+            0.3245,
+            0.3961
+          ],
+          "M2_behavioural_v9": [
+            0.3356,
+            0.4059
+          ]
+        }
+      },
+      "leakage_screen_on_train": [
+        {
+          "feature": "days_to_settle",
+          "single_feature_auc": 1.0
+        }
+      ],
+      "leaky_model_test_metrics": {
+        "brier": 0.0139,
+        "log_loss": 0.0567,
+        "roc_auc": 0.9998,
+        "pr_auc": 0.9999,
+        "ece": 0.0398,
+        "prediction_mean": 0.7507,
+        "observed_rate": 0.7502
+      },
+      "m2_coefficients": {
+        "shrunk_ontime_rate": 1.122,
+        "recent_days_late": -0.081,
+        "last_late": -0.025,
+        "open_at_issue": -0.067,
+        "log_size": -0.085,
+        "paperless": 0.423
+      }
+    },
+    {
+      "split": "temporal + unseen customers",
+      "n_train": 879,
+      "n_test": 310,
+      "test_customers": 26,
+      "shared_customers": 0,
+      "metrics": {
+        "M0_base_rate": {
+          "brier": 0.2061,
+          "log_loss": 0.6025,
+          "roc_auc": 0.5,
+          "pr_auc": 0.6687,
+          "ece": 0.0048,
+          "prediction_mean": 0.7144,
+          "observed_rate": 0.7097,
+          "pr_auc_late": 0.3533
+        },
+        "M1_cashbridge_v8": {
+          "brier": 0.206,
+          "log_loss": 0.6025,
+          "roc_auc": 0.5,
+          "pr_auc": 0.6687,
+          "ece": 0.0021,
+          "prediction_mean": 0.7118,
+          "observed_rate": 0.7097,
+          "pr_auc_late": 0.3533
+        },
+        "M2_behavioural_v9": {
+          "brier": 0.116,
+          "log_loss": 0.3686,
+          "roc_auc": 0.8961,
+          "pr_auc": 0.9548,
+          "ece": 0.04,
+          "prediction_mean": 0.6833,
+          "observed_rate": 0.7097,
+          "pr_auc_late": 0.7867
+        }
+      },
+      "bootstrap_brier": {
+        "metric": "brier",
+        "resampled": "customers",
+        "n": 500,
+        "ci95": {
+          "M0_base_rate": [
+            0.1544,
+            0.2624
+          ],
+          "M1_cashbridge_v8": [
+            0.155,
+            0.2617
+          ],
+          "M2_behavioural_v9": [
+            0.0753,
+            0.1547
+          ]
+        },
+        "difference_vs_M0_base_rate": {
+          "M1_cashbridge_v8": [
+            -0.0007,
+            0.0006
+          ],
+          "M2_behavioural_v9": [
+            -0.1418,
+            -0.0491
+          ]
+        }
+      },
+      "bootstrap_auc": {
+        "metric": "roc_auc",
+        "resampled": "customers",
+        "n": 500,
+        "ci95": {
+          "M0_base_rate": [
+            0.5,
+            0.5
+          ],
+          "M1_cashbridge_v8": [
+            0.5,
+            0.5
+          ],
+          "M2_behavioural_v9": [
+            0.8115,
+            0.9477
+          ]
+        },
+        "difference_vs_M0_base_rate": {
+          "M1_cashbridge_v8": [
+            0.0,
+            0.0
+          ],
+          "M2_behavioural_v9": [
+            0.3115,
+            0.4477
+          ]
+        }
+      },
+      "leakage_screen_on_train": [
+        {
+          "feature": "days_to_settle",
+          "single_feature_auc": 1.0
+        }
+      ],
+      "leaky_model_test_metrics": {
+        "brier": 0.0146,
+        "log_loss": 0.0601,
+        "roc_auc": 0.9999,
+        "pr_auc": 1.0,
+        "ece": 0.0468,
+        "prediction_mean": 0.7128,
+        "observed_rate": 0.7097
+      },
+      "m2_coefficients": {
+        "shrunk_ontime_rate": 1.119,
+        "recent_days_late": 0.031,
+        "last_late": -0.162,
+        "open_at_issue": -0.023,
+        "log_size": -0.161,
+        "paperless": 0.301
+      }
+    }
+  ]
+}

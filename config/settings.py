@@ -74,6 +74,8 @@ CCC_TARGET_DAYS = {"dio": 35, "dso": 75, "dpo": 28, "ccc": 82}
 
 # --------------------------------------------------------------- security
 OTP_VALIDITY_SECONDS = 120
+# Wrong codes allowed per approval challenge before it is voided (brute-force cap; a new challenge is needed).
+OTP_MAX_FAILED_ATTEMPTS = 5
 DEMO_OTP_SECRET = "JBSWY3DPEHPK3PXP"  # public demo secret, printed in the README
 OTP_SECRET = os.getenv("OTP_SECRET", "").strip() or DEMO_OTP_SECRET
 

@@ -1,0 +1,37 @@
+# CashBridge v9: what changed against the two v8 reviews, and how it was verified
+
+Sources: the v8 Final review (96.8/100; P0 / P1 / P2 list) and the five-item plan (backtesting, buyer model,
+lender adapter, FundingSchedule, field-level provenance). "Done" means a test or report fails if the claim
+stops being true. Research basis and measured model results: [RESEARCH_V9.md](RESEARCH_V9.md).
+
+| Priority | Item | Status | What was done | Proof |
+|---|---|---|---|---|
+| P0 | Production environment fails safe | **Done** | `CASHBRIDGE_ENV` is DEMO only for `demo/dev/development/local/test` (or empty); any other value, including typos (`prd`, `PRODUTION`, `staging`, `Production `), is PRODUCTION and must pass every production check. Production also needs `CASHBRIDGE_VAULT_KEY` and refuses the static bank token. | `tests/test_auth_rbac.py` (`test_unknown_or_misspelled_environment_fails_safe`) |
+| P0 | Director messaging | **Done** | Decision Center separates "cash-flow alerts" from "awaiting your approval" (banner + button to the pack); "Nothing needs a decision" removed; a plan below the goal is labelled "Best available plan · below the target" and is never highlighted green; stress test of the chosen plan shown. | E2E `test_full_three_role_journey` |
+| P0 | Secure evidence transfer | **Done** | SME uploads the file (multipart). Server checks type by its bytes (PDF/PNG/JPEG/UTF-8 text, ≤ 10 MB), computes SHA-256 itself, encrypts with AES-256-GCM bound to tenant/case/file (a ciphertext moved to another case does not decrypt), re-hashes on every read. The lender opens it only through CashBridge (`attachment`, `nosniff`, sandbox CSP, `no-store`), every open is in the audit chain, and **Accept is refused until the reviewer has opened the current version**. Files are deleted when the Director withdraws the pack; vault appears in the privacy inventory/export. | `tests/test_evidence_vault.py` (8), E2E `test_lender_evidence_loop_in_the_browser` |
+| P0 | Cloud smoke test | **Ready, not run on a cloud host** | `scripts/deploy_smoke.py` extended (new protected routes, unsigned webhook must be 401). Local production verification: **30/30** over HTTPS incl. restart and 3 worker processes. | `reports/deploy_verification.md` |
+| P1 | Forecast backtesting | **Done** | Rolling origin, MAE / WAPE / bias by horizon, baselines (contractual, v8 rule), on a public external dataset and on the synthetic history; interval coverage. | `reports/forecast_backtest.md`, `tests/test_v9_models.py` |
+| P1 | External model validation | **Done (public sample)** | Time split and unseen-customer split, Brier / log loss / ROC-AUC / PR-AUC / ECE, customer-clustered bootstrap CIs, leakage screen, model card fields. | `reports/external_buyer_validation.md` |
+| P1 | Field-level provenance | **Done** | Every locked metric → formula, substituted computation, recomputed value (and whether it reproduces the locked value), sources: file + JSON path + file SHA-256, or scan id + page + line + character span + excerpt + confidence + review status + text SHA-256. **No bounding box is drawn**: scans are text layers, and the UI says so. Click any number in the pack (SME) or bank case (lender). Corrections: preparer proposes, a different person decides, original kept, locked pack never changes. | `tests/test_provenance.py` (7), E2E `test_click_a_pack_number_to_see_its_source_and_correct_it_four_eyes` |
+| P1 | Production identity | **Partly** | Sign-out, "sign out everywhere" and the sign-in throttle are in a SQLite session store shared by all worker processes (default in production); verified across real OS processes and 3 uvicorn workers. **Not done:** OIDC, MFA enrolment, an external store for serverless hosts. | `tests/test_shared_sessions.py` (7), `reports/deploy_verification.md` |
+| P1 | UAT | **Team reports tests completed; evidence not packaged** | v9 protocol covers A4, A5, D3, B4. Raw anonymised session data, actual task coverage and aggregate outcome not included in ZIP; no numbers invented. | `docs/UAT_PROTOCOL.md`, `reports/UAT_EVIDENCE_STATUS.md` |
+| P2 | Copy audit | **Partly** | All new strings in EN / VI / 中文; the copy-quality tests (missing keys, placeholders, filler) pass. A full manual review of every screen was not done. | `tests/test_copy_quality.py` |
+| P1 | SME credit-risk data | **Partly** | No Vietnamese/Chinese SME default data is public, and self-generated data would prove nothing. Public Polish bankruptcy data (CC BY 4.0) validates a distress screen: ledger ratios ROC-AUC 0.59-0.74, Altman Z'' 0.65-0.76, balance-sheet ceiling 0.93-0.96. Shown as a labelled benchmark. SBA 7(a) loan-default harness ready; it runs when the file is attached. | `reports/external_distress_validation.md`, `tests/test_distress_signal.py` |
+| Plan | FundingSchedule | **Done** | One object for quote → drawdown → settlement; the invoice is never counted twice in the cash plan; on-time / 30 days late / default; recourse vs non-recourse; 150 generated cases reproduce the quote to the cent. | `tests/test_funding_schedule.py` |
+| Plan | Buyer model | **Done** | Point-in-time behavioural model, shown as a labelled second opinion next to v8; not a credit decision. | `agents/buyer_behaviour.py`, `reports/external_buyer_validation.md` |
+| Plan | Lender adapter layer | **Done (mock + sandbox contract)** | Neutral `Quote` (provider, id, amounts, fees, interest, drawdown, expiry, status, `source_type` simulated vs provider-issued). `mock` / `sandbox_http` chosen by config; timeout with one retry under the same Idempotency-Key; malformed or inconsistent quotes refused; HMAC-signed webhooks with a 5-minute replay window, de-duplicated by event id; status moves only forward; expired quotes cannot be accepted. The financing engine is unchanged. No real lender API is called. | `tests/test_lender_adapters.py` (18) |
+
+## Web app: React (merged from the team's GitHub, 20 Oct 2026)
+
+The team moved the UI to React + TypeScript (`frontend/`, built into the committed `frontend/dist`). That port started
+from the v7 interface, so it lacked the v8 and v9 screens. They were ported into the React structure (feature folders,
+`entities/provenance` shared by the SME and bank screens, all text in the EN/VI/ZH locale files), the old hand-written UI
+was then removed, and the browser tests were rewritten to run against React (10/10). Stable `id`/`data-*` hooks were added
+for the tests; no behaviour changed. Where the React layout differs (the Overview leads with a "Next step" card), the
+first-screen test checks the intent (a link to the next action is visible without scrolling), not the old element.
+
+## Still open before production
+
+A run of `deploy_smoke.py` against a real cloud host; Docker image build and scan; OIDC / MFA; an external
+session store for serverless; penetration test; a contract with a real lender sandbox; a licensed SME dataset
+for credit risk; UAT evidence packaging (user testing reported conducted, but results missing from archive); legal review of retention periods and of the annualised-cost wording.

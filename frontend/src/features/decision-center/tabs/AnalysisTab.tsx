@@ -25,7 +25,7 @@ function RankedTable({ rows, chosenId, floor }: { rows: RankedPlan[]; chosenId: 
     <Scroll>
       <table>
         <thead>
-          <tr><th>{t("col.plan")}</th><th>{t("col.pgoal")}</th><th>{t("col.ecost")}</th><th>{t("col.packs")}</th></tr>
+          <tr><th>{t("col.plan")}</th><th>{t("col.pgoal")}</th><th>{t("col.ecost")}</th><th className="num">{t("col.cvar")}</th><th>{t("col.packs")}</th></tr>
         </thead>
         <tbody>
           {rows.map((r) => (
@@ -33,6 +33,7 @@ function RankedTable({ rows, chosenId, floor }: { rows: RankedPlan[]; chosenId: 
               <td>{r.description}{r.verdict && <div className="muted small">{r.verdict}</div>}</td>
               <td><HBars items={[{ label: "", value: r.p_goal * 100, display: pp(r.p_goal), cls: r.p_goal >= floor ? "cb-good" : "cb-muted" }]} /></td>
               <td>{usd(r.cost_usd)}</td>
+              <td className="num" data-tip={t("col.cvarTip")}>{r.shortfall_cvar95_usd == null ? "–" : usd(r.shortfall_cvar95_usd)}</td>
               <td>{r.packs}</td>
             </tr>
           ))}

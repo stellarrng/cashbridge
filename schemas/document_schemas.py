@@ -73,6 +73,13 @@ class ExtractedField(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     page: Optional[int] = Field(default=None, ge=1)
     reason: Optional[str] = None
+    # Field-level provenance (v9): where in the document text the value was read. Character offsets
+    # [char_start, char_end) index the full document text; line is 1-based over the whole text.
+    # There is deliberately no bounding box: the scans are text, and coordinates are never invented.
+    line: Optional[int] = Field(default=None, ge=1)
+    char_start: Optional[int] = Field(default=None, ge=0)
+    char_end: Optional[int] = Field(default=None, ge=0)
+    source_line: Optional[str] = None
 
 
 class _TradeDocument(BaseModel):

@@ -67,6 +67,51 @@ Lưu ý khi demo trên Vercel: nếu Vercel chạy nhiều instance song song, m
 Đặt `CASHBRIDGE_ENV=production`. Ứng dụng sẽ **từ chối khởi động** nếu:
 - `OTP_SECRET` trống hoặc là secret demo;
 - `CASHBRIDGE_SESSION_SECRET` ngắn hơn 32 ký tự;
-- chưa cấu hình tài khoản (`CASHBRIDGE_USERS_JSON` hoặc `CASHBRIDGE_USERS_FILE`; băm mật mã bằng `python scripts/hash_passcode.py`).
+- chưa cấu hình tài khoản (`CASHBRIDGE_USERS_JSON` hoặc `CASHBRIDGE_USERS_FILE`; băm mật mã bằng `python scripts/hash_passcode.py`);
+- (v9) thiếu `CASHBRIDGE_VAULT_KEY` (khóa 32 byte, base64, dùng mã hóa chứng từ tải lên);
+- (v9) `CASHBRIDGE_ENV` có giá trị lạ hoặc gõ sai (`prd`, `staging`, `Production `…): hệ thống coi là PRODUCTION và áp mọi kiểm tra trên,
+  không bao giờ tự rơi về chế độ demo.
 
 Ở chế độ này đăng nhập demo, đặt lại demo và các màn giả mạo đều tắt (404). Đây vẫn chưa phải chứng nhận bảo mật production: còn thiếu OIDC/MFA, lưu trữ bền vững và kiểm thử xâm nhập độc lập.
+
+## v8: kiểm tra sau khi deploy (bắt buộc trước khi gửi link cho BTC)
+
+```bash
+# 1. Kiểm tra cục bộ chế độ PRODUCTION qua HTTPS thật (CA tạm), khởi động lại, quét log:
+make deploy-check                      # -> reports/deploy_verification.md (27/27 khi viết tài liệu này)
+
+# 2. Kiểm tra bản đã deploy (Render/Vercel/Fly):
+python scripts/deploy_smoke.py --base-url https://<host> --expect demo        # link demo cho giám khảo
+python scripts/deploy_smoke.py --base-url https://<host> --expect production \
+    --user <tài-khoản> --passcode <mật-mã> --json reports/deploy_smoke.json
+```
+
+Smoke test kiểm tra: HTTPS + HSTS, CSP, không lộ tài khoản demo / OTP demo / API docs ở production, CORS đóng,
+401 trên mọi route cần đăng nhập (kể cả token giả), không lộ stack trace, giới hạn kích thước body, chặn path traversal,
+ranh giới vai trò SME/ngân hàng và token hết hiệu lực sau khi đăng xuất. Chỉ đọc; không lập hay duyệt hồ sơ.
+
+Lưu ý production:
+- Data Reliability Gate **luôn bật**: cần `CASHBRIDGE_QUALITY_MANIFEST_PATH` + chữ ký xác thực nguồn
+  (`CASHBRIDGE_SOURCE_ATTESTATIONS_PATH`, `CASHBRIDGE_ATTESTATION_KEY`), nếu không mọi hành động tài trợ trả 409.
+- Đặt `CASHBRIDGE_SESSION_SECRET` cố định để phiên không mất khi khởi động lại; đặt `CASHBRIDGE_TRUST_PROXY=1` sau proxy.
+- Log, audit và dữ liệu workspace/queue nằm trong `CASHBRIDGE_RUNTIME_DIR` (volume `runtime` trong docker-compose);
+  khi khởi động lại, audit log cũ được lưu vào `evidence/archive/<thời điểm>/` kèm MANIFEST và kết quả kiểm tra chuỗi hash.
+
+## v9: chứng từ mã hóa, phiên dùng chung, bộ chuyển đổi bên cho vay
+
+```bash
+# Khóa kho chứng từ (giữ cẩn thận: mất khóa = không đọc lại được chứng từ đã lưu)
+python -c "import base64,secrets;print(base64.b64encode(secrets.token_bytes(32)).decode())"   # -> CASHBRIDGE_VAULT_KEY
+```
+
+- **Kho chứng từ**: tệp SME tải lên được kiểm tra theo byte đầu (PDF/PNG/JPEG/văn bản, ≤ 10 MB), máy chủ tự tính SHA-256,
+  lưu mã hóa AES-256-GCM trong `<runtime>/vault/`. Ngân hàng chỉ mở được qua CashBridge (ghi audit) và phải mở đúng phiên bản
+  trước khi chấp nhận. Khi Giám đốc rút hồ sơ, tệp của hồ sơ đó bị xóa. Volume `runtime` phải được sao lưu.
+- **Phiên**: đăng xuất, "đăng xuất mọi thiết bị" và giới hạn đăng nhập sai nằm trong `<runtime>/sessions.sqlite3`
+  (mặc định ở production), dùng chung cho mọi worker trên cùng máy (`make deploy-check` kiểm tra với 3 worker).
+  Trên Vercel/serverless không có đĩa dùng chung: trạng thái này chỉ theo từng instance, cần kho ngoài (chưa kèm theo).
+- **Bên cho vay**: `CASHBRIDGE_LENDER_ADAPTER=mock` (mặc định, báo giá MÔ PHỎNG từ danh mục MOCK, không phải chào giá) hoặc
+  `sandbox_http` với `CASHBRIDGE_LENDER_BASE_URL` (https), `CASHBRIDGE_LENDER_API_KEY`, `CASHBRIDGE_LENDER_WEBHOOK_SECRET`.
+  Webhook `POST /api/lender/webhook` phải có chữ ký HMAC (`X-Lender-Signature: t=<unix>,v1=<hex>`), trong vòng 5 phút,
+  mỗi `event_id` chỉ xử lý một lần.
+- Smoke test v9 kiểm thêm: các route nguồn gốc số liệu / báo giá / tệp chứng từ đòi đăng nhập, webhook không chữ ký bị 401.

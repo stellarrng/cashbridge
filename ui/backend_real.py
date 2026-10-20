@@ -7,6 +7,9 @@ Fields for features that are not built yet are null or empty, as the contract al
 
 from __future__ import annotations
 
+from datetime import date as date_cls
+import numpy as np
+
 import hashlib
 import json
 import shutil
@@ -69,6 +72,9 @@ class RealBackend:
             kwargs: Dict[str, Any] = {"llm": LlmClient()}  # offline unless LLM_API_KEY is set
             if clock is not None:
                 kwargs["clock"] = clock
+            from api.lender_adapters import adapter_from_env
+            from data import loader as _loader
+            kwargs["lender_submit"] = adapter_from_env(_loader.lender_catalog(SANDBOX_INPUTS_DIR)).submit  # mock unless configured
             coordinator = Coordinator(
                 inputs_dir=SANDBOX_INPUTS_DIR,
                 evidence_dir=runtime / "evidence",
@@ -76,6 +82,7 @@ class RealBackend:
                 **kwargs,
             )
         self.coord = coordinator
+        self.coord.archive_on_reset = True  # restarts and demo resets archive evidence instead of deleting it
         self._last_error: Optional[str] = None
         self._chat: List[Dict[str, Any]] = []
         self._green_reviews: Dict[str, str] = {}
@@ -143,6 +150,24 @@ class RealBackend:
         result = green_project_economics(project, electricity_price_usd_per_kwh, annual_opex_usd)
         self._analytics_audit('green_project_economics', {'project_id':project_id,
                 'electricity_price_usd_per_kwh':electricity_price_usd_per_kwh,'annual_opex_usd':annual_opex_usd}, result)
+        return result
+
+    def green_cash_impact(self, project_id: str, capex_week: int, financed_pct: float, tenor_months: int,
+                          electricity_price_usd_per_kwh: float, annual_opex_usd: float) -> Dict[str, Any]:
+        """Green investment on the live 13-week forecast; loan APR taken from the case's bridge-loan quote (MOCK)."""
+        from core.green_finance import green_cash_impact
+        projects = json.loads((SANDBOX_INPUTS_DIR / 'green_projects.json').read_text(encoding='utf-8'))
+        project = next((p for p in projects if p['project_id'] == project_id), None)
+        if project is None:
+            raise ValueError('Unknown green project')
+        loan = next((o for o in self.coord.options if o.type == "loan" and o.apr_pct is not None), None)
+        apr = float(loan.apr_pct) if loan else 12.0
+        f = self.coord.forecast
+        result = green_cash_impact([float(w.closing) for w in f.weeks], float(f.buffer_usd), project, capex_week, financed_pct,
+                                   apr, tenor_months, electricity_price_usd_per_kwh, annual_opex_usd)
+        result["loan_apr_source"] = f"{loan.name} quote" if loan else "assumed 12% (no loan quote on file)"
+        self._analytics_audit('green_cash_impact', {'project_id': project_id, 'capex_week': capex_week, 'financed_pct': financed_pct,
+                                                    'tenor_months': tenor_months}, {k: result[k] for k in ('without_project', 'cash_funded', 'loan_funded')})
         return result
 
     def request_green_review(self, project_id: str) -> Dict[str, Any]:
@@ -438,6 +463,13 @@ class RealBackend:
     def reject_pack(self, by: str, reason: str) -> Dict[str, Any]:
         return self._try(lambda: self.coord.reject_pack(by, reason))
 
+    def withdraw_release(self, by: str, reason: str) -> Dict[str, Any]:
+        pack_id = self.coord.pack.get("pack_id")
+        self.coord.withdraw_release(by, reason)
+        self._lender_review["history"].append({"event": "WITHDRAWN_BY_SME", "by": by, "note": reason})
+        self._lender_review["status"] = "WITHDRAWN"
+        return {"ok": True, "pack_id": pack_id, "snapshot": self.get_snapshot()}
+
     def reopen_pack(self) -> Dict[str, Any]:
         return self._try(lambda: self.coord.reopen_after_rejection())
 
@@ -476,16 +508,20 @@ class RealBackend:
                 memory.path.write_text(_SEED_CACHE[key], encoding="utf-8")
         return memory, registry
 
-    def intelligence(self, goal: str = "keep_cash_positive", min_probability: Optional[float] = None) -> Dict[str, Any]:
+    def intelligence(self, goal: str = "keep_cash_positive", min_probability: Optional[float] = None,
+                     objective: str = ic.DEFAULT_OBJECTIVE) -> Dict[str, Any]:
         """Run the Core: state, ranked allowed plans, the chosen one, memory and the learning status."""
         memory, registry = self._intel()
         params = registry.active()
         self.coord._gate("intelligence_core", "plan_liquidity", Tier.L1_ANALYZE,
-                         {"goal": goal, "min_probability": min_probability, "world_model": params.version})
+                         {"goal": goal, "min_probability": min_probability, "objective": objective, "world_model": params.version})
         inputs = self._twin_inputs()  # the live case plus any events that have happened since
         result = ic.IntelligenceCore(params=params).plan(inputs, goal, baseline_actions=ic.fixed_workflow_actions(inputs),
-                                                        memory=memory, min_probability=min_probability,
+                                                        memory=memory, min_probability=min_probability, objective=objective,
                                                         incumbent=self._twin_plan["actions"] if self._twin_plan else None)
+        core = ic.IntelligenceCore(params=params)
+        stress = core.stress_test(inputs, result.chosen["actions"], goal)
+        result.chosen["stress_test"] = stress
         run_id = f"RUN-{len([r for r in memory.records() if r['type'] == 'plan']) + 1:03d}"
         memory.remember_plan(run_id, result, source="LIVE")
         self._last_plan = dict(result.as_dict(), run_id=run_id)
@@ -689,6 +725,9 @@ class RealBackend:
                         "issue_date": invoice.issue_date.isoformat(), "due_date": invoice.due_date.isoformat(),
                         "three_way": verification, "scans": [s for s in c.scans if s["invoice_no"] == invoice.invoice_no]},
             "buyer_risk": buyer, "risk_model": c.risk.model.describe(),
+            "funding_schedule": self.funding_schedules().get(c.selected_option_id),
+            "buyer_behaviour_cross_check": self._behaviour_score(invoice),
+            "buyer_risk_explanation": c.risk.explain(invoice.buyer_id, (invoice.due_date - invoice.issue_date).days, float(invoice.amount.to_usd())),
             "forecast": self._forecast_block(c.forecast), "financial_ratios": summary["ratios"],
             "autopilot": ({k: self._last_autopilot[k] for k in ("run_id", "decision", "recommendation", "evidence", "evidence_counts", "steps")}
                           if self._last_autopilot else None),
@@ -758,6 +797,123 @@ class RealBackend:
         return self.bank_case(pack_id)
 
     # ----------------------------------------------- engine endpoints (api/main.py, Step 6.2)
+    def _behaviour_score(self, invoice) -> Optional[Dict[str, Any]]:
+        try:
+            from agents.buyer_behaviour import BehaviouralBuyerModel
+            from data import loader
+            model = BehaviouralBuyerModel(loader.read("payment_history.json", self.coord.inputs_dir)["records"])
+            out = model.score(invoice.buyer_id, self.coord.as_of, float(invoice.amount.to_usd()))
+            out["v8_p_on_time"] = round(self.coord.risk.p_on_time(invoice), 2)
+            return out
+        except Exception:  # a cross-check must never block the lender view
+            return None
+
+    def receipts_outlook(self) -> Dict[str, Any]:
+        """v9 receipts timing (censoring-aware Kaplan-Meier, early payment included) next to the conservative base plan,
+        with an 80% band calibrated by split conformal on the company's own rolling-origin errors."""
+        from datetime import timedelta
+        from core import conformal as cf
+        from core.forecasting_engine import _invoice_views
+        from core.payment_timing import PaymentTimingModel, observations_at
+        from data import loader
+        if getattr(self, "_outlook_cache", None) is not None:
+            return self._outlook_cache
+        c = self.coord
+        inp = c.forecast_inputs
+        hist = loader.read("payment_history.json", c.inputs_dir)["records"]
+        rows = [(r["buyer_id"], date_cls.fromisoformat(r["due_date"]), date_cls.fromisoformat(r["paid_date"])) for r in hist]
+        model = PaymentTimingModel(observations_at(inp.start_date - timedelta(days=1), (("ALL", d, p) for _, d, p in rows)),
+                                   inp.start_date - timedelta(days=1))
+        open_items = []
+        for v in _invoice_views(inp):
+            due = v.receivable.promised_date or v.receivable.due_date
+            open_items.append(("ALL", due, float(v.final_usd)))
+        expected, after = model.weekly_receipts(open_items, inp.start_date, 13)
+        base = [float(w.inflows) for w in c.forecast.weeks]
+        # conformal half-widths per horizon from the backtest on this company's own history (no look-ahead)
+        from eval.forecast_backtest import backtest, load_cashbridge
+        bt = getattr(self, "_bt", None) or backtest(load_cashbridge(), "own", warmup_weeks=16, mc=50)
+        self._bt = bt
+        errs = bt.get("_abs_errors_by_h") or []
+        half = [cf.conformal_quantile(e, 0.2) if e else None for e in errs] if errs else [None] * 13
+        outflows = [float(w.outflows) for w in c.forecast.weeks]
+        close_v9, cash = [], float(inp.opening_cash_usd)
+        for i in range(13):
+            cash += expected[i] - outflows[i]
+            close_v9.append(round(cash, 2))
+        self._outlook_cache = {
+            "weeks": list(range(1, 14)), "base_receipts": [round(x, 2) for x in base], "v9_expected_receipts": [round(float(x), 2) for x in expected],
+            "v9_band_80": [[round(max(0.0, float(e) - h), 2), round(float(e) + h, 2)] if h is not None and np.isfinite(h) else None
+                           for e, h in zip(expected, half)],
+            "v9_closing_if_receipts_as_expected": close_v9, "after_horizon_usd": round(float(after), 2),
+            "backtest": {k: v for k, v in bt["methods"].items()} if bt else None, "interval_coverage": bt.get("intervals") if bt else None,
+            "external_backtest": "reports/forecast_backtest.md",
+            "note": ("The base plan stays conservative (no early payments, late share four weeks late) because locked pack figures must "
+                     "not rely on early payers. The v9 outlook is the expected timing from the payment history; its 80% band is "
+                     "calibrated on realised errors (split conformal)."),
+        }
+        return self._outlook_cache
+
+    def provenance(self, pack_id: Optional[str] = None, for_lender: bool = False) -> Dict[str, Any]:
+        """Click-to-source lineage of every locked metric (core/provenance.py). Lenders see only the released pack."""
+        from core.provenance import lineage
+        c = self.coord
+        pack = self._submitted_pack() if for_lender else c.pack
+        if not pack.get("pack_id") or (pack_id is not None and pack.get("pack_id") != pack_id):
+            raise LookupError(f"unknown pack '{pack_id}'")
+        if for_lender:
+            c._gate("bank_reviewer", "read_documents", Tier.L0_READ, {"pack_id": pack["pack_id"], "view": "provenance"})
+        return lineage(c)
+
+    def lender_quotes(self) -> Dict[str, Any]:
+        """Quotes for the chosen (or best eligible) lender product through the configured adapter, kept in the quote book."""
+        from decimal import Decimal as D
+        from api.lender_adapters import QuoteBook, QuoteRequest, adapter_from_env, default_book_path
+        c = self.coord
+        option = c.selected_option() or next((o for o in c.options if o.eligible and o.type in ("factoring", "loan")), None)
+        if option is None or c.nominee is None:
+            return {"quotes": [], "adapter": None, "notice": "No lender product to quote yet."}
+        adapter = adapter_from_env(c.catalog)
+        book = QuoteBook(default_book_path())
+        ref = c.pack.get("pack_id") or f"PRE-{c.nominee.invoice_no}"
+        req = QuoteRequest(pack_id=ref, bundle_sha256=c.pack.get("bundle_sha256") or "", product=option.type, invoice_no=c.nominee.invoice_no,
+                           invoice_usd=D(str(c.nominee.amount.to_usd())), requested_usd=D(str(option.amount_usd)),
+                           days=int((option.assumptions or {}).get("days") or (c.nominee.due_date - c.as_of).days), drawdown_date=c.as_of)
+        existing = [q for q in book.list(ref) if q["status"] == "OPEN"]
+        if not existing:
+            book.save(adapter.request_quote(req))
+        return {"adapter": {"provider_id": adapter.provider_id, "environment": adapter.environment},
+                "quotes": book.list(ref), "engine_unchanged": True,
+                "notice": "Quotes are data with an expiry. A simulated quote comes from the MOCK catalogue and is not a lender offer."}
+
+    def distress_signal(self) -> Dict[str, Any]:
+        """Screening hint from DSO, DIO and gross margin, validated on public Polish company data (core/distress_signal.py)."""
+        from core.distress_signal import score
+        result = score(self.coord.ledger)
+        if result is None:
+            raise LookupError("distress model not built: run eval/external_distress_validation.py")
+        return {**result, "synthetic_company": True}
+
+    def funding_schedules(self) -> Dict[str, Any]:
+        """Timeline, 13-week effect and settlement scenarios for every lender option (one shared schedule each)."""
+        from agents.coordinator import nominee_receipts
+        from core.funding_coverage import coverage
+        c = self.coord
+        receipts = nominee_receipts(c)
+        out = {}
+        for o in c.options:
+            sc = c.schedules.get(o.id)
+            if sc is None:
+                continue
+            cov = coverage(c.forecast.weeks, option=o, funding_week=1, buffer_usd=c.forecast.buffer_usd,
+                           start_date=c.forecast_inputs.start_date, schedule=sc, invoice_receipts=receipts)
+            out[o.id] = {"option": o.name, "schedule": sc.as_dict(), "scenarios": sc.scenarios(),
+                         "expected_cost_usd": cov["expected_cost_usd"], "funding_week": cov["funding_week"],
+                         "settlement_week": cov["settlement_week"], "residual_gap_usd": cov["residual_gap_usd"],
+                         "assumptions": cov["assumptions"], "illustrative": True,
+                         "label": "Computed from MOCK lender terms: an illustration, not a lender offer"}
+        return out
+
     def forecast_view(self, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """The 13-week forecast, optionally under what-if controls."""
         if params:

@@ -111,23 +111,28 @@ def rule_extract(text: str, doc_type: str, threshold: float = EXTRACTION_CONFIDE
     """Read ``text`` with the labelled-line rules. Deterministic and offline."""
     if doc_type not in SPECS:
         raise ValueError(f"unknown document type '{doc_type}'")
-    page, found = 1, {}
-    for line in text.splitlines():
-        marker = _PAGE.match(line.strip())
+    page, found, offset = 1, {}, 0
+    for number, line in enumerate(text.splitlines(keepends=True), start=1):
+        start, offset = offset, offset + len(line)
+        body = line.rstrip("\r\n")
+        marker = _PAGE.match(body.strip())
         if marker:
             page = int(marker.group(1))
             continue
-        label, sep, value = line.partition(":")
+        label, sep, value = body.partition(":")
         if sep and label.strip() not in found:
-            found[label.strip()] = (value, page)
+            lead = len(value) - len(value.lstrip())
+            v_start = start + len(label) + 1 + lead
+            found[label.strip()] = (value, page, number, v_start, v_start + len(value.strip()), body)
     fields: Dict[str, ExtractedField] = {}
     for name, label, kind in SPECS[doc_type]:
         if label not in found:
             fields[name] = ExtractedField(value=None, confidence=MISSING, page=None, reason=f"'{label}' not found")
             continue
-        raw, field_page = found[label]
+        raw, field_page, line_no, v_start, v_end, body = found[label]
         value, confidence, note = _parse(kind, raw)
-        fields[name] = ExtractedField(value=value, confidence=confidence, page=field_page, reason=note)
+        fields[name] = ExtractedField(value=value, confidence=confidence, page=field_page, reason=note,
+                                      line=line_no, char_start=v_start, char_end=v_end, source_line=body[:300])
     return _summarise(doc_type, fields, threshold)
 
 

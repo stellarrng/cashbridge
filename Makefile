@@ -1,7 +1,8 @@
+SHELL := /bin/bash
 # CashBridge tasks. Uses .venv if present.
 PY := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 
-.PHONY: install seed test test-fast story eval trust bench ops run anchor
+.PHONY: install seed test test-fast test-report e2e faults deploy-check evidence story eval trust bench ops run anchor
 
 install: ## install the full local stack (runtime + scikit-learn + test tools)
 	$(PY) -m pip install -r requirements-dev.txt
@@ -12,8 +13,24 @@ seed:    ## write deterministic SYNTHETIC inputs to data/sandbox_inputs/
 test:
 	$(PY) -m pytest
 
-test-fast:  ## all tests except the slow end-to-end trust scorecard run (about a minute)
-	$(PY) -m pytest -m "not slow"
+test-fast:  ## all tests except the slow trust scorecard run and the browser E2E (about a minute)
+	$(PY) -m pytest -m "not slow and not e2e"
+
+test-report:  ## full regression with per-test durations; writes reports/full_pytest.txt and exits non-zero on any failure
+	mkdir -p reports
+	set -o pipefail; PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(PY) -m pytest -vv --durations=25 -p no:cacheprovider 2>&1 | tee reports/full_pytest.txt
+
+e2e:     ## real-browser E2E (Playwright + Chromium): accountant -> director OTP -> bank; screenshots in reports/e2e/
+	$(PY) -m pytest -m e2e tests/e2e -v
+
+faults:  ## queue + outbox fault injection; writes reports/queue_faults.md
+	$(PY) eval/queue_faults.py
+
+deploy-check:  ## PRODUCTION mode over local HTTPS, restart, log scan; writes reports/deploy_verification.md
+	$(PY) scripts/verify_deployment_local.py
+
+evidence:  ## regenerate every report a judge can check (benchmarks, faults, deploy, story)
+	$(PY) eval/reproduce_all.py
 
 story:   ## run the 11-step demo story headless and regenerate data/execution_evidence/
 	$(PY) scripts/run_demo_story.py

@@ -129,13 +129,14 @@ def group(events: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
     return dict(cases)
 
 
-def run(n_events: int = 100, seed: int = 42, n_paths: int = 500) -> Dict[str, Any]:
+def run(n_events: int = 100, seed: int = 42, n_paths: int = 500, events: List[Dict[str, Any]] | None = None) -> Dict[str, Any]:
+    """Route ``events`` (default: ``generate(n_events, seed)``) and score against the generator's labels."""
     with tempfile.TemporaryDirectory() as tmp:
         base = ic.CoreInputs.from_coordinator(RealBackend(runtime_dir=Path(tmp), clock=StoryClock()).coord)
     core = ic.IntelligenceCore(n_paths=n_paths)
     quarters = [base] + [ic.perturb_core_inputs(base, np.random.default_rng(700 + q)) for q in range(1, 6)]
     plans_in_force = {}
-    events = generate(n_events, seed)
+    events = generate(n_events, seed) if events is None else events
     cases = group(events)
     rows = []
     violations = 0

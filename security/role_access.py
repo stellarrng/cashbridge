@@ -2,7 +2,8 @@
 
 Two ways in, both checked on the server:
   1. a signed session of a ``bank_reviewer`` from the lender tenant (security/auth.py), or
-  2. the older static demo Bearer token ``CASHBRIDGE_BANK_REVIEW_TOKEN`` (24+ characters).
+  2. the older static demo Bearer token ``CASHBRIDGE_BANK_REVIEW_TOKEN`` (24+ characters), DEMO mode only:
+     in PRODUCTION the static token is refused even when configured.
 
 With neither configured the endpoint fails closed (503). Client-side role toggles never grant access.
 This is a synthetic single-case demo control, not production IAM.
@@ -28,6 +29,10 @@ def require_bank_reviewer(authorization: str | None = Header(default=None)) -> N
             if principal.can("bank:read") and principal.tenant_id == auth.LENDER_TENANT:
                 return None
             raise HTTPException(status_code=403, detail='Insufficient permissions for bank reviewer')
+    from config import runtime_mode
+    if runtime_mode.is_production():
+        # The shared static token is a DEMO convenience. Production accepts only signed per-user sessions.
+        raise HTTPException(status_code=401, detail='Sign in as a bank reviewer', headers={'WWW-Authenticate': 'Bearer'})
     expected = os.getenv('CASHBRIDGE_BANK_REVIEW_TOKEN', '').strip()
     if len(expected) < 24:
         raise HTTPException(status_code=503, detail='Bank access is disabled: sign in as a bank reviewer or configure a server-side reviewer token')

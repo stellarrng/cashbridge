@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { WeeklyCashChart } from "@/entities/forecast";
 import { metricText } from "@/entities/funding";
+import { MetricLink, ProvenanceDialog, lineageUrl } from "@/entities/provenance";
 import { StatusPill } from "@/entities/status";
 import { useAct, useAsync } from "@/shared/hooks";
 import { useI18n } from "@/shared/i18n";
@@ -23,6 +25,7 @@ function CaseView({ packId }: { packId: string }) {
   const { t, has } = useI18n();
   const act = useAct();
   const kase = useAsync(() => fetchCase(packId), [packId]);
+  const [provKey, setProvKey] = useState<string | null>(null);
 
   return (
     <Loadable data={kase.data} error={kase.error}>
@@ -44,7 +47,11 @@ function CaseView({ packId }: { packId: string }) {
               <Kpi label={t("col.apr")} value={pct(product.apr_pct, 2)} />
               <Kpi label={t("bk.pledged")} value={inv.invoice_no} />
               <Kpi label={t("bk.invValue")} value={usd(inv.amount_usd)} />
-              <Kpi label={t("bk.ontime")} value={c.buyer_risk ? Math.round(c.buyer_risk.p_on_time * 100) + "%" : "–"} />
+              <Kpi
+                label={t("bk.ontime")}
+                value={c.buyer_risk ? Math.round(c.buyer_risk.p_on_time * 100) + "%" : "–"}
+                foot={c.buyer_behaviour_cross_check ? t("bk.cross", { p: Math.round(c.buyer_behaviour_cross_check.p_on_time * 100) + "%" }) : undefined}
+              />
               <Kpi label={t("bk.reviewStatus")} tone={decided ? "pos" : "warn"} value={has("st." + review.status) ? t("st." + review.status) : human(review.status)} />
             </Kpis>
             <div className="grid2">
@@ -65,7 +72,12 @@ function CaseView({ packId }: { packId: string }) {
               <Panel title={t("bk.metrics")}>
                 <table>
                   <tbody>
-                    {c.locked_metrics.map((m) => <tr key={m.label}><td>{m.label}</td><td className="num">{metricText(m, t)}</td></tr>)}
+                    {c.locked_metrics.map((m) => (
+                      <tr key={m.label}>
+                        <td>{m.label}</td>
+                        <td className="num">{m.key ? <MetricLink label={metricText(m, t)} metricKey={m.key} onOpen={setProvKey} /> : metricText(m, t)}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
                 <p className="hashline mt-2">bundle <span className="mono">{c.bundle_sha256}</span></p>
@@ -94,6 +106,8 @@ function CaseView({ packId }: { packId: string }) {
             <Panel title={t("bk.notShared")} className="flat">
               <ul className="list">{c.not_shared.map((x, i) => <li key={i}>{x}</li>)}</ul>
             </Panel>
+            {/* The lender reads the lineage of the released pack only; corrections are the SME's to propose and decide. */}
+            <ProvenanceDialog url={lineageUrl(c.pack_id)} metricKey={provKey} onClose={() => setProvKey(null)} />
           </>
         );
       }}

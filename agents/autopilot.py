@@ -231,11 +231,14 @@ class FinanceAutopilot:
         f = c.forecast
         start = c.forecast_inputs.start_date
         settle = c.nominee.due_date if c.nominee else None
+        from agents.coordinator import nominee_receipts
+        receipts = nominee_receipts(c)
         rows = []
         ev: List[str] = []
         for o in c.options:
             cov = coverage(f.weeks, option=o, funding_week=f.first_shortfall_week, buffer_usd=f.buffer_usd,
-                           start_date=start, settle_on=settle) if o.eligible else None
+                           start_date=start, settle_on=settle, schedule=c.schedules.get(o.id),
+                           invoice_receipts=receipts) if o.eligible else None
             rows.append({"id": o.id, "name": o.name, "type": o.type, "eligible": o.eligible, "amount_usd": _money(o.amount_usd) if o.amount_usd else None,
                          "apr_pct": o.apr_pct, "total_cost_usd": _money(o.cost_breakdown.get("total_usd", 0)) if o.cost_breakdown else None,
                          "lender_pack": o.type in ("factoring", "loan"), "ineligible_reason": o.ineligible_reason, "coverage": cov})

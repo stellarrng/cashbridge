@@ -19,6 +19,18 @@ from automation.audit_evidence import reconcile_highlights, invoice_highlights, 
 KINDS = ('accounting_reconcile', 'audit_invoice', 'support_triage', 'collections_draft', 'cash_alert', 'support_reply_draft', 'refund_review', 'employee_task_plan', 'executive_digest', 'schedule_reminder', 'provenance_review')
 MAX_RECORDS = 300
 MAX_PAYLOAD = 50_000
+MAX_ATTEMPTS = 3
+AUDIT_DECISIONS = ('accepted', 'accepted_with_exceptions', 'rejected')
+
+
+def backoff_seconds(attempts: int) -> int:
+    """Exponential backoff after the n-th failed attempt: 2, 4, 8 ... capped at 300 s."""
+    return min(300, 2 ** attempts)
+
+
+def _handler():
+    # Looked up at call time so fault-injection tests can swap the pure handler.
+    return evaluate
 
 
 def _cents(value: Any) -> int:
@@ -209,10 +221,19 @@ class AutomationStore:
             conn.execute('''CREATE TABLE IF NOT EXISTS audit_seals (
                 job_id TEXT PRIMARY KEY, seal_json TEXT NOT NULL,
                 FOREIGN KEY(job_id) REFERENCES jobs(id))''')
+            # Additive migrations: upgrading an existing v6 queue retains jobs and seals.
+            existing = {r[1] for r in conn.execute('PRAGMA table_info(jobs)')}
+            migrations = {'attempts':'INTEGER NOT NULL DEFAULT 0',
+                          'next_run':'TEXT', 'claimed_at':'TEXT',
+                          'last_error':'TEXT', 'dead_at':'TEXT', 'lease':'TEXT'}
+            for col, definition in migrations.items():
+                if col not in existing: conn.execute(f'ALTER TABLE jobs ADD COLUMN {col} {definition}')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_job_due ON jobs(state,next_run,created)')
 
     def _connect(self):
         conn = sqlite3.connect(self.path, timeout=15)
         conn.row_factory = sqlite3.Row
+        conn.execute('PRAGMA busy_timeout=15000')
         return conn
 
     def enqueue(self, kind: str, payload: dict, key: str) -> dict:
@@ -231,21 +252,88 @@ class AutomationStore:
                          (job_id,kind,'pending',raw,dt.datetime.now(dt.timezone.utc).isoformat(),fingerprint))
             return {'id': job_id, 'kind':kind, 'state':'pending'}
 
+    def recover_stale(self, older_seconds: int = 600) -> int:
+        """Recover a worker interrupted after atomic claim and before completion.
+
+        A deterministic, locally side-effect-free handler is safe to retry. Do not use this
+        technique for payments, emails, accounting posting or other external side effects.
+        """
+        if older_seconds < 1: raise ValueError('Invalid recovery window')
+        cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(seconds=older_seconds)).isoformat()
+        with self.mutex, self._connect() as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            rows=conn.execute('SELECT id,attempts FROM jobs WHERE state=? AND claimed_at<?',
+                              ('running',cutoff)).fetchall()
+            for row in rows:
+                state='dead_letter' if row['attempts'] >= MAX_ATTEMPTS else 'pending'
+                # Clearing the lease means the interrupted worker can no longer write a late result.
+                conn.execute('UPDATE jobs SET state=?, claimed_at=NULL, lease=NULL, last_error=?, dead_at=? WHERE id=?',
+                             (state,'Stale worker claim recovered',
+                              dt.datetime.now(dt.timezone.utc).isoformat() if state=='dead_letter' else None,row['id']))
+            return len(rows)
+
     def run_pending(self, limit: int = 10) -> list[dict]:
+        """Atomic multi-worker claim, bounded retry with exponential backoff and DLQ.
+
+        Transient operational errors retry; invalid task payloads fail fast. All current
+        handlers are pure and perform no external financial actions.
+        """
         if not isinstance(limit, int) or not 1 <= limit <= 100:
             raise ValueError('Invalid batch size')
-        output = []
-        with self.mutex, self._connect() as conn:
-            rows = conn.execute('SELECT * FROM jobs WHERE state=? ORDER BY created LIMIT ?', ('pending',limit)).fetchall()
-            for row in rows:
-                try:
-                    result = evaluate(row['kind'], json.loads(row['payload']))
-                    state = 'needs_review' if result['review_required'] else 'completed'
-                except (ValueError, TypeError, KeyError) as exc:
-                    result, state = {'error':str(exc)}, 'failed'
-                conn.execute('UPDATE jobs SET state=?, result=? WHERE id=?', (state,json.dumps(result),row['id']))
-                output.append({'id':row['id'], 'kind':row['kind'], 'state':state, 'result':result})
+        output=[]
+        for _ in range(limit):
+            with self.mutex, self._connect() as conn:
+                conn.execute('BEGIN IMMEDIATE')
+                current=dt.datetime.now(dt.timezone.utc).isoformat()
+                row=conn.execute("SELECT * FROM jobs WHERE state='pending' AND (next_run IS NULL OR next_run<=?) ORDER BY created LIMIT 1",(current,)).fetchone()
+                if not row: break
+                lease=str(uuid.uuid4())
+                conn.execute("UPDATE jobs SET state='running',attempts=attempts+1,claimed_at=?,lease=? WHERE id=?",
+                             (current,lease,row['id']))
+            attempts=row['attempts']+1
+            try:
+                result=_handler()(row['kind'],json.loads(row['payload']))
+                state='needs_review' if result['review_required'] else 'completed'
+                transient=False
+            except (OSError, ConnectionError, TimeoutError) as exc:
+                result={'error':'Transient task execution error','type':type(exc).__name__}
+                transient=True
+                state='pending' if attempts<MAX_ATTEMPTS else 'dead_letter'
+            except (ValueError, TypeError, KeyError) as exc:
+                result={'error':str(exc),'type':type(exc).__name__}
+                state='failed'
+                transient=False
+            except Exception as exc:
+                # An unanticipated programming failure is quarantined, not retried forever.
+                result={'error':'Unexpected handler failure','type':type(exc).__name__}
+                state='dead_letter'
+                transient=False
+            retry_at=(dt.datetime.now(dt.timezone.utc)+dt.timedelta(seconds=backoff_seconds(attempts))).isoformat() if transient and state=='pending' else None
+            with self.mutex,self._connect() as conn:
+                # Lease check: if this claim was recovered as stale and re-run, the late result is dropped.
+                written=conn.execute("UPDATE jobs SET state=?,result=?,next_run=?,claimed_at=NULL,lease=NULL,last_error=?,dead_at=? "
+                                     "WHERE id=? AND state='running' AND lease=?",
+                    (state,json.dumps(result),retry_at,result.get('error'),
+                     dt.datetime.now(dt.timezone.utc).isoformat() if state=='dead_letter' else None,row['id'],lease)).rowcount
+            if not written:
+                state='lease_lost'
+            output.append({'id':row['id'],'kind':row['kind'],'state':state,
+                           'attempts':attempts,'retry_at':retry_at if written else None,'result':result})
         return output
+
+    def dead_letters(self, limit: int=50) -> list[dict]:
+        with self._connect() as conn:
+            rows=conn.execute("SELECT id,kind,state,attempts,last_error,created,dead_at FROM jobs WHERE state='dead_letter' ORDER BY dead_at DESC LIMIT ?",
+                              (max(1,min(limit,100)),)).fetchall()
+            return [dict(r) for r in rows]
+
+    def redrive(self, job_id: str) -> dict:
+        """Explicit operator action: same idempotency key, no new duplicate task."""
+        with self.mutex,self._connect() as conn:
+            row=conn.execute('SELECT state FROM jobs WHERE id=?',(job_id,)).fetchone()
+            if not row or row['state']!='dead_letter': raise ValueError('Job is not in dead-letter queue')
+            conn.execute("UPDATE jobs SET state='pending',attempts=0,next_run=NULL,last_error=NULL,dead_at=NULL WHERE id=?",(job_id,))
+            return {'id':job_id,'state':'pending','external_action_performed':False}
 
     def list_jobs(self, limit: int = 50) -> list[dict]:
         with self.mutex, self._connect() as conn:
@@ -258,6 +346,10 @@ class AutomationStore:
             row = conn.execute('SELECT * FROM jobs WHERE id=?', (job_id,)).fetchone()
             if not row or row['kind'] not in ('accounting_reconcile','audit_invoice','provenance_review'):
                 raise ValueError('Not an accounting/audit job')
+            if decision not in AUDIT_DECISIONS:
+                raise ValueError('Decision must be one of: ' + ', '.join(AUDIT_DECISIONS))
+            if not isinstance(reviewer, str) or not reviewer.strip() or len(reviewer) > 100:
+                raise ValueError('Reviewer required')
             if row['state'] not in ('needs_review','completed'):
                 raise ValueError('Job not ready for review')
             existing = conn.execute('SELECT seal_json FROM audit_seals WHERE job_id=?',(job_id,)).fetchone()
@@ -284,11 +376,16 @@ class AutomationStore:
             return {'seal':seal, 'verified':verify_evidence(seal)}
 
     def approve(self, job_id: str, reviewer: str) -> dict:
+        """Human approval. For draft-producing kinds this stages a delivery in the transactional
+        outbox (automation/outbox.py) in the SAME transaction, so approval and intent commit together."""
         if not reviewer or len(reviewer) > 100:
             raise ValueError('Reviewer required')
+        from automation import outbox
         with self.mutex, self._connect() as conn:
-            row = conn.execute('SELECT state FROM jobs WHERE id=?', (job_id,)).fetchone()
+            conn.execute('BEGIN IMMEDIATE')
+            row = conn.execute('SELECT state,kind,result FROM jobs WHERE id=?', (job_id,)).fetchone()
             if not row or row['state'] != 'needs_review':
                 raise ValueError('Job is not awaiting review')
             conn.execute('UPDATE jobs SET state=?, reviewed=? WHERE id=?', ('approved', reviewer, job_id))
-        return {'id':job_id,'state':'approved','external_action_performed':False}
+            staged = outbox.stage_for_approved_job(conn, job_id, row['kind'], json.loads(row['result'] or '{}'), reviewer)
+        return {'id':job_id,'state':'approved','external_action_performed':False,'outbox_effect_id':staged}

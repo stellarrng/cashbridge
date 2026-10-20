@@ -48,7 +48,7 @@ export default function AutopilotScreen(_: ScreenProps) {
             lede={t(preparer ? "ap.lede.prep" : "ap.lede.dir")}
             actions={
               <>
-                <Button variant={preparer ? "bridge" : "ghost"} disabled={busy} onClick={() => void go(preparer)}>
+                <Button id="apRun" variant={preparer ? "bridge" : "ghost"} disabled={busy} onClick={() => void go(preparer)}>
                   {t(preparer ? "ap.run" : "ap.runPlan")}
                 </Button>
                 {preparer && <Button variant="ghost" disabled={busy} onClick={() => void go(false)}>{t("ap.plan")}</Button>}

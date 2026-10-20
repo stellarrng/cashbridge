@@ -1,3 +1,23 @@
+> **2026 FinTechathon judging pack (current v9; 20 October 2026):** [40/30/30 rubric and evidence](docs/FINTECHATHON_2026_SCORECARD.md) · [security self-assessment](docs/SECURITY_SELF_ASSESSMENT_2026.md) · [3-minute v9 demo script](docs/FINTECHATHON_DEMO_STORY.md) · [plan to maximise scoring (VI)](docs/PLAN_TO_100_VI.md) · [UAT evidence status](reports/UAT_EVIDENCE_STATUS.md). Team reports user testing has been conducted, but de-identified outcomes are not in the received v9 ZIP; do not claim UAT numeric results until supplied. This v9 pack supersedes historical v8 user-testing and demo-count statements for **current** judging.
+
+> **v9 (20 Oct 2026): more accurate models, measured on public data, and every number traceable.**
+> Receipts forecast rebuilt as censoring-aware survival analysis (WAPE 69.9% → 20.9% on 2,466 public invoices, rolling origin),
+> conformal error bands that actually cover 80%, a buyer model that generalises to unseen customers (ROC-AUC 0.50 → 0.90),
+> a robust planner with a stress test, one FundingSchedule from quote to settlement, encrypted evidence transfer with
+> view-before-accept, click-to-source provenance for every locked number, a lender adapter layer with signed webhooks,
+> sessions shared across worker processes, a financial-distress screen validated on public company data (ROC-AUC 0.74 at 1 year from
+> ledger ratios; a balance sheet is needed for more), and the team's React frontend carrying every v8/v9 screen. 1609 tests pass (10 in a real browser), `make evidence` regenerates every figure. Start with [docs/V9_IMPLEMENTATION_AND_LIMITS.md](docs/V9_IMPLEMENTATION_AND_LIMITS.md)
+> and [docs/RESEARCH_V9.md](docs/RESEARCH_V9.md) (papers, baselines and where the new method did not win).
+
+> **v8 final (20 Oct 2026, feature freeze): proven, not just built.** 1380 tests pass (incl. 9 real-browser tests and 726 independent financial-formula checks), the data gate now
+> fails closed on every financing route with signed source attestations, the planner optimises tail risk (CVaR),
+> the lender↔SME evidence loop is complete, and `make evidence` regenerates every number. Start with
+> [docs/FINAL_AUDIT_AND_ACCEPTANCE.md](docs/FINAL_AUDIT_AND_ACCEPTANCE.md),
+> [docs/RUBRIC_EVIDENCE.md](docs/RUBRIC_EVIDENCE.md) and [docs/V8_IMPLEMENTATION_AND_LIMITS.md](docs/V8_IMPLEMENTATION_AND_LIMITS.md).
+> Benchmark figures in the v6 section below were regenerated in v8 (`reports/BENCHMARKS.md`; e.g. planner + memory 66.2%).
+
+> **v7 addendum (Oct 2026):** Data Reliability Gate, server-controlled approval workflow, bank/SME released-pack case correspondence, crash-safe local queue retry/DLQ, offline external validation harness and revised workspace UX. See [docs/V7_IMPLEMENTATION_AND_LIMITS.md](docs/V7_IMPLEMENTATION_AND_LIMITS.md) for precise implementation and non-production limits.
+
 # CashBridge
 
 **AI-powered SME financial decision & financing readiness copilot — from working-capital pressure and marketing budgets to credible green-transition financing preparation.**

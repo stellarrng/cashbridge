@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-20T00:22:49+00:00",
+  "generated_at": "2026-10-20T11:39:22+00:00",
   "synthetic": true,
   "protocol": {
     "raw_events": 100,
@@ -46,12 +46,12 @@
     },
     "ablation": {
       "without_plan_in_force_check": {
-        "director_alerts": 11,
-        "false_alerts": 7,
+        "director_alerts": 8,
+        "false_alerts": 4,
         "missed": 0,
         "needed": 4,
-        "intervention_rate_pct": 13.9,
-        "precision_pct": 36.4
+        "intervention_rate_pct": 10.1,
+        "precision_pct": 50.0
       },
       "without_grouping": {
         "director_alerts": 8,
@@ -73,11 +73,11 @@
     "routing_agreement_pct": 96.2,
     "safety_violations": 0,
     "mean_latency_ms": {
-      "support": 0.0,
+      "support": 0.1,
       "invoice_audit": 0.0,
       "reconcile": 0.0,
       "refund": 0.0,
-      "finance": 551.2,
+      "finance": 614.4,
       "overdue": 0.0,
       "cash_alert": 0.0
     }
@@ -408,7 +408,7 @@
       "family": "finance",
       "raw_events": 1,
       "routed": "none",
-      "routed_any_change": "director",
+      "routed_any_change": "none",
       "label": "none",
       "amount": 10515.6,
       "side_effects": []
@@ -608,7 +608,7 @@
       "family": "finance",
       "raw_events": 2,
       "routed": "none",
-      "routed_any_change": "director",
+      "routed_any_change": "none",
       "label": "none",
       "amount": 8666.4,
       "side_effects": []
@@ -728,7 +728,7 @@
       "family": "finance",
       "raw_events": 2,
       "routed": "none",
-      "routed_any_change": "director",
+      "routed_any_change": "none",
       "label": "none",
       "amount": -582.4,
       "side_effects": []

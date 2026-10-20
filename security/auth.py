@@ -12,8 +12,12 @@ approval from the user who prepared the pack. Every check happens on the server;
 in the browser grants nothing.
 
 Sessions are stateless HMAC-SHA256 tokens (``base64url(claims).base64url(sig)``) so they verify on
-any serverless instance that shares ``CASHBRIDGE_SESSION_SECRET``. Sign-out revokes the session id
-in process memory. In DEMO mode a random secret is generated when none is configured (sessions then
+any serverless instance that shares ``CASHBRIDGE_SESSION_SECRET``. Sign-out, "sign out everywhere" and
+the failed-sign-in throttle live in a session-state store (v9): SQLite shared by every worker process
+on the host (``CASHBRIDGE_SESSION_STORE=/path/sessions.sqlite3``; the default in PRODUCTION is the
+runtime folder), or process memory (``memory``; the DEMO default). On serverless hosts without a shared
+disk, memory state is per instance: a sign-out there is enforced only where it happened, which is why
+production on such hosts needs an external store (not shipped here). In DEMO mode a random secret is generated when none is configured (sessions then
 end when the process restarts). PRODUCTION mode refuses to start without a strong secret.
 
 SYNTHETIC MVP control, not a production identity provider (no MFA enrolment, no OIDC, no lockout store).
@@ -40,7 +44,8 @@ from config import runtime_mode
 SESSION_TTL_SECONDS = 8 * 3600
 TOKEN_VERSION = 1
 LOGIN_WINDOW_SECONDS = 300
-LOGIN_MAX_FAILURES = 8
+LOGIN_MAX_FAILURES = 8            # per client address
+LOGIN_MAX_FAILURES_PER_ACCOUNT = 20  # per account, across all addresses (slows distributed guessing)
 
 ROLE_PERMISSIONS: Dict[str, FrozenSet[str]] = {
     "sme_accountant": frozenset({"sme:read", "sme:analyze", "sme:prepare", "demo:reset"}),
@@ -141,6 +146,104 @@ class AuthError(Exception):
         self.detail = detail
 
 
+class MemorySessionState:
+    """Per-process session state (DEMO default)."""
+
+    shared = False
+
+    def __init__(self) -> None:
+        self._revoked: Dict[str, int] = {}
+        self._cutoff: Dict[str, float] = {}
+        self._failures: Dict[str, List[float]] = {}
+        self._lock = threading.Lock()
+
+    def revoke(self, sid: str, exp: int) -> None:
+        with self._lock:
+            self._revoked[sid] = exp
+
+    def is_revoked(self, sid: str) -> bool:
+        return sid in self._revoked
+
+    def revoke_user(self, user_id: str, before: float) -> None:
+        with self._lock:
+            self._cutoff[user_id] = before
+
+    def cutoff(self, user_id: str) -> float:
+        return self._cutoff.get(user_id, 0.0)
+
+    def failures(self, key: str, since: float) -> int:
+        with self._lock:
+            recent = [t for t in self._failures.get(key, []) if t > since]
+            self._failures[key] = recent
+            return len(recent)
+
+    def fail(self, key: str, at: float) -> None:
+        with self._lock:
+            self._failures.setdefault(key, []).append(at)
+
+
+class SqliteSessionState:
+    """Session state shared by every process that opens the same file (uvicorn/gunicorn workers on one host)."""
+
+    shared = True
+
+    def __init__(self, path: str | Path) -> None:
+        import sqlite3
+        self._sqlite3 = sqlite3
+        self.path = str(path)
+        Path(self.path).parent.mkdir(parents=True, exist_ok=True)
+        with self._con() as con:
+            con.executescript("""PRAGMA journal_mode=WAL;
+                CREATE TABLE IF NOT EXISTS revoked (sid TEXT PRIMARY KEY, exp INTEGER NOT NULL);
+                CREATE TABLE IF NOT EXISTS user_cutoff (user_id TEXT PRIMARY KEY, before REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS failures (key TEXT NOT NULL, at REAL NOT NULL);
+                CREATE INDEX IF NOT EXISTS failures_key ON failures(key, at);""")
+
+    def _con(self):
+        con = self._sqlite3.connect(self.path, timeout=10)
+        con.execute("PRAGMA busy_timeout=10000")
+        return con
+
+    def revoke(self, sid: str, exp: int) -> None:
+        with self._con() as con:
+            con.execute("INSERT OR IGNORE INTO revoked VALUES (?,?)", (sid, exp))
+            con.execute("DELETE FROM revoked WHERE exp < ?", (int(time.time()) - 60,))  # expired tokens fail anyway
+
+    def is_revoked(self, sid: str) -> bool:
+        with self._con() as con:
+            return con.execute("SELECT 1 FROM revoked WHERE sid=?", (sid,)).fetchone() is not None
+
+    def revoke_user(self, user_id: str, before: float) -> None:
+        with self._con() as con:
+            con.execute("INSERT INTO user_cutoff VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET before=MAX(before, excluded.before)",
+                        (user_id, before))
+
+    def cutoff(self, user_id: str) -> float:
+        with self._con() as con:
+            row = con.execute("SELECT before FROM user_cutoff WHERE user_id=?", (user_id,)).fetchone()
+        return float(row[0]) if row else 0.0
+
+    def failures(self, key: str, since: float) -> int:
+        with self._con() as con:
+            con.execute("DELETE FROM failures WHERE at <= ?", (since,))
+            return int(con.execute("SELECT COUNT(*) FROM failures WHERE key=? AND at > ?", (key, since)).fetchone()[0])
+
+    def fail(self, key: str, at: float) -> None:
+        with self._con() as con:
+            con.execute("INSERT INTO failures VALUES (?,?)", (key, at))
+
+
+def session_state(source: Mapping[str, str]) -> Any:
+    configured = source.get("CASHBRIDGE_SESSION_STORE", "").strip()
+    if configured.lower() == "memory":
+        return MemorySessionState()
+    if configured:
+        return SqliteSessionState(configured)
+    if runtime_mode.is_production(source):
+        return SqliteSessionState(runtime_mode.runtime_dir(Path(__file__).resolve().parents[1], source) / "sessions.sqlite3")
+    return MemorySessionState()
+
+
 class SessionManager:
     """Issues and verifies signed session tokens; tracks sign-outs and failed sign-ins."""
 
@@ -164,8 +267,7 @@ class SessionManager:
             self.ephemeral_secret = False
         self._key = configured.encode()
         self._clock = clock
-        self._revoked: set[str] = set()
-        self._failures: Dict[str, List[float]] = {}
+        self.state = session_state(source)
         self._lock = threading.Lock()
         self.users = self._load_users(source)
 
@@ -195,23 +297,21 @@ class SessionManager:
         return [{**a, "portal": ROLE_PORTAL[a["role"]], "role_label": ROLE_LABEL[a["role"]]} for a in DEMO_ACCOUNTS]
 
     # -- sign-in
-    def _throttle(self, key: str) -> None:
-        now = self._clock()
-        with self._lock:
-            recent = [t for t in self._failures.get(key, []) if now - t < LOGIN_WINDOW_SECONDS]
-            self._failures[key] = recent
-            if len(recent) >= LOGIN_MAX_FAILURES:
-                raise AuthError(429, "Too many failed sign-in attempts; wait a few minutes")
+    def _throttle(self, key: str, limit: int = LOGIN_MAX_FAILURES) -> None:
+        if self.state.failures(key, self._clock() - LOGIN_WINDOW_SECONDS) >= limit:
+            raise AuthError(429, "Too many failed sign-in attempts; wait a few minutes")
 
     def _fail(self, key: str) -> None:
-        with self._lock:
-            self._failures.setdefault(key, []).append(self._clock())
+        self.state.fail(key, self._clock())
 
     def login(self, user_id: str, passcode: str, portal: Optional[str] = None, client_key: str = "-") -> Dict[str, Any]:
+        account_key = "acct:" + (user_id or "").strip().lower()[:80]
         self._throttle(client_key)
+        self._throttle(account_key, LOGIN_MAX_FAILURES_PER_ACCOUNT)
         user = self.users.get((user_id or "").strip().lower())
         if user is None or not verify_passcode(passcode or "", user["passcode_hash"]):
             self._fail(client_key)
+            self._fail(account_key)
             raise AuthError(401, "Unknown account or wrong passcode")
         if portal and ROLE_PORTAL[user["role"]] != portal:
             raise AuthError(403, f"This account belongs to the {ROLE_PORTAL[user['role']].upper()} portal")
@@ -257,13 +357,19 @@ class SessionManager:
             raise AuthError(401, "Unsupported session token")
         if int(claims.get("exp", 0)) <= self._clock():
             raise AuthError(401, "Session expired; sign in again")
-        if claims.get("sid") in self._revoked:
+        if self.state.is_revoked(str(claims.get("sid"))):
             raise AuthError(401, "Session signed out")
+        if int(claims.get("iat", 0)) < self.state.cutoff(str(claims.get("sub"))):  # iat is whole seconds, so a sign-in in
+            # the same second as "sign out everywhere" is also ended (errs on the safe side; sign in again)
+            raise AuthError(401, "Session ended by a sign-out on all devices")
         return self._principal(claims)
 
     def logout(self, principal: Principal) -> None:
-        with self._lock:
-            self._revoked.add(principal.session_id)
+        self.state.revoke(principal.session_id, principal.expires_at)
+
+    def logout_everywhere(self, principal: Principal) -> None:
+        """End every session of this user, on every worker sharing the store (e.g. lost device, role change)."""
+        self.state.revoke_user(principal.user_id, float(self._clock()))
 
 
 _manager: Optional[SessionManager] = None
@@ -314,6 +420,21 @@ def require(permission: str):
     return dependency
 
 
+def trust_proxy_headers(env: Optional[Mapping[str, str]] = None) -> bool:
+    """Honour X-Forwarded-For only behind a known reverse proxy (otherwise any caller can rotate it
+    to dodge the sign-in throttle). On by default on serverless hosts; set CASHBRIDGE_TRUST_PROXY=1
+    on Render/Fly/nginx deployments that overwrite the header."""
+    source = os.environ if env is None else env
+    flag = source.get("CASHBRIDGE_TRUST_PROXY", "").strip().lower()
+    if flag in ("0", "false", "no"):
+        return False
+    return flag in ("1", "true", "yes") or runtime_mode.is_serverless(source)
+
+
 def client_key(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for", "")
-    return forwarded.split(",")[0].strip() or (request.client.host if request.client else "-")
+    direct = request.client.host if request.client else "-"
+    if trust_proxy_headers():
+        # The right-most entry is the one the trusted proxy appended; left entries are caller-controlled.
+        hops = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
+        return hops[-1] if hops else direct
+    return direct

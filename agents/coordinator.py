@@ -20,6 +20,8 @@ Case-state rules used here
 
 from __future__ import annotations
 
+import hashlib
+
 import json
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -61,7 +63,7 @@ from schemas.document_schemas import (
 )
 from schemas.forecast_schemas import LedgerSnapshot, LiquidityOption, ScenarioParams, to_contract
 from security import injection_guard, number_check
-from security.audit_log import AuditLog, sha256_of
+from security.audit_log import AuditLog, sha256_of, verify_chain
 from security.bec_fraud_detector import BecVerdict, analyze, is_valid_vn_tax_id
 from security.otp_verifier import Challenge, OtpVerifier, action_hash
 from security.permission_gatekeeper import PermissionGatekeeper
@@ -153,6 +155,7 @@ class Coordinator:
         self.verification: List[Dict[str, Any]] = []
         self.nominee: Optional[CommercialInvoice] = None
         self.options: List[LiquidityOption] = []
+        self.schedules: Dict[str, Any] = {}
         self.selected_option_id: Optional[str] = None
         self.alerts: List[Dict[str, Any]] = []
         self.blocked_fraud_count = 0
@@ -395,6 +398,10 @@ class Coordinator:
                         for n, f in extraction.fields.items() if f.confidence < self.docs.threshold
                     ],
                     "fields_read": len(extraction.fields),
+                    "text_sha256": hashlib.sha256(scan["text"].encode("utf-8")).hexdigest(),
+                    "fields": {n: {"value": None if f.value is None else str(f.value), "confidence": f.confidence, "page": f.page,
+                                   "line": f.line, "char_start": f.char_start, "char_end": f.char_end, "source_line": f.source_line,
+                                   "reason": f.reason} for n, f in extraction.fields.items()},
                 }
             )
             if differences:
@@ -478,6 +485,11 @@ class Coordinator:
             amount_needed_usd=self.forecast.shortfall_usd,
         )
         self.options = rank_options(request, self.catalog)
+        # One timeline per lender option: a pack released today is drawn down today (core/funding_schedule.py).
+        from core.funding_evaluator import schedule_for
+        self.schedules = {o.id: sc for o in self.options
+                          if (sc := schedule_for(o, quote_date=self.as_of, drawdown_date=self.as_of, due_date=self.nominee.due_date,
+                                                 invoice_usd=self.nominee.amount.to_usd(), catalog=self.catalog)) is not None}
         self.case.move_to(CaseState.OPTIONS_RANKED)
 
     def _confirm_nominee(self) -> None:
@@ -709,8 +721,20 @@ class Coordinator:
 
     @property
     def pack_pdf_file(self) -> Optional[Path]:
-        """The Verifiable Funding Pack PDF for the current pack, if one has been written."""
-        return self.evidence_dir / self.pack["pdf_path"] if self.pack.get("pdf_path") else None
+        """The Verifiable Funding Pack PDF for the current pack; rebuilt if an earlier compilation failed."""
+        if self.pack.get("pdf_pending") and self.selected_option() is not None:
+            try:
+                self._write_pdf(self.selected_option())
+                self.pack.pop("pdf_pending", None)
+            except Exception:
+                return None
+        path = self.evidence_dir / self.pack["pdf_path"] if self.pack.get("pdf_path") else None
+        if path is not None and not path.exists() and self.state.value in ("SUBMITTED", "FUNDED", "REJECTED") and self.selected_option():
+            try:
+                self._write_pdf(self.selected_option())  # deleted or lost on disk: rebuild from the locked record
+            except Exception:
+                return None
+        return path
 
     def _write_pdf(self, option: LiquidityOption) -> None:
         """Compile the pack PDF (again after submission, so it also carries the registry block and lender reference)."""
@@ -806,6 +830,7 @@ class Coordinator:
             raise ValueError("no pack is awaiting approval")
         self._gate("coordinator", "submit_pack", Tier.L3_EXTERNAL, self._pack_payload)  # logged AWAITING_APPROVAL
         self._challenge = self.otp.issue_challenge("submit_pack", self._pack_payload)
+        self._otp_failures = 0
         return {
             "action_hash": self._challenge.action_hash,
             "expires_at": self._challenge.expires_at.isoformat(),
@@ -832,19 +857,49 @@ class Coordinator:
         result = self.otp.verify(self._challenge, code, action_type="submit_pack", payload=payload)
         self.gate.record_approval(CASE_ID, result.approval, result.error, tool="submit_pack")
         if not result.ok:
+            if result.error == "invalid_code":
+                from config.settings import OTP_MAX_FAILED_ATTEMPTS
+                self._otp_failures = getattr(self, "_otp_failures", 0) + 1
+                if self._otp_failures >= OTP_MAX_FAILED_ATTEMPTS:
+                    # Brute-force cap: void this challenge; the Director must request a fresh one.
+                    self._challenge = None
+                    self.audit.append(
+                        case_id=CASE_ID, agent="coordinator", tool="submit_pack", tier=Tier.L3_EXTERNAL,
+                        decision=Decision.BLOCKED,
+                        reason=f"Approval challenge voided after {OTP_MAX_FAILED_ATTEMPTS} wrong codes",
+                        input_payload={"pack_id": self.pack.get("pack_id"), "approver": approver},
+                    )
             return {"ok": False, "error": result.error}
         if self.registry.is_registered(self.nominee) and self.selected_option().type == "factoring":
             return {"ok": False, "error": "DoubleFinancingBlocked"}
         decision = self._gate("coordinator", "submit_pack", Tier.L3_EXTERNAL, payload, approval=result.approval)
         if decision.decision is not Decision.ALLOWED:
             return {"ok": False, "error": decision.reason}
-        lender_ref = self._lender_submit(payload)
+        try:
+            # The payload carries the bundle hash and the OTP-bound action hash, so a resubmission after a timeout is
+            # the same request: the lender connector derives its reference from it (idempotent; MOCK connector).
+            lender_ref = self._lender_submit(payload)
+        except (TimeoutError, ConnectionError, OSError, ValueError) as error:  # ValueError: provider answer refused by the adapter
+            self.audit.append(
+                case_id=CASE_ID, agent="coordinator", tool="submit_pack", tier=Tier.L3_EXTERNAL, decision=Decision.BLOCKED,
+                reason=f"Lender system unavailable ({type(error).__name__}); nothing was submitted or registered",
+                input_payload={"pack_id": self.pack.get("pack_id")},
+            )
+            return {"ok": False, "error": "lender_unavailable"}
         block = None
         if self.selected_option().type == "factoring":
             block = self.registry.register(self.nominee, self._bundle_sha, lender_ref)
         self.case.move_to(CaseState.SUBMITTED)
         self.pack.update(status="SUBMITTED", lender_ref=lender_ref, registry_block=block, approved_by=approver)
-        self._write_pdf(self.selected_option())
+        try:
+            self._write_pdf(self.selected_option())
+        except Exception as error:  # the submission already happened: never report it as failed
+            self.pack["pdf_pending"] = True
+            self.audit.append(
+                case_id=CASE_ID, agent="coordinator", tool="compile_pack_pdf", tier=Tier.L2_INTERNAL_WRITE, decision=Decision.BLOCKED,
+                reason=f"PDF compilation failed after submission ({type(error).__name__}); it is rebuilt on the next download",
+                input_payload={"pack_id": self.pack.get("pack_id")},
+            )
         self._challenge = None
         self._save()
         return {"ok": True, "error": None, "lender_ref": lender_ref}
@@ -865,9 +920,32 @@ class Coordinator:
         self._save()
         return {"ok": True}
 
+    def withdraw_release(self, by: str, reason: str) -> Dict[str, Any]:
+        """The SME withdraws its consent to share a released pack before the lender has decided.
+
+        The Director's OTP release is the consent to share this exact pack with this lender; the Director can
+        take it back while the lender has not recorded APPROVE_FUNDING or DECLINE. From then on the lender
+        portal no longer serves the pack, its PDF, messages or evidence requests. The invoice-registry entry
+        stays (append-only): re-pledging the same invoice needs a person to clear it with the first lender.
+        """
+        if self.state is not CaseState.SUBMITTED:
+            raise ValueError("only a released pack awaiting the lender's decision can be withdrawn")
+        reason = (reason or "").strip()
+        if not 3 <= len(reason) <= 300:
+            raise ValueError("explain the withdrawal (3-300 characters)")
+        self.audit.append(
+            case_id=CASE_ID, agent="coordinator", tool="withdraw_consent", tier=Tier.L3_EXTERNAL,
+            decision=Decision.REJECTED, reason=f"Consent to share withdrawn by {by}: {reason}",
+            input_payload={"pack_id": self.pack.get("pack_id"), "lender_ref": self.pack.get("lender_ref")},
+        )
+        self.case.move_to(CaseState.NEEDS_HUMAN, reason="Pack withdrawn from the lender by the SME")
+        self.pack.update(status="WITHDRAWN_BY_SME", withdrawn_by=by)
+        self._save()
+        return {"ok": True, "pack_id": self.pack.get("pack_id")}
+
     def reopen_after_rejection(self) -> Dict[str, Any]:
-        """The preparer takes a rejected pack back to the option-choice step."""
-        if self.state is not CaseState.NEEDS_HUMAN or self.pack.get("status") != "REJECTED_BY_DIRECTOR":
+        """The preparer takes a rejected or withdrawn pack back to the option-choice step."""
+        if self.state is not CaseState.NEEDS_HUMAN or self.pack.get("status") not in ("REJECTED_BY_DIRECTOR", "WITHDRAWN_BY_SME"):
             raise ValueError("there is no rejected pack to rework")
         self.case.move_to(CaseState.INVOICE_VERIFIED)
         self.selected_option_id = None
@@ -934,12 +1012,46 @@ class Coordinator:
         self._gate("cfo_assistant", "run_scenario", Tier.L1_ANALYZE, params.model_dump())
         return run_simulation(self.forecast_inputs, params)
 
+    archive_on_reset = False  # the live server turns this on; the headless story and unit tests do not
+    ARCHIVE_KEEP = 20
+
     def reset(self) -> CaseState:
-        """Fresh demo: clear the audit log and registry for this evidence folder and rerun the Monday flow."""
+        """Fresh demo: start a new audit log and registry for this evidence folder and rerun the Monday flow.
+
+        With ``archive_on_reset`` the previous session's audit log and registry are moved to
+        ``evidence/archive/<UTC time>/`` with a manifest (SHA-256, chain check) instead of being deleted,
+        so a server restart or a demo reset never destroys evidence. The newest 20 archives are kept.
+        """
+        if self.archive_on_reset:
+            self._archive_evidence()
         for path in (self.audit_path, self.registry_path):
             if path.exists():
                 path.unlink()
         return self.weekly_run()
+
+    def _archive_evidence(self) -> Optional[Path]:
+        import hashlib
+        import shutil
+        present = [p for p in (self.audit_path, self.registry_path) if p.exists() and p.stat().st_size > 0]
+        if not present:
+            return None
+        root = self.evidence_dir / "archive"
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        target = root / stamp
+        target.mkdir(parents=True, exist_ok=True)
+        manifest: Dict[str, Any] = {"archived_at": stamp, "files": {}}
+        for path in present:
+            dest = target / path.name
+            shutil.copy2(path, dest)
+            manifest["files"][path.name] = hashlib.sha256(dest.read_bytes()).hexdigest()
+        if self.audit_path in present:
+            ok, broken, lines = verify_chain(target / self.audit_path.name)
+            manifest["audit_chain"] = {"ok": ok, "broken_at": broken, "lines": lines}
+        (target / "MANIFEST.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+        archives = sorted(p for p in root.iterdir() if p.is_dir())
+        for old in archives[:-self.ARCHIVE_KEEP]:
+            shutil.rmtree(old, ignore_errors=True)
+        return target
 
     # -------------------------------------------------------------- persistence
     def _save(self) -> None:
@@ -969,3 +1081,9 @@ class Coordinator:
         (self.cases_dir / f"{CASE_ID}.json").write_text(
             json.dumps(self.case.model_dump(mode="json"), indent=2, sort_keys=True), encoding="utf-8"
         )
+
+
+def nominee_receipts(coord: "Coordinator"):
+    """Dated expected receipts of the nominated invoice in the live forecast (used to replace them when factored)."""
+    from core.forecasting_engine import invoice_receipt_schedule
+    return invoice_receipt_schedule(coord.forecast_inputs, coord.nominee.invoice_no) if coord.nominee else []

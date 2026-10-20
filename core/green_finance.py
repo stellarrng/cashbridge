@@ -120,3 +120,63 @@ def green_project_economics(project: dict, electricity_price_usd_per_kwh: float,
         'estimated_net_savings_usd_per_year':round(net,2),
         'simple_payback_years':round(cost/net,2) if net>0 else None,
         'limitation':'Indicative energy savings and simple payback; excludes tax, financing, depreciation, intermittency, verification and change in tariffs.'}
+
+
+COMMISSIONING_WEEKS = 4  # savings and loan repayments start this many weeks after the capex is paid
+
+
+def green_cash_impact(closing_by_week: list, buffer_usd: float, project: dict, capex_week: int, financed_pct: float,
+                      loan_apr_pct: float, tenor_months: int, electricity_price_usd_per_kwh: float,
+                      annual_opex_usd: float = 0.0) -> dict:
+    """What a green investment does to the 13-week cash forecast, cash-funded vs loan-funded.
+
+    Deterministic arithmetic on the existing forecast: the owner-funded part of the capex leaves in
+    ``capex_week``; a green loan pays the rest directly to the supplier; energy savings (net of opex) and
+    the loan's level monthly instalment (spread weekly) both start after commissioning. Everything is an
+    ESTIMATE: no tariff path, no degradation, no tax. It does not certify the project as green.
+    """
+    import math
+    weeks = [float(x) for x in closing_by_week]
+    if not weeks or len(weeks) > 52:
+        raise ValueError("forecast weeks missing")
+    if not isinstance(capex_week, int) or isinstance(capex_week, bool) or not 1 <= capex_week <= len(weeks):
+        raise ValueError(f"capex_week must be 1-{len(weeks)}")
+    for name, v, hi in (("financed_pct", financed_pct, 100), ("loan_apr_pct", loan_apr_pct, 60)):
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or not 0 <= v <= hi:
+            raise ValueError(f"{name} must be between 0 and {hi}")
+    if not isinstance(tenor_months, int) or isinstance(tenor_months, bool) or not 6 <= tenor_months <= 120:
+        raise ValueError("tenor_months must be 6-120")
+    eco = green_project_economics(project, electricity_price_usd_per_kwh, annual_opex_usd)
+    cost = float(project["project_cost_usd"])
+    weekly_saving = eco["estimated_net_savings_usd_per_year"] / 52.0
+    start = capex_week + COMMISSIONING_WEEKS
+
+    def scenario(pct: float) -> dict:
+        loan = cost * pct / 100.0
+        own = cost - loan
+        r = loan_apr_pct / 100.0 / 12.0
+        monthly = (loan / tenor_months if r == 0 else loan * r / (1 - (1 + r) ** -tenor_months)) if loan else 0.0
+        weekly_payment = monthly * 12.0 / 52.0
+        out, delta = [], 0.0
+        for i, base in enumerate(weeks, start=1):
+            if i == capex_week:
+                delta -= own
+            if i >= start:
+                delta += weekly_saving - weekly_payment
+            out.append(round(base + delta, 2))
+        below_buffer = [i + 1 for i, v in enumerate(out) if v < buffer_usd]
+        return {"financed_pct": pct, "loan_usd": round(loan, 2), "owner_cash_usd": round(own, 2),
+                "monthly_instalment_usd": round(monthly, 2), "closing_by_week": out, "min_closing_usd": round(min(out), 2),
+                "weeks_below_buffer": below_buffer, "first_negative_week": next((i + 1 for i, v in enumerate(out) if v < 0), None),
+                "extra_funding_to_hold_buffer_usd": round(max(0.0, buffer_usd - min(out)) - max(0.0, buffer_usd - min(weeks)), 2)}
+
+    base = {"closing_by_week": [round(x, 2) for x in weeks], "min_closing_usd": round(min(weeks), 2),
+            "weeks_below_buffer": [i + 1 for i, v in enumerate(weeks) if v < buffer_usd],
+            "first_negative_week": next((i + 1 for i, v in enumerate(weeks) if v < 0), None)}
+    return {"synthetic": True, "project_id": project["project_id"], "buffer_usd": buffer_usd, "capex_week": capex_week,
+            "savings_start_week": start if start <= len(weeks) else None, "weekly_net_saving_usd": round(weekly_saving, 2),
+            "loan_apr_pct": loan_apr_pct, "tenor_months": tenor_months,
+            "without_project": base, "cash_funded": scenario(0.0), "loan_funded": scenario(float(financed_pct)),
+            "is_estimate": True, "green_certified": False,
+            "limitation": "Estimate on the current 13-week forecast. Excludes tariff changes, degradation, tax, and lender approval; "
+                          "not a green-taxonomy certification. Payback and impact need independent verification."}

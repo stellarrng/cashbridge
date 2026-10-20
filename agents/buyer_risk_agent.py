@@ -163,6 +163,47 @@ class BuyerRiskAgent:
         scores = [self._probability(self._vector(b, terms_days, self.medians[b])) for b in self.buyers]
         return sum(scores) / len(scores)
 
+    # ------------------------------------------------------------- explanation
+    def domain(self) -> Dict[str, Any]:
+        """Ranges seen in training. Scores outside them are extrapolations and are flagged as such."""
+        terms = [_terms_days(r) for r in self.history]
+        sizes = [self._relative_size(r["buyer_id"], _usd(r)) for r in self.history]
+        return {"terms_days": [min(terms), max(terms)] if terms else None,
+                "size_vs_usual": [round(min(sizes), 3), round(max(sizes), 3)] if sizes else None,
+                "buyers_with_history": list(self.buyers)}
+
+    def explain(self, buyer_id: str, terms_days: int, amount_usd: float) -> Dict[str, Any]:
+        """Why this probability: intercept + per-feature contributions (coefficient x value) = log-odds.
+
+        Exact for the fitted logistic model, so the parts always add up to the score before the
+        [P_FLOOR, P_CEILING] band. A buyer without history is scored as the portfolio average and says so.
+        """
+        dom = self.domain()
+        out_of_domain = []
+        if dom["terms_days"] and not dom["terms_days"][0] <= terms_days <= dom["terms_days"][1]:
+            out_of_domain.append(f"payment terms {terms_days} days outside the {dom['terms_days'][0]}-{dom['terms_days'][1]} days seen in training")
+        size = self._relative_size(buyer_id, amount_usd)
+        if dom["size_vs_usual"] and not dom["size_vs_usual"][0] <= size <= dom["size_vs_usual"][1]:
+            out_of_domain.append(f"invoice is {size:.2f}x the buyer's usual size, outside {dom['size_vs_usual'][0]}-{dom['size_vs_usual'][1]}x")
+        base = {"buyer_id": buyer_id, "p_on_time": self.p_on_time_for(buyer_id, terms_days, amount_usd),
+                "out_of_domain": out_of_domain, "model": "logistic regression (L2, C=10)" if self.model.classifier is not None else "smoothed rate",
+                "not_a_credit_decision": True,
+                "uses_personal_or_protected_attributes": False}
+        if self.model.classifier is None:
+            return {**base, "method": "constant (history has one outcome)", "contributions": []}
+        if not self.has_history(buyer_id):
+            return {**base, "method": "portfolio average of buyers with history (no history for this buyer)", "contributions": [],
+                    "has_history": False}
+        names = [f"buyer {b}" for b in self.buyers] + list(MODEL_FEATURES)
+        vector = self._vector(buyer_id, terms_days, amount_usd)
+        parts = [{"feature": n, "value": round(v, 4), "coefficient": round(self.model.coefficients[n], 4),
+                  "contribution_log_odds": round(self.model.coefficients[n] * v, 4)} for n, v in zip(names, vector) if v != 0.0]
+        logit = self.model.intercept + sum(self.model.coefficients[n] * v for n, v in zip(names, vector))
+        return {**base, "method": "intercept + sum of contributions = log-odds; p = 1 / (1 + exp(-log-odds))", "has_history": True,
+                "intercept": round(self.model.intercept, 4), "log_odds": round(logit, 4),
+                "p_before_band": round(1 / (1 + float(np.exp(-logit))), 4),
+                "contributions": sorted(parts, key=lambda x: -abs(x["contribution_log_odds"]))}
+
     # ------------------------------------------------------------- per buyer
     def average_days_late(self, buyer_id: str) -> Optional[float]:
         """Mean days late over the buyer's history, counting early and on-time payments as zero."""

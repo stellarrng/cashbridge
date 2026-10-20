@@ -120,7 +120,7 @@ def test_production_mode_disables_demo_shortcuts(monkeypatch, backend, tmp_path)
     users = [{"user_id": "sme.lan", "name": "Lan Nguyen", "role": "sme_accountant", "org": "x",
               "tenant_id": auth.SME_TENANT, "passcode_hash": auth.hash_passcode("a-long-real-passcode")}]
     env = {"CASHBRIDGE_ENV": "production", "OTP_SECRET": "KRSXG5CTMVRXEZLUKN2XAZLSKNSWG4TFOQ",
-           "CASHBRIDGE_SESSION_SECRET": "s" * 40, "CASHBRIDGE_USERS_JSON": json.dumps(users)}
+           "CASHBRIDGE_SESSION_SECRET": "s" * 40, "CASHBRIDGE_VAULT_KEY": "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=", "CASHBRIDGE_USERS_JSON": json.dumps(users)}
     for key, value in env.items():
         monkeypatch.setenv(key, value)
     auth.reset_sessions_for_tests(auth.SessionManager())
@@ -162,3 +162,21 @@ def test_organisation_policy_is_read_only_and_needs_a_session(client):
     assert pol["planner"]["max_packs_per_plan"] == 3 and "browser cannot change" in pol["change_process"]
     assert client.get("/api/settings/policy", headers=client.header("bank.lihua")).json()["you"]["tenant"] != pol["you"]["tenant"]
     assert client.post("/api/settings/policy", json={"max_packs_per_plan": 99}, headers=client.header("sme.minh")).status_code == 405
+
+
+@pytest.mark.parametrize("value", ["prd", "PRODUTION", "staging", "live", "Production "])
+def test_unknown_or_misspelled_environment_fails_safe(value, monkeypatch):
+    env = {"CASHBRIDGE_ENV": value}
+    if value.strip().lower() == "production":
+        assert runtime_mode.is_production(env)
+        return
+    assert runtime_mode.is_production(env)  # strict guards apply, never demo shortcuts
+    assert any("not recognised" in p for p in runtime_mode.production_problems(env))
+    monkeypatch.setenv("CASHBRIDGE_ENV", value)
+    with pytest.raises(runtime_mode.ProductionConfigError):
+        create_app(lambda: None)
+
+
+@pytest.mark.parametrize("value", ["", "demo", "DEV", "test"])
+def test_explicit_demo_values_stay_demo(value):
+    assert not runtime_mode.is_production({"CASHBRIDGE_ENV": value})

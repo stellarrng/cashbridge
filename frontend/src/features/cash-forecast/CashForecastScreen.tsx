@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useCase, type CaseSnapshot } from "@/entities/case";
 import { WeeklyCashChart, type ForecastWeek, type ScenarioDelta } from "@/entities/forecast";
-import { useAct } from "@/shared/hooks";
+import { useAct, useAsync } from "@/shared/hooks";
+import { LineChart, type LineSeries } from "@/shared/charts";
 import { useI18n } from "@/shared/i18n";
 import { pct, usd, usd2 } from "@/shared/lib/format";
 import type { ScreenProps } from "@/shared/lib/screen";
 import { Button, Kpi, Kpis, Loadable, Meter, PageHead, Panel, Scroll } from "@/shared/ui";
-import { simulate } from "./api";
+import { fetchReceiptsOutlook, simulate, type ReceiptsOutlook } from "./api";
 
 const SLIDER_LABEL: Record<string, string> = {
   dso_change_days: "cash.sl.dso",
@@ -93,6 +94,7 @@ function CashForecast({ s }: { s: CaseSnapshot }) {
           </table>
         </Panel>
       </div>
+      <Outlook />
       <Panel title={t("cash.risk")} sub={`${s.risk_model.method}, ${s.risk_model.training_rows}. ${s.risk_model.on_time_definition}.`}>
         <Scroll>
           <table>
@@ -120,5 +122,37 @@ function CashForecast({ s }: { s: CaseSnapshot }) {
         </Scroll>
       </Panel>
     </>
+  );
+}
+
+/** Expected receipts timing from the payment history, with an error band calibrated on realised errors. Loaded after the case. */
+function Outlook() {
+  const { t } = useI18n();
+  const o = useAsync(() => fetchReceiptsOutlook().catch(() => null as ReceiptsOutlook | null));
+  const d = o.data;
+  if (!d) return null;
+  const weeks = d.weeks.map((w) => "W" + w);
+  const series: LineSeries[] = [
+    { name: t("ol.base"), values: d.base_receipts, color: "var(--ink-3)", dash: "5 4", muted: true },
+    { name: t("ol.v9"), values: d.v9_expected_receipts, color: "var(--s1)", width: 3 },
+  ];
+  if (d.v9_band_80.every((b) => b != null)) {
+    series.push({ name: t("ol.lo"), values: d.v9_band_80.map((b) => (b as [number, number])[0]), color: "var(--s2)", dash: "2 3", muted: true });
+    series.push({ name: t("ol.hi"), values: d.v9_band_80.map((b) => (b as [number, number])[1]), color: "var(--s2)", dash: "2 3", muted: true });
+  }
+  const wape = (m: string) => (d.backtest?.[m] ? (d.backtest[m].wape * 100).toFixed(1) + "%" : "–");
+  const cov = d.interval_coverage?.split_conformal;
+  return (
+    <div className="page-outlook">
+      <Panel title={t("ol.title")} sub={<><span className="pill sim">{t("lbl.sim")}</span> {t("ol.sub")}</>}>
+        <LineChart labels={weeks} series={series} fmt={(v) => usd(v)} label={t("ol.title")} endLabels />
+        <Kpis>
+          <Kpi tone="warn" label={t("ol.wapeBase")} value={wape("v8_rule")} foot={t("ol.own")} />
+          <Kpi tone="pos" label={t("ol.wapeV9")} value={wape("km_pooled")} foot={t("ol.own")} />
+          <Kpi label={t("ol.cov")} value={cov != null ? (cov * 100).toFixed(1) + "%" : "–"} foot={t("ol.covFoot")} />
+        </Kpis>
+        <p className="note">{d.note}</p>
+      </Panel>
+    </div>
   );
 }

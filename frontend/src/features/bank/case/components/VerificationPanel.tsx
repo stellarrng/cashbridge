@@ -25,7 +25,7 @@ export function VerificationPanel({ verification, onVerify }: { verification: Pa
           ]}
         />
       )}
-      <div>
+      <div id="checks">
         {v ? (
           <ul className="checks">
             {v.checks.map((c, i) => (
@@ -40,7 +40,7 @@ export function VerificationPanel({ verification, onVerify }: { verification: Pa
         )}
       </div>
       <div className="row mt-2">
-        <Button variant={v ? "ghost" : "bridge"} onClick={onVerify}>{t(v ? "bk.verifyAgain" : "bk.runVerify")}</Button>
+        <Button id="bverify" variant={v ? "ghost" : "bridge"} onClick={onVerify}>{t(v ? "bk.verifyAgain" : "bk.runVerify")}</Button>
       </div>
     </Panel>
   );

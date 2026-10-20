@@ -41,6 +41,8 @@ export interface BankCase {
     scans: ScannedDocument[];
   };
   buyer_risk: { p_on_time: number } | null;
+  /** v9 behavioural model, shown as a labelled second opinion; not a credit decision. */
+  buyer_behaviour_cross_check?: { p_on_time: number } | null;
   autopilot: Pick<AutopilotRun, "run_id" | "evidence" | "evidence_counts" | "recommendation"> | null;
   review: BankReview;
   review_checklist: string[];

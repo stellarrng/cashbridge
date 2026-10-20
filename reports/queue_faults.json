@@ -1,0 +1,139 @@
+{
+  "synthetic": true,
+  "results": [
+    {
+      "scenario": "Transient provider outage: bounded retry with backoff, then DLQ",
+      "id": "transient_outage_is_bounded",
+      "observed": {
+        "states": [
+          "pending",
+          "pending",
+          "dead_letter"
+        ],
+        "backoff_seconds": [
+          2,
+          4
+        ],
+        "attempts": 3
+      },
+      "passed": true
+    },
+    {
+      "scenario": "Invalid payload fails fast (no retry storm)",
+      "id": "invalid_payload_fails_fast",
+      "observed": {
+        "state": "failed",
+        "attempts": 1,
+        "rerun_picked_up": 0
+      },
+      "passed": true
+    },
+    {
+      "scenario": "Unexpected handler bug is quarantined in the DLQ",
+      "id": "unexpected_bug_is_quarantined",
+      "observed": {
+        "state": "dead_letter",
+        "in_dlq": true,
+        "error": "Unexpected handler failure"
+      },
+      "passed": true
+    },
+    {
+      "scenario": "Worker killed after claim: stale lease recovered and job completed",
+      "id": "crash_after_claim_is_recovered",
+      "observed": {
+        "recovered": 1,
+        "final_state": "needs_review",
+        "attempts": 2
+      },
+      "passed": true
+    },
+    {
+      "scenario": "Zombie worker returns after recovery: its late write is discarded",
+      "id": "zombie_worker_cannot_overwrite",
+      "observed": {
+        "worker_A": "lease_lost",
+        "worker_B": "needs_review",
+        "final_category": "billing"
+      },
+      "passed": true
+    },
+    {
+      "scenario": "6 concurrent workers, 120 jobs: every job handled exactly once",
+      "id": "concurrent_workers_process_each_job_once",
+      "observed": {
+        "jobs": 120,
+        "workers": 6,
+        "handler_calls": 120,
+        "jobs_run_twice": 0,
+        "states": {
+          "needs_review": 120
+        },
+        "seconds": 0.84
+      },
+      "passed": true
+    },
+    {
+      "scenario": "Client retries the same submission: one job",
+      "id": "duplicate_submission_is_one_job",
+      "observed": {
+        "same_id": true,
+        "rows": 1
+      },
+      "passed": true
+    },
+    {
+      "scenario": "DLQ redrive reuses the same job; a second redrive is refused",
+      "id": "redrive_reuses_the_job",
+      "observed": {
+        "after_redrive": "needs_review",
+        "rows": 1,
+        "second_redrive_refused": true
+      },
+      "passed": true
+    },
+    {
+      "scenario": "Provider accepted, connection lost, worker retries: effect performed once",
+      "id": "outbox_crash_after_provider_accept_is_not_doubled",
+      "observed": {
+        "rounds": [
+          [
+            "pending"
+          ],
+          [
+            "pending"
+          ],
+          [
+            "sent"
+          ],
+          []
+        ],
+        "provider_side_effects": 1,
+        "final_state": "sent",
+        "receipt": "MOCK-b67cc8728f08"
+      },
+      "passed": true
+    },
+    {
+      "scenario": "Crash while staging the outbox rolls back the approval too",
+      "id": "approval_and_outbox_commit_together",
+      "observed": {
+        "crashed": true,
+        "job_state_after_crash": "needs_review",
+        "effects_after_retry": 1
+      },
+      "passed": true
+    },
+    {
+      "scenario": "Non-mock or non-idempotent providers are refused",
+      "id": "real_providers_are_refused",
+      "observed": {
+        "refused": [
+          true,
+          true
+        ]
+      },
+      "passed": true
+    }
+  ]
+}

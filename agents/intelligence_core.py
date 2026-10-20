@@ -52,6 +52,20 @@ GOALS: Dict[str, Dict[str, Any]] = {
 
 ALLOWED_PROBABILITIES = (0.8, 0.85, 0.9, 0.95)
 
+# Planner objectives. "cheapest" (default): among plans that reach the goal probability, the lowest expected
+# cost. "risk_adjusted": the lowest expected cost + CVAR_WEIGHT x CVaR95 shortfall, so between two plans that
+# both reach the goal the one with the smaller worst-5% gap wins unless it costs clearly more.
+# CVAR_WEIGHT = 5% tail probability x 40% cost of emergency funding in that tail (late fees, penalty overdraft)
+# = 0.02: pay up to USD 2 of expected cost to cut USD 100 of tail shortfall. A fixed policy value, not tuned on
+# the benchmark, and never relaxed by the planner itself.
+OBJECTIVES = ("cheapest", "risk_adjusted", "robust")
+# Ambiguity set for the "robust" objective (finite-scenario distributionally robust choice, cf. Delage & Ye 2010,
+# Mohajerin Esfahani & Kuhn 2018). Fixed policy values, never fitted to a benchmark: any single buyer's odds of paying
+# on time may halve, all buyers' odds may drop by a third together, confirmed orders may ship at 85% of stated confidence.
+AMBIGUITY = {"single_buyer_logit": math.log(0.5), "all_buyers_logit": math.log(2 / 3), "ship_scale": 0.85}
+CVAR_WEIGHT = 0.02
+DEFAULT_OBJECTIVE = "risk_adjusted"  # chosen after eval/risk_planner_benchmark.py: lower tail, same cost
+
 # Policy limits the planner cannot change. They are read by validate_plan, not by the planner.
 POLICY = {
     "allowed_actions": sim.ACTION_TYPES,
@@ -136,31 +150,48 @@ def _week_start(start: date, week: int) -> date:
     return start + timedelta(weeks=week - 1)
 
 
+def _dec(x: Any):
+    from decimal import Decimal
+    return Decimal(repr(float(x)))
+
+
+def _cents(x: Any) -> float:
+    """Half-up to the cent in Decimal, exactly like core/funding_evaluator.py (float round() is banker's and binary)."""
+    from decimal import ROUND_HALF_UP, Decimal
+    value = x if isinstance(x, Decimal) else _dec(x)
+    return float(value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
 def factor_action(p: Pledgeable, terms: Dict[str, float], start: date, week: int) -> Dict[str, Any]:
+    from decimal import ROUND_HALF_UP, Decimal
+    cent = lambda v: v.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)  # noqa: E731
     draw = _week_start(start, week)
-    advance = round(p.usd * terms["advance_pct"] / 100, 2)
-    fee = round(p.usd * terms["fee_pct_of_invoice"] / 100, 2)
+    usd = _dec(p.usd)
+    advance = cent(usd * _dec(terms["advance_pct"]) / 100)
+    fee = cent(usd * _dec(terms["fee_pct_of_invoice"]) / 100)
     days = max(1, (p.due_date - draw).days)
-    interest = round(advance * terms["interest_pa_pct"] / 100 * days / 365, 2)
-    return {"type": "factor", "ref": p.ref, "buyer_id": p.buyer_id, "week": week, "advance_usd": advance,
-            "fee_usd": fee, "rate_pa_pct": terms["interest_pa_pct"], "cost_usd": round(fee + interest, 2),
-            "days": days, "invoice_usd": round(p.usd, 2)}
+    interest = cent(advance * _dec(terms["interest_pa_pct"]) / 100 * days / 365)
+    return {"type": "factor", "ref": p.ref, "buyer_id": p.buyer_id, "week": week, "advance_usd": float(advance),
+            "fee_usd": float(fee), "rate_pa_pct": terms["interest_pa_pct"], "cost_usd": float(fee + interest),
+            "days": days, "invoice_usd": _cents(usd)}
 
 
 def loan_action(terms: Dict[str, float], week: int) -> Dict[str, Any]:
+    from decimal import ROUND_HALF_UP, Decimal
+    cent = lambda v: v.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)  # noqa: E731
     amount = terms["amount_usd"]
-    fee = round(amount * terms["upfront_fee_pct"] / 100, 2)
-    interest = round(amount * terms["interest_pa_pct"] / 100 * terms["days"] / 365, 2)
-    return {"type": "loan", "ref": "bridge_loan", "week": week, "amount_usd": amount, "fee_usd": fee,
-            "interest_usd": interest, "cost_usd": round(fee + interest, 2), "days": int(terms["days"])}
+    fee = cent(_dec(amount) * _dec(terms["upfront_fee_pct"]) / 100)
+    interest = cent(_dec(amount) * _dec(terms["interest_pa_pct"]) / 100 * int(terms["days"]) / 365)
+    return {"type": "loan", "ref": "bridge_loan", "week": week, "amount_usd": amount, "fee_usd": float(fee),
+            "interest_usd": float(interest), "cost_usd": float(fee + interest), "days": int(terms["days"])}
 
 
 def plan_cost(actions: Sequence[Dict[str, Any]]) -> float:
-    return round(sum(float(a.get("cost_usd", 0)) for a in actions), 2)
+    return _cents(sum(float(a.get("cost_usd", 0)) for a in actions))
 
 
 def plan_funding(actions: Sequence[Dict[str, Any]]) -> float:
-    return round(sum(float(a.get("advance_usd", a.get("amount_usd", 0))) for a in actions if a["type"] in ("factor", "loan")), 2)
+    return _cents(sum(float(a.get("advance_usd", a.get("amount_usd", 0))) for a in actions if a["type"] in ("factor", "loan")))
 
 
 def plan_packs(actions: Sequence[Dict[str, Any]]) -> int:
@@ -262,6 +293,19 @@ class CoreResult:
                 "world_model": self.world_model, "similar_cases": self.memory, "synthetic": True}
 
 
+def ambiguity_worlds(params: "sim.WorldParams", buyers: Sequence[str]) -> List["sim.WorldParams"]:
+    """The nominal world plus plausible adverse variants (labels say which)."""
+    worlds = [params]
+    for b in buyers:
+        shift = dict(params.buyer_logit_shift)
+        shift[b] = shift.get(b, 0.0) + AMBIGUITY["single_buyer_logit"]
+        worlds.append(params.with_updates(buyer_logit_shift=shift, label=f"{b} pays on time half as often"))
+    joint = {b: params.buyer_logit_shift.get(b, 0.0) + AMBIGUITY["all_buyers_logit"] for b in buyers}
+    worlds.append(params.with_updates(buyer_logit_shift=joint, label="all buyers a third less punctual"))
+    worlds.append(params.with_updates(ship_scale=params.ship_scale * AMBIGUITY["ship_scale"], label="orders ship at 85% of stated confidence"))
+    return worlds
+
+
 class IntelligenceCore:
     """Builds state, enumerates allowed plans, scores them on shared paths, chooses under the goal."""
 
@@ -349,18 +393,26 @@ class IntelligenceCore:
              baseline_actions: Optional[List[Dict[str, Any]]] = None,
              extra_proposals: Sequence[List[Dict[str, Any]]] = (),
              memory: Optional["CaseMemory"] = None, min_probability: Optional[float] = None,
-             incumbent: Optional[List[Dict[str, Any]]] = None) -> CoreResult:
+             incumbent: Optional[List[Dict[str, Any]]] = None, objective: str = DEFAULT_OBJECTIVE) -> CoreResult:
         """Rank every allowed plan and choose one. ``incumbent`` is the plan already in force: it is kept
         when the new best is better only by simulation noise, so the SME is not asked to switch plans for nothing."""
         if goal_id not in GOALS:
             raise ValueError(f"unknown goal {goal_id!r}; goals are fixed templates: {sorted(GOALS)}")
-        goal = dict(GOALS[goal_id], id=goal_id)
+        if objective not in OBJECTIVES:
+            raise ValueError(f"objective must be one of {OBJECTIVES}")
+        goal = dict(GOALS[goal_id], id=goal_id, objective=objective)
         if min_probability is not None:
             if min_probability not in ALLOWED_PROBABILITIES:
                 raise ValueError(f"min_probability must be one of {ALLOWED_PROBABILITIES}")
             goal["min_probability"] = min_probability
         paths = sim.sample(inputs.forecast_inputs, self.params, n=self.n_paths, seed=self.seed)
         no_action = sim.evaluate(paths)
+        robust_paths: List[Any] = []
+        if objective == "robust":
+            buyers = sorted({i.buyer_id for i in sim.items_from_inputs(inputs.forecast_inputs)})
+            # common random numbers: same seed in every world, so differences come from the world, not the draw
+            robust_paths = [(w.label, sim.sample(inputs.forecast_inputs, w, n=self.n_paths, seed=self.seed))
+                            for w in ambiguity_worlds(self.params, buyers)[1:]]
         state = self.build_state(inputs, paths, no_action, goal_id)
         base_week = state["base_case"]["first_negative_week"]
         risk_week = next((i + 1 for i, p in enumerate(no_action["p_negative_by_week"]) if p >= 0.10), None)
@@ -371,10 +423,17 @@ class IntelligenceCore:
             closing = sim.closings(paths, actions)
             summary = sim.summarize(paths, closing)
             p_goal = float((closing.min(axis=1) >= floor).mean())
+            worst, worst_label = p_goal, "nominal"
+            for label, wp in robust_paths:
+                pw = float((sim.closings(wp, actions).min(axis=1) >= floor).mean())
+                if pw < worst:
+                    worst, worst_label = pw, label
             return {"plan_id": plan_id(actions), "description": describe(actions), "actions": actions,
-                    "p_goal": round(p_goal, 4), "p_no_negative_week": summary["p_no_negative_week"],
+                    "p_goal": round(p_goal, 4), "p_goal_worst_case": round(worst, 4), "worst_world": worst_label, "p_no_negative_week": summary["p_no_negative_week"],
                     "expected_shortfall_usd": summary["expected_shortfall_usd"], "trough_p5_usd": summary["trough_p5_usd"],
                     "shortfall_cvar95_usd": summary["shortfall_cvar95_usd"],
+                    "p_shortfall": round(1 - summary["p_no_negative_week"], 4),
+                    "risk_adjusted_cost_usd": round(sim.expected_cost(paths, actions) + CVAR_WEIGHT * summary["shortfall_cvar95_usd"], 2),
                     "cost_usd": sim.expected_cost(paths, actions), "quoted_cost_usd": plan_cost(actions), "funding_usd": plan_funding(actions), "packs": plan_packs(actions),
                     "needs_supplier_agreement": any(a["type"] == "deposit_cut" for a in actions),
                     "closing_p10_by_week": summary["closing_p10_by_week"], "closing_p50_by_week": summary["closing_p50_by_week"],
@@ -388,16 +447,18 @@ class IntelligenceCore:
                 continue
             ranked.append(score(actions))
         target = goal["min_probability"]
-        meets = [r for r in ranked if r["p_goal"] >= target]
-        key_cost = lambda r: (r["cost_usd"], r["packs"], r["needs_supplier_agreement"], r["plan_id"])
-        best_p = max(r["p_goal"] for r in ranked)
+        pkey = "p_goal_worst_case" if objective == "robust" else "p_goal"
+        meets = [r for r in ranked if r[pkey] >= target]
+        money = "risk_adjusted_cost_usd" if objective in ("risk_adjusted", "robust") else "cost_usd"
+        key_cost = lambda r: (r[money], r["packs"], r["needs_supplier_agreement"], r["plan_id"])
+        best_p = max(r[pkey] for r in ranked)
         # Differences inside two standard errors of the simulation are noise: do not pay for them.
         tolerance = 2 * math.sqrt(max(best_p * (1 - best_p), 1e-6) / self.n_paths)
         if meets:
             chosen = min(meets, key=key_cost)
             status = "GOAL_MET"
         else:
-            chosen = min((r for r in ranked if r["p_goal"] >= best_p - tolerance), key=key_cost)
+            chosen = min((r for r in ranked if r[pkey] >= best_p - tolerance), key=key_cost)
             status = "GOAL_NOT_REACHABLE"
         kept = None
         if incumbent:
@@ -430,6 +491,17 @@ class IntelligenceCore:
                           feasibility=feasibility, status=status, world_model={"version": self.params.version, "label": self.params.label,
                                                       "params": self.params.as_dict(), "paths": self.n_paths, "seed": self.seed},
                           memory=similar)
+
+    def stress_test(self, inputs: CoreInputs, actions: List[Dict[str, Any]], goal_id: str = "keep_cash_positive") -> List[Dict[str, Any]]:
+        """P(goal) of one plan in the nominal world and in each adverse world of the ambiguity set (same random numbers)."""
+        floor = 0.0 if GOALS[goal_id]["floor"] == "zero" else float(inputs.forecast_inputs.buffer_usd)
+        buyers = sorted({i.buyer_id for i in sim.items_from_inputs(inputs.forecast_inputs)})
+        out = []
+        for w in ambiguity_worlds(self.params, buyers):
+            paths = sim.sample(inputs.forecast_inputs, w, n=self.n_paths, seed=self.seed)
+            out.append({"world": "nominal" if w is self.params else w.label,
+                        "p_goal": round(float((sim.closings(paths, actions).min(axis=1) >= floor).mean()), 4)})
+        return out
 
     def feasibility(self, inputs: CoreInputs, paths: sim.Paths, no_action: Dict[str, Any], chosen: Dict[str, Any],
                     floor: float, target: float, draw_weeks: Sequence[int]) -> Dict[str, Any]:

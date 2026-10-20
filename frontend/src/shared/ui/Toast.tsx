@@ -18,7 +18,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={notify}>
       {children}
-      <div className={"toast" + (state.show ? " show" : "") + (state.bad ? " bad" : "")} role="status" aria-live="polite">
+      <div id="toast" className={"toast" + (state.show ? " show" : "") + (state.bad ? " bad" : "")} role="status" aria-live="polite">
         {state.message}
       </div>
     </Ctx.Provider>

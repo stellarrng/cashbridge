@@ -18,6 +18,8 @@ export interface FundingOption {
 }
 
 export interface LockedMetric {
+  /** Stable id of the figure (used to open its provenance). */
+  key: string;
   label: string;
   value: number | string;
   unit: string;

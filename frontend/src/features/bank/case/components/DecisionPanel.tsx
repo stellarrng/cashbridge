@@ -27,10 +27,10 @@ export function DecisionPanel({ review, decided, checklist, onDecide }: Props) {
       {decided ? (
         <p><b>{sentence(human(review.decision))}</b> · {review.reviewer}{review.note ? ": " + review.note : ""}</p>
       ) : (
-        <form onSubmit={submit}>
+        <form id="bdec" onSubmit={submit}>
           <label className="field">
             Decision
-            <select value={decision} onChange={(e) => setDecision(e.target.value as BankDecision)}>
+            <select name="decision" value={decision} onChange={(e) => setDecision(e.target.value as BankDecision)}>
               <option value="APPROVE_FUNDING">Approve funding (mock)</option>
               <option value="REQUEST_INFO">Request more information</option>
               <option value="DECLINE">Decline</option>
@@ -38,7 +38,7 @@ export function DecisionPanel({ review, decided, checklist, onDecide }: Props) {
           </label>
           <label className="field mt-2">
             Note
-            <textarea rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="KYC completed offline; notice of assignment sent to the buyer." />
+            <textarea name="note" rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="KYC completed offline; notice of assignment sent to the buyer." />
           </label>
           <div className="row mt-2">
             <Button variant="bridge" type="submit">{t("bk.record")}</Button>

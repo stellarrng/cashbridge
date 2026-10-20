@@ -5,7 +5,7 @@ import { useI18n } from "@/shared/i18n";
 import { pct, usd } from "@/shared/lib/format";
 import type { ScreenProps } from "@/shared/lib/screen";
 import { Button, Kpi, Kpis, Loadable, Note, NumberField, PageHead, Panel, readNumbers } from "@/shared/ui";
-import { fetchSummary, runScenario } from "./api";
+import { fetchDistress, fetchSummary, runScenario, type DistressSignal } from "./api";
 import type { AnalyticsSummary, ScenarioResult } from "./types";
 
 const LABELS: Record<string, string> = {
@@ -118,6 +118,27 @@ function FinancialHealth({ d }: { d: AnalyticsSummary }) {
           )}
         </div>
       </Panel>
+      <Distress />
     </>
+  );
+}
+
+/** External benchmark only: how companies with these working-capital ratios fared in public data. */
+function Distress() {
+  const { t } = useI18n();
+  const x = useAsync(() => fetchDistress().catch(() => null as DistressSignal | null), []).data;
+  if (!x) return null;
+  return (
+    <Panel title={t("dst.title")} sub={<><span className="pill sim">{t("dst.pill")}</span> {t("dst.sub")}</>}>
+      <Kpis>
+        <Kpi label={t("dst.p")} value={(x.p_distress_1y * 100).toFixed(1) + "%"} foot={t("dst.pFoot")} />
+        <Kpi label="DSO" value={x.features.Attr44.toFixed(0) + " d"} />
+        <Kpi label="DIO" value={x.features.Attr47.toFixed(0) + " d"} />
+        <Kpi label={t("dst.gm")} value={(x.features.Attr56 * 100).toFixed(1) + "%"} />
+      </Kpis>
+      {x.outside_training_range.length > 0 && <Note>{t("dst.outside", { f: x.outside_training_range.join(", ") })}</Note>}
+      <ul className="list small">{x.limitations.map((l, i) => <li key={i}>{l}</li>)}</ul>
+      <Note>{x.trained_on} · {x.source}</Note>
+    </Panel>
   );
 }

@@ -1,6 +1,6 @@
 # Trust scorecard (SYNTHETIC)
 
-Generated 2026-10-20T00:26:40+00:00 by `make trust`.
+Generated 2026-10-20T11:39:54+00:00 by `make trust`.
 
 - Security & compliance: **25/25** adversarial cases handled correctly
 - Agent task completion: **5/5** scenarios reach the correct outcome (act, stop or escalate)
@@ -59,8 +59,8 @@ Only 167 out-of-sample predictions on SYNTHETIC history: indicative, not statist
 | Planner | Paths with no negative week | Expected cost | Policy violations | Overconfidence | Same plan after noise |
 |---|---|---|---|---|---|
 | A. Fixed workflow | 8.7% | USD 960 | 6 | +20.6 pp | 80% |
-| B. Planner + memory | 64.9% | USD 4,086 | 0 | +19.3 pp | 55% |
-| C. Planner + learning | 66.8% | USD 4,012 | 0 | +9.3 pp | 78% |
+| B. Planner + memory | 66.2% | USD 4,086 | 0 | +18.5 pp | 65% |
+| C. Planner + learning | 67.0% | USD 4,015 | 0 | +9.2 pp | 78% |
 
 Full protocol and per-case results: `planner_benchmark.md`.
 

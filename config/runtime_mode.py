@@ -22,10 +22,20 @@ DEMO = "demo"
 PRODUCTION = "production"
 
 
-def mode(env: Optional[Mapping[str, str]] = None) -> str:
+DEMO_VALUES = frozenset({"", "demo", "dev", "development", "local", "test"})
+PRODUCTION_VALUES = frozenset({"prod", "production"})
+
+
+def declared(env: Optional[Mapping[str, str]] = None) -> str:
     source = os.environ if env is None else env
-    value = source.get("CASHBRIDGE_ENV", DEMO).strip().lower()
-    return PRODUCTION if value in {"prod", "production"} else DEMO
+    return source.get("CASHBRIDGE_ENV", DEMO).strip().lower()
+
+
+def mode(env: Optional[Mapping[str, str]] = None) -> str:
+    """DEMO only for an explicit demo value or when unset. Anything unrecognised (a typo such as "prd" or
+    "PRODUTION", or "staging") is treated as PRODUCTION, so every production guard applies, and
+    :func:`assert_safe_to_start` then refuses to start until the value is fixed (fail safe, never fail open)."""
+    return DEMO if declared(env) in DEMO_VALUES else PRODUCTION
 
 
 def is_production(env: Optional[Mapping[str, str]] = None) -> bool:
@@ -55,6 +65,9 @@ def production_problems(env: Optional[Mapping[str, str]] = None) -> List[str]:
 
     source = os.environ if env is None else env
     problems: List[str] = []
+    value = declared(source)
+    if value not in DEMO_VALUES | PRODUCTION_VALUES:
+        problems.append(f"CASHBRIDGE_ENV={value!r} is not recognised; use 'production' or 'demo'")
     otp = source.get("OTP_SECRET", "").strip()
     if not otp:
         problems.append("OTP_SECRET is not set")
@@ -62,6 +75,10 @@ def production_problems(env: Optional[Mapping[str, str]] = None) -> List[str]:
         problems.append("OTP_SECRET is the public demo secret")
     if len(source.get("CASHBRIDGE_SESSION_SECRET", "").strip()) < 32:
         problems.append("CASHBRIDGE_SESSION_SECRET must be at least 32 characters")
+    if not source.get("CASHBRIDGE_VAULT_KEY", "").strip():
+        problems.append("CASHBRIDGE_VAULT_KEY is not set (32 random bytes, base64) for the encrypted evidence vault")
+    if source.get("CASHBRIDGE_BANK_REVIEW_TOKEN", "").strip():
+        problems.append("CASHBRIDGE_BANK_REVIEW_TOKEN is a shared demo credential; remove it (production uses per-user sessions)")
     if not (source.get("CASHBRIDGE_USERS_FILE", "").strip() or source.get("CASHBRIDGE_USERS_JSON", "").strip()):
         problems.append("no user accounts configured (CASHBRIDGE_USERS_FILE or CASHBRIDGE_USERS_JSON)")
     return problems

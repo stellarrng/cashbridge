@@ -29,19 +29,29 @@ interface Props {
 
 /** Line chart over shared categories. Muted series are drawn first so the focus series sits on top. */
 export function LineChart({ labels, series, fmt, yfmt = compactUsd, endLabels, annotate, tipExtra, dots = "all", width = 720, height = 230, label = "" }: Props) {
+  if (!labels.length || !series.length || series.some((s) => s.values.length !== labels.length || s.values.some((v) => !Number.isFinite(v)))) {
+    return <div className="empty" role="status">No valid chart data</div>;
+  }
   const W = width, H = height, L = 54, R = endLabels ? 132 : 16, T = annotate ? 26 : 12, B = 26;
   const all = series.flatMap((s) => s.values);
   let max = Math.max(...all);
   const min = Math.min(0, ...all);
   const step = niceStep(max - min || 1);
   max = Math.ceil(max / step) * step;
-  const x = (i: number) => L + (i * (W - L - R)) / (labels.length - 1);
+  const x = (i: number) => L + (i * (W - L - R)) / Math.max(1, labels.length - 1);
   const y = (v: number) => T + ((max - v) * (H - T - B)) / (max - min || 1);
   const last = labels.length - 1;
   const colW = (W - L - R) / labels.length;
 
   const placed = series.map((s) => ({ name: s.name, y: y(s.values[last]), color: s.color })).sort((a, b) => a.y - b.y);
-  for (let i = 1; i < placed.length; i++) if (placed[i].y - placed[i - 1].y < 15) placed[i].y = placed[i - 1].y + 15;
+  // Keep direct labels separated and inside the plot even when series converge.
+  const lower = H - B - 5, upper = T + 8;
+  if (placed.length) placed[0].y = Math.max(upper, placed[0].y);
+  for (let i = 1; i < placed.length; i++) placed[i].y = Math.max(placed[i].y, placed[i - 1].y + 15);
+  if (placed.length && placed[placed.length - 1].y > lower) {
+    const shift = placed[placed.length - 1].y - lower;
+    placed.forEach((q) => (q.y -= shift));
+  }
 
   const ordered = series.map((s) => s).sort((a, b) => Number(Boolean(b.muted)) - Number(Boolean(a.muted)));
 

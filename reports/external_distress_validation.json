@@ -1,0 +1,576 @@
+{
+  "dataset": "Polish Companies Bankruptcy (Tomczak 2016, UCI, CC BY 4.0; SHA-256 pinned)",
+  "protocol": "stratified 5-fold CV per horizon, out-of-fold metrics",
+  "horizons": [
+    {
+      "file": "polish_1year.arff",
+      "years_to_status": 5,
+      "companies": 7027,
+      "bankrupt": 271,
+      "metrics": {
+        "base": {
+          "roc_auc": 0.4986,
+          "pr_auc": 0.0227,
+          "brier": 0.0371,
+          "log_loss": 0.1634,
+          "ece": 0.0,
+          "ci95": {
+            "roc_auc": [
+              0.4721,
+              0.525
+            ],
+            "brier": [
+              0.033,
+              0.0409
+            ]
+          }
+        },
+        "A_cashbridge": {
+          "roc_auc": 0.607,
+          "pr_auc": 0.0634,
+          "brier": 0.0368,
+          "log_loss": 0.161,
+          "ece": 0.0003,
+          "ci95": {
+            "roc_auc": [
+              0.5754,
+              0.6418
+            ],
+            "brier": [
+              0.0328,
+              0.0406
+            ]
+          }
+        },
+        "altman_z2": {
+          "roc_auc": 0.6881,
+          "pr_auc": 0.0934,
+          "brier": 0.0368,
+          "log_loss": 0.1594,
+          "ece": 0.0016,
+          "ci95": {
+            "roc_auc": [
+              0.6549,
+              0.7251
+            ],
+            "brier": [
+              0.0327,
+              0.0406
+            ]
+          }
+        },
+        "B_altman_refit": {
+          "roc_auc": 0.6991,
+          "pr_auc": 0.0948,
+          "brier": 0.0362,
+          "log_loss": 0.1546,
+          "ece": 0.0017,
+          "ci95": {
+            "roc_auc": [
+              0.666,
+              0.7304
+            ],
+            "brier": [
+              0.0323,
+              0.0399
+            ]
+          }
+        },
+        "C_all_logistic": {
+          "roc_auc": 0.7783,
+          "pr_auc": 0.2534,
+          "brier": 0.0329,
+          "log_loss": 0.1378,
+          "ece": 0.0028,
+          "ci95": {
+            "roc_auc": [
+              0.7492,
+              0.809
+            ],
+            "brier": [
+              0.0292,
+              0.0367
+            ]
+          }
+        },
+        "D_all_trees": {
+          "roc_auc": 0.9617,
+          "pr_auc": 0.7919,
+          "brier": 0.0159,
+          "log_loss": 0.1168,
+          "ece": 0.0158,
+          "ci95": {
+            "roc_auc": [
+              0.9498,
+              0.9725
+            ],
+            "brier": [
+              0.0132,
+              0.0188
+            ]
+          }
+        }
+      },
+      "missingness_check": {
+        "auc_count_of_missing_ratios_alone": 0.725,
+        "auc_trees_with_missingness_hidden": 0.9592
+      }
+    },
+    {
+      "file": "polish_2year.arff",
+      "years_to_status": 4,
+      "companies": 10173,
+      "bankrupt": 400,
+      "metrics": {
+        "base": {
+          "roc_auc": 0.4999,
+          "pr_auc": 0.0247,
+          "brier": 0.0378,
+          "log_loss": 0.1658,
+          "ece": 0.0,
+          "ci95": {
+            "roc_auc": [
+              0.476,
+              0.5214
+            ],
+            "brier": [
+              0.034,
+              0.0412
+            ]
+          }
+        },
+        "A_cashbridge": {
+          "roc_auc": 0.59,
+          "pr_auc": 0.0568,
+          "brier": 0.0377,
+          "log_loss": 0.1643,
+          "ece": 0.0004,
+          "ci95": {
+            "roc_auc": [
+              0.5618,
+              0.6188
+            ],
+            "brier": [
+              0.0339,
+              0.0412
+            ]
+          }
+        },
+        "altman_z2": {
+          "roc_auc": 0.6451,
+          "pr_auc": 0.0664,
+          "brier": 0.0376,
+          "log_loss": 0.1639,
+          "ece": 0.0006,
+          "ci95": {
+            "roc_auc": [
+              0.6137,
+              0.6742
+            ],
+            "brier": [
+              0.0339,
+              0.041
+            ]
+          }
+        },
+        "B_altman_refit": {
+          "roc_auc": 0.6482,
+          "pr_auc": 0.0636,
+          "brier": 0.0375,
+          "log_loss": 0.1617,
+          "ece": 0.0022,
+          "ci95": {
+            "roc_auc": [
+              0.6196,
+              0.6762
+            ],
+            "brier": [
+              0.0339,
+              0.0409
+            ]
+          }
+        },
+        "C_all_logistic": {
+          "roc_auc": 0.7468,
+          "pr_auc": 0.2475,
+          "brier": 0.0337,
+          "log_loss": 0.1474,
+          "ece": 0.0056,
+          "ci95": {
+            "roc_auc": [
+              0.7189,
+              0.7735
+            ],
+            "brier": [
+              0.0306,
+              0.0367
+            ]
+          }
+        },
+        "D_all_trees": {
+          "roc_auc": 0.9352,
+          "pr_auc": 0.7113,
+          "brier": 0.0201,
+          "log_loss": 0.1125,
+          "ece": 0.0189,
+          "ci95": {
+            "roc_auc": [
+              0.9214,
+              0.9484
+            ],
+            "brier": [
+              0.0175,
+              0.0228
+            ]
+          }
+        }
+      },
+      "missingness_check": {
+        "auc_count_of_missing_ratios_alone": 0.6287,
+        "auc_trees_with_missingness_hidden": 0.9293
+      }
+    },
+    {
+      "file": "polish_3year.arff",
+      "years_to_status": 3,
+      "companies": 10503,
+      "bankrupt": 495,
+      "metrics": {
+        "base": {
+          "roc_auc": 0.4999,
+          "pr_auc": 0.0296,
+          "brier": 0.0449,
+          "log_loss": 0.19,
+          "ece": 0.0,
+          "ci95": {
+            "roc_auc": [
+              0.4749,
+              0.5222
+            ],
+            "brier": [
+              0.041,
+              0.0483
+            ]
+          }
+        },
+        "A_cashbridge": {
+          "roc_auc": 0.6224,
+          "pr_auc": 0.0796,
+          "brier": 0.0445,
+          "log_loss": 0.1865,
+          "ece": 0.0007,
+          "ci95": {
+            "roc_auc": [
+              0.5988,
+              0.6483
+            ],
+            "brier": [
+              0.0407,
+              0.0479
+            ]
+          }
+        },
+        "altman_z2": {
+          "roc_auc": 0.6898,
+          "pr_auc": 0.0916,
+          "brier": 0.0447,
+          "log_loss": 0.1853,
+          "ece": 0.0022,
+          "ci95": {
+            "roc_auc": [
+              0.6654,
+              0.7143
+            ],
+            "brier": [
+              0.0408,
+              0.048
+            ]
+          }
+        },
+        "B_altman_refit": {
+          "roc_auc": 0.6995,
+          "pr_auc": 0.0926,
+          "brier": 0.0442,
+          "log_loss": 0.181,
+          "ece": 0.0037,
+          "ci95": {
+            "roc_auc": [
+              0.6766,
+              0.7226
+            ],
+            "brier": [
+              0.0404,
+              0.0476
+            ]
+          }
+        },
+        "C_all_logistic": {
+          "roc_auc": 0.7702,
+          "pr_auc": 0.2309,
+          "brier": 0.0407,
+          "log_loss": 0.1652,
+          "ece": 0.003,
+          "ci95": {
+            "roc_auc": [
+              0.747,
+              0.794
+            ],
+            "brier": [
+              0.0375,
+              0.0439
+            ]
+          }
+        },
+        "D_all_trees": {
+          "roc_auc": 0.9328,
+          "pr_auc": 0.6683,
+          "brier": 0.0268,
+          "log_loss": 0.1276,
+          "ece": 0.0227,
+          "ci95": {
+            "roc_auc": [
+              0.9202,
+              0.9446
+            ],
+            "brier": [
+              0.0238,
+              0.0298
+            ]
+          }
+        }
+      },
+      "missingness_check": {
+        "auc_count_of_missing_ratios_alone": 0.6549,
+        "auc_trees_with_missingness_hidden": 0.9312
+      }
+    },
+    {
+      "file": "polish_4year.arff",
+      "years_to_status": 2,
+      "companies": 9792,
+      "bankrupt": 515,
+      "metrics": {
+        "base": {
+          "roc_auc": 0.4999,
+          "pr_auc": 0.0332,
+          "brier": 0.0498,
+          "log_loss": 0.2061,
+          "ece": 0.0,
+          "ci95": {
+            "roc_auc": [
+              0.4808,
+              0.5191
+            ],
+            "brier": [
+              0.0459,
+              0.0534
+            ]
+          }
+        },
+        "A_cashbridge": {
+          "roc_auc": 0.6441,
+          "pr_auc": 0.1049,
+          "brier": 0.0491,
+          "log_loss": 0.2001,
+          "ece": 0.0019,
+          "ci95": {
+            "roc_auc": [
+              0.6205,
+              0.6694
+            ],
+            "brier": [
+              0.0453,
+              0.0526
+            ]
+          }
+        },
+        "altman_z2": {
+          "roc_auc": 0.6972,
+          "pr_auc": 0.1183,
+          "brier": 0.0493,
+          "log_loss": 0.2008,
+          "ece": 0.0022,
+          "ci95": {
+            "roc_auc": [
+              0.6714,
+              0.7234
+            ],
+            "brier": [
+              0.0456,
+              0.0529
+            ]
+          }
+        },
+        "B_altman_refit": {
+          "roc_auc": 0.7088,
+          "pr_auc": 0.1305,
+          "brier": 0.0483,
+          "log_loss": 0.1933,
+          "ece": 0.0032,
+          "ci95": {
+            "roc_auc": [
+              0.6833,
+              0.7344
+            ],
+            "brier": [
+              0.0447,
+              0.0517
+            ]
+          }
+        },
+        "C_all_logistic": {
+          "roc_auc": 0.7855,
+          "pr_auc": 0.2913,
+          "brier": 0.0433,
+          "log_loss": 0.1734,
+          "ece": 0.0031,
+          "ci95": {
+            "roc_auc": [
+              0.7624,
+              0.809
+            ],
+            "brier": [
+              0.0398,
+              0.0466
+            ]
+          }
+        },
+        "D_all_trees": {
+          "roc_auc": 0.9482,
+          "pr_auc": 0.747,
+          "brier": 0.0254,
+          "log_loss": 0.1221,
+          "ece": 0.0221,
+          "ci95": {
+            "roc_auc": [
+              0.9377,
+              0.958
+            ],
+            "brier": [
+              0.0226,
+              0.0285
+            ]
+          }
+        }
+      },
+      "missingness_check": {
+        "auc_count_of_missing_ratios_alone": 0.6609,
+        "auc_trees_with_missingness_hidden": 0.9402
+      }
+    },
+    {
+      "file": "polish_5year.arff",
+      "years_to_status": 1,
+      "companies": 5910,
+      "bankrupt": 410,
+      "metrics": {
+        "base": {
+          "roc_auc": 0.5,
+          "pr_auc": 0.0356,
+          "brier": 0.0646,
+          "log_loss": 0.252,
+          "ece": 0.0,
+          "ci95": {
+            "roc_auc": [
+              0.5,
+              0.5
+            ],
+            "brier": [
+              0.0596,
+              0.0698
+            ]
+          }
+        },
+        "A_cashbridge": {
+          "roc_auc": 0.7364,
+          "pr_auc": 0.2429,
+          "brier": 0.0594,
+          "log_loss": 0.2276,
+          "ece": 0.0169,
+          "ci95": {
+            "roc_auc": [
+              0.7048,
+              0.7645
+            ],
+            "brier": [
+              0.0544,
+              0.0642
+            ]
+          }
+        },
+        "altman_z2": {
+          "roc_auc": 0.7632,
+          "pr_auc": 0.2649,
+          "brier": 0.0602,
+          "log_loss": 0.232,
+          "ece": 0.0198,
+          "ci95": {
+            "roc_auc": [
+              0.7378,
+              0.7931
+            ],
+            "brier": [
+              0.055,
+              0.0648
+            ]
+          }
+        },
+        "B_altman_refit": {
+          "roc_auc": 0.7812,
+          "pr_auc": 0.3001,
+          "brier": 0.0563,
+          "log_loss": 0.2121,
+          "ece": 0.0112,
+          "ci95": {
+            "roc_auc": [
+              0.7528,
+              0.8091
+            ],
+            "brier": [
+              0.0517,
+              0.0605
+            ]
+          }
+        },
+        "C_all_logistic": {
+          "roc_auc": 0.8642,
+          "pr_auc": 0.4919,
+          "brier": 0.0469,
+          "log_loss": 0.1757,
+          "ece": 0.0087,
+          "ci95": {
+            "roc_auc": [
+              0.8436,
+              0.885
+            ],
+            "brier": [
+              0.0424,
+              0.0511
+            ]
+          }
+        },
+        "D_all_trees": {
+          "roc_auc": 0.9601,
+          "pr_auc": 0.8057,
+          "brier": 0.0298,
+          "log_loss": 0.1582,
+          "ece": 0.0268,
+          "ci95": {
+            "roc_auc": [
+              0.9491,
+              0.9701
+            ],
+            "brier": [
+              0.0262,
+              0.0341
+            ]
+          }
+        }
+      },
+      "missingness_check": {
+        "auc_count_of_missing_ratios_alone": 0.6807,
+        "auc_trees_with_missingness_hidden": 0.956
+      }
+    }
+  ]
+}

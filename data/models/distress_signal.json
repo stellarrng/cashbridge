@@ -1,0 +1,48 @@
+{
+  "model": "A_cashbridge",
+  "features": {
+    "Attr44": "receivables x 365 / sales (DSO, days)",
+    "Attr47": "inventory x 365 / cost of products sold (DIO, days)",
+    "Attr56": "(sales - cost of products sold) / sales (gross margin)"
+  },
+  "order": [
+    "Attr44",
+    "Attr47",
+    "Attr56"
+  ],
+  "median": [
+    58.7885,
+    41.994,
+    0.0532175
+  ],
+  "p01": [
+    3.3390140000000006,
+    0.0,
+    -0.6337032
+  ],
+  "p99": [
+    389.64579999999876,
+    395.37419999999975,
+    0.9781537999999999
+  ],
+  "mean": [
+    4.034998835061916,
+    3.5217742830302305,
+    0.0689186158562009
+  ],
+  "sd": [
+    0.7184373036118118,
+    1.269941043233216,
+    0.1491898170946316
+  ],
+  "coef": [
+    -0.22496015393863675,
+    -0.13196676404257812,
+    -0.8310564034350791
+  ],
+  "intercept": -2.8974848235926607,
+  "horizon_years": 1,
+  "trained_on": "polish_5year.arff: 5910 Polish companies, 410 bankrupt within 1 year",
+  "source": "Tomczak (2016), Polish Companies Bankruptcy, UCI ML Repository, doi:10.24432/C5F600 (CC BY 4.0)",
+  "validation": "reports/external_distress_validation.md"
+}

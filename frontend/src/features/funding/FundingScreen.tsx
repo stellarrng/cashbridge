@@ -1,18 +1,19 @@
 import { useState } from "react";
 import { useCase, type CaseSnapshot } from "@/entities/case";
 import { metricText } from "@/entities/funding";
+import { MetricLink, ProvenanceDialog, lineageUrl } from "@/entities/provenance";
 import { StatusPill } from "@/entities/status";
 import { HBars } from "@/shared/charts";
-import { useAct } from "@/shared/hooks";
+import { useAct, useAsync } from "@/shared/hooks";
 import { useI18n } from "@/shared/i18n";
 import { human, pct, sentence, usd2 } from "@/shared/lib/format";
 import type { ScreenProps } from "@/shared/lib/screen";
-import { Button, Empty, EngineNote, Loadable, PageHead, Panel, Scroll, useToast } from "@/shared/ui";
+import { Button, Empty, EngineNote, Kpi, Kpis, Loadable, PageHead, Panel, Scroll, useToast } from "@/shared/ui";
 import { useAuth } from "../auth";
-import { chooseOption, downloadPackPdf, preparePack, rejectPack, reopenPack, requestOtp, retryDoubleFinancing, tamperDraft } from "./api";
+import { chooseOption, downloadPackPdf, fetchQuotes, fetchSchedules, preparePack, rejectPack, reopenPack, requestOtp, retryDoubleFinancing, tamperDraft, withdrawRelease } from "./api";
 import { OtpDialog } from "./components/OtpDialog";
 import { RejectDialog } from "./components/RejectDialog";
-import type { OtpChallenge } from "./types";
+import type { FundingScheduleView, LenderQuotes, OtpChallenge } from "./types";
 
 export default function FundingScreen(_: ScreenProps) {
   const { snapshot, error, refresh } = useCase();
@@ -25,7 +26,11 @@ function Funding({ s, refresh }: { s: CaseSnapshot; refresh: () => Promise<unkno
   const act = useAct();
   const toast = useToast();
   const [challenge, setChallenge] = useState<OtpChallenge | null>(null);
-  const [rejecting, setRejecting] = useState(false);
+  const [reasonMode, setReasonMode] = useState<"reject" | "withdraw" | null>(null);
+  const [provKey, setProvKey] = useState<string | null>(null);
+  // Loaded after the case: they depend on the ranked options and the chosen product (null when unavailable).
+  const schedules = useAsync(() => fetchSchedules().catch(() => ({}) as Record<string, FundingScheduleView>), [s.selected_option_id, s.meta.case_state]);
+  const quotes = useAsync(() => fetchQuotes().catch(() => null as LenderQuotes | null), [s.selected_option_id, s.meta.case_state]);
 
   const pack = s.pack;
   const state = s.meta.case_state;
@@ -52,24 +57,32 @@ function Funding({ s, refresh }: { s: CaseSnapshot; refresh: () => Promise<unkno
   const reopen = async () => {
     if (await act(reopenPack)) await refresh();
   };
-  const reject = async (reason: string) => {
-    if (await act(() => rejectPack(reason))) {
-      setRejecting(false);
+  const sendReason = async (reason: string) => {
+    const withdraw = reasonMode === "withdraw";
+    if (await act(() => (withdraw ? withdrawRelease(reason) : rejectPack(reason)), t(withdraw ? "fund.withdrawn" : "fund.rejected"))) {
+      setReasonMode(null);
       await refresh();
     }
   };
 
   let actions = null;
-  if (preparer && state === "INVOICE_VERIFIED") actions = <Button variant="bridge" disabled={!chosenId} onClick={() => void prepare()}>{t("fund.prepare")}</Button>;
-  if (preparer && state === "NEEDS_HUMAN" && pack.status === "REJECTED_BY_DIRECTOR") actions = <Button variant="bridge" onClick={() => void reopen()}>{t("fund.rework")}</Button>;
+  if (preparer && state === "INVOICE_VERIFIED") actions = <Button variant="bridge" id="prep" disabled={!chosenId} onClick={() => void prepare()}>{t("fund.prepare")}</Button>;
+  if (preparer && state === "NEEDS_HUMAN" && ["REJECTED_BY_DIRECTOR", "WITHDRAWN_BY_SME"].includes(pack.status)) {
+    actions = <Button variant="bridge" id="reopen" onClick={() => void reopen()}>{t("fund.rework")}</Button>;
+  }
+  if (approver && state === "SUBMITTED") actions = <Button variant="ghost" id="withdrawBtn" onClick={() => setReasonMode("withdraw")}>{t("fund.withdraw")}</Button>;
   if (approver && state === "AWAITING_APPROVAL") {
     actions = (
       <>
-        <Button variant="bridge" onClick={() => void openOtp()}>{t("fund.approve")}</Button>
-        <Button variant="danger" onClick={() => setRejecting(true)}>{t("fund.reject")}</Button>
+        <Button variant="bridge" id="approveBtn" onClick={() => void openOtp()}>{t("fund.approve")}</Button>
+        <Button variant="danger" id="rejectBtn" onClick={() => setReasonMode("reject")}>{t("fund.reject")}</Button>
       </>
     );
   }
+  // The timeline of the chosen product, or of the best eligible lender product before one is chosen.
+  const scheduleId = chosenId || opts.find((o) => o.eligible && ["factoring", "loan"].includes(o.type))?.id;
+  const fs = scheduleId ? schedules.data?.[scheduleId] : undefined;
+  const lq = quotes.data;
 
   return (
     <>
@@ -92,7 +105,7 @@ function Funding({ s, refresh }: { s: CaseSnapshot; refresh: () => Promise<unkno
             }))}
           />
         </Panel>
-        <Panel title={t("col.total")}>
+        <Panel title={t("col.total")} sub={t("fund.totalSub")}>
           <HBars
             items={opts.filter((o) => o.cost_breakdown && o.cost_breakdown.total_usd != null).map((o) => ({
               label: t("opt." + o.type),
@@ -137,13 +150,40 @@ function Funding({ s, refresh }: { s: CaseSnapshot; refresh: () => Promise<unkno
           </table>
         </Scroll>
       </Panel>
+      {lq && lq.quotes.length > 0 && (
+        <Panel title={t("lq.title")} sub={lq.notice}>
+          <Scroll>
+            <table id="quoteTable">
+              <thead>
+                <tr><th>{t("lq.quote")}</th><th className="num">{t("col.amount")}</th><th className="num">{t("col.total")}</th><th>{t("lq.expires")}</th><th>{t("col.status")}</th></tr>
+              </thead>
+              <tbody>
+                {lq.quotes.map((q) => (
+                  <tr key={q.quote_id}>
+                    <td>
+                      <span className="mono">{q.quote_id}</span> · {q.provider_id}
+                      <div className="small">
+                        <span className={"pill " + (q.source_type === "simulated" ? "sim" : "warn")}>{q.source_type === "simulated" ? t("lq.simulated") : t("lq.issued", { e: q.environment })}</span> {q.label}
+                      </div>
+                    </td>
+                    <td className="num">{usd2(Number(q.principal_usd))}</td>
+                    <td className="num">{usd2(Number(q.total_cost_usd))}</td>
+                    <td className="small">{q.expires_at.slice(0, 16).replace("T", " ")} UTC</td>
+                    <td><StatusPill status={q.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Scroll>
+        </Panel>
+      )}
       {pack.pack_id ? (
         <div className="grid2">
           <Panel title={`Pack ${pack.pack_id}`} sub={<><StatusPill status={pack.status} /> {pack.prepared_by || ""}{pack.approved_by ? " → " + pack.approved_by : ""}</>}>
             <table>
               <tbody>
                 {pack.locked_metrics.map((m) => (
-                  <tr key={m.label}><td>{m.label}</td><td className="num">{metricText(m, t)}</td></tr>
+                  <tr key={m.label}><td>{m.label}</td><td className="num">{m.key ? <MetricLink label={metricText(m, t)} metricKey={m.key} onOpen={setProvKey} /> : metricText(m, t)}</td></tr>
                 ))}
               </tbody>
             </table>
@@ -169,6 +209,35 @@ function Funding({ s, refresh }: { s: CaseSnapshot; refresh: () => Promise<unkno
       ) : (
         <Empty title={t("fund.noPack")}>{t(preparer ? "next.run" : "next.prepare")}</Empty>
       )}
+      {fs && (
+        <Panel title={t("sched.title")} sub={<><span className="pill sim">{t("lbl.sim")}</span> {fs.label}</>}>
+          <Kpis>
+            <Kpi label={t("sched.drawdown")} value={fs.schedule.drawdown_date} />
+            <Kpi label={t("sched.settle")} value={fs.schedule.expected_settlement_date} />
+            <Kpi label={t("sched.days")} value={String(fs.schedule.days_financed)} />
+            <Kpi label={t("sched.expected")} value={usd2(fs.expected_cost_usd)} />
+          </Kpis>
+          <Scroll>
+            <table>
+              <thead>
+                <tr><th>{t("sched.scenario")}</th><th className="num">{t("col.total")}</th><th className="num">{t("sched.rebate")}</th><th className="num">{t("sched.repay")}</th><th>{t("sched.loss")}</th></tr>
+              </thead>
+              <tbody>
+                {fs.scenarios.map((x) => (
+                  <tr key={x.scenario}>
+                    <td>{t("sched." + x.scenario)}</td>
+                    <td className="num">{usd2(x.total_cost_usd)}</td>
+                    <td className="num">{x.rebate_to_sme_usd != null ? usd2(x.rebate_to_sme_usd) : "–"}</td>
+                    <td className="num">{x.sme_pays_factor_usd ? usd2(x.sme_pays_factor_usd) : "–"}</td>
+                    <td className="small">{x.credit_loss_borne_by}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Scroll>
+          <ul className="list small">{fs.assumptions.map((a, i) => <li key={i}>{a}</li>)}</ul>
+        </Panel>
+      )}
       {["SUBMITTED", "FUNDED", "REJECTED"].includes(state) && (
         <Panel title={t("fund.lender")} sub={<><StatusPill status={lender.status} /> {lender.reviewer || ""}</>}>
           {lender.note && <p>{lender.note}</p>}
@@ -188,7 +257,8 @@ function Funding({ s, refresh }: { s: CaseSnapshot; refresh: () => Promise<unkno
           await refresh();
         }}
       />
-      <RejectDialog open={rejecting} onClose={() => setRejecting(false)} onSubmit={(reason) => void reject(reason)} />
+      <RejectDialog open={reasonMode !== null} mode={reasonMode ?? "reject"} onClose={() => setReasonMode(null)} onSubmit={(reason) => void sendReason(reason)} />
+      <ProvenanceDialog url={lineageUrl()} metricKey={provKey} onClose={() => setProvKey(null)} canPropose={preparer} canDecide={approver} />
     </>
   );
 }

@@ -12,6 +12,7 @@ const ERRORS: Record<string, string> = {
   expired: "The approval window closed. Cancel and open it again.",
   segregation_of_duties: "You prepared this pack, so you cannot approve it.",
   DoubleFinancingBlocked: "This invoice is already financed.",
+  lender_unavailable: "The lender's system did not respond. Nothing was sent. Wait for the next code and try again.",
 };
 
 interface Props {
@@ -52,7 +53,7 @@ export function OtpDialog({ challenge, onClose, onApproved }: Props) {
   }
 
   return (
-    <Modal open={challenge !== null} titleId="otpTitle" onClose={onClose}>
+    <Modal id="otpModal" open={challenge !== null} titleId="otpTitle" onClose={onClose}>
       {challenge && (
         <form onSubmit={submit}>
           <h2 id="otpTitle">{t("otp.title")}</h2>
@@ -60,12 +61,12 @@ export function OtpDialog({ challenge, onClose, onApproved }: Props) {
           <p className="hashline"><span>{t("otp.bound")}</span> <span className="mono">{challenge.action_hash}</span></p>
           <label className="field">
             <span>{t("otp.code")}</span>
-            <input value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" />
+            <input id="otpCode" value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" />
           </label>
           <p className="muted small">{config?.otp_demo_secret ? <>Demo: <span className="mono">{config.otp_demo_secret}</span> (Base32, 30 s)</> : null}</p>
-          <p className="err" role="alert">{error}</p>
+          <p className="err" id="otpErr" role="alert">{error}</p>
           <div className="row">
-            <Button variant="bridge" type="submit" disabled={busy}>{t("otp.approve")}</Button>
+            <Button variant="bridge" type="submit" id="otpApprove" disabled={busy}>{t("otp.approve")}</Button>
             <Button variant="ghost" onClick={onClose}>{t("otp.cancel")}</Button>
           </div>
         </form>

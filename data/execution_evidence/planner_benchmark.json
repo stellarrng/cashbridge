@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-20T00:19:46+00:00",
+  "generated_at": "2026-10-20T11:39:10+00:00",
   "synthetic": true,
   "protocol": {
     "test_cases": 40,
@@ -80,38 +80,38 @@
     },
     "planner_memory": {
       "label": "B. Planner + memory",
-      "goal_success_mean": 0.6487,
+      "goal_success_mean": 0.6616,
       "cases_reaching_90pct": 0,
       "cases_reaching_80pct": 2,
       "expected_cost_mean_usd": 4085.6,
-      "shortfall_cvar95_mean_usd": 100056.8,
+      "shortfall_cvar95_mean_usd": 97763.09,
       "packs_mean": 3.0,
       "policy_violations": 0,
       "cases_with_violations": 0,
-      "overconfidence_pp": 19.3,
+      "overconfidence_pp": 18.5,
       "stability_pct": 70.0,
-      "same_plan_pct": 55.0,
+      "same_plan_pct": 65.0,
       "goal_not_reachable_cases": 27,
-      "same_plan_without_incumbent_pct": 37.5,
-      "overconfidence_own_world_pp": -1.3,
+      "same_plan_without_incumbent_pct": 52.5,
+      "overconfidence_own_world_pp": -1.4,
       "calibration_bins": [
         {
           "band": "60%-80%",
-          "cases": 11,
-          "predicted": 0.7482,
-          "realised": 0.4827
+          "cases": 10,
+          "predicted": 0.7443,
+          "realised": 0.4845
         },
         {
           "band": "80%-90%",
-          "cases": 16,
-          "predicted": 0.8536,
-          "realised": 0.6589
+          "cases": 17,
+          "predicted": 0.8599,
+          "realised": 0.6743
         },
         {
           "band": "90%-100%",
           "cases": 13,
-          "predicted": 0.9057,
-          "realised": 0.7766
+          "predicted": 0.9082,
+          "realised": 0.7812
         }
       ],
       "feasibility_verdicts": {
@@ -119,24 +119,24 @@
         "REACHABLE": 13
       },
       "binding_limits": {
-        "combined_limits": 10,
+        "combined_limits": 12,
         "packs_per_plan": 4,
-        "repayment_inside_horizon": 13,
+        "repayment_inside_horizon": 10,
         "timing": 16
       }
     },
     "planner_learning": {
       "label": "C. Planner + learning",
-      "goal_success_mean": 0.668,
+      "goal_success_mean": 0.6704,
       "cases_reaching_90pct": 0,
-      "cases_reaching_80pct": 2,
-      "expected_cost_mean_usd": 4012.29,
-      "shortfall_cvar95_mean_usd": 98897.43,
+      "cases_reaching_80pct": 3,
+      "expected_cost_mean_usd": 4015.1,
+      "shortfall_cvar95_mean_usd": 98131.52,
       "packs_mean": 2.98,
       "policy_violations": 0,
       "cases_with_violations": 0,
-      "overconfidence_pp": 9.3,
-      "stability_pct": 77.5,
+      "overconfidence_pp": 9.2,
+      "stability_pct": 75.0,
       "same_plan_pct": 77.5,
       "goal_not_reachable_cases": 40,
       "same_plan_without_incumbent_pct": 57.5,
@@ -151,14 +151,14 @@
         {
           "band": "60%-80%",
           "cases": 20,
-          "predicted": 0.7287,
-          "realised": 0.6194
+          "predicted": 0.7298,
+          "realised": 0.6209
         },
         {
           "band": "80%-90%",
           "cases": 17,
-          "predicted": 0.8336,
-          "realised": 0.7691
+          "predicted": 0.8362,
+          "realised": 0.773
         }
       ],
       "feasibility_verdicts": {
@@ -166,7 +166,7 @@
       },
       "binding_limits": {
         "combined_limits": 21,
-        "repayment_inside_horizon": 18,
+        "repayment_inside_horizon": 17,
         "timing": 5
       }
     }
@@ -188,18 +188,18 @@
         "same_plan": true
       },
       "planner_memory": {
-        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1030 (advance USD 40,464, week 2) + Factor INV-1053 (advance USD 34,802, week 2)",
+        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1030 (advance USD 40,464, week 2) + Factor INV-1053 (advance USD 34,802, week 2) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_NOT_REACHABLE",
         "packs": 3,
-        "predicted_success": 0.838,
-        "realised_success": 0.638,
+        "predicted_success": 0.858,
+        "realised_success": 0.692,
         "cost_usd": 4312.0,
-        "cvar95_usd": 87188.64,
+        "cvar95_usd": 79706.84,
         "violations": [],
         "stable": true,
         "same_plan": true,
         "same_plan_without_incumbent": true,
-        "realised_in_own_world": 0.859,
+        "realised_in_own_world": 0.892,
         "feasibility": {
           "verdict": "LIMITED_BY_POLICY_OR_SOURCES",
           "binding": [
@@ -248,22 +248,22 @@
         "same_plan": true
       },
       "planner_memory": {
-        "plan": "Bridge loan USD 46,000 (week 1) + Factor INV-1030 (advance USD 62,640, week 1) + Factor INV-1053 (advance USD 29,552, week 1)",
+        "plan": "Bridge loan USD 46,000 (week 1) + Factor INV-1030 (advance USD 62,640, week 1) + Factor INV-1053 (advance USD 29,552, week 1) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_NOT_REACHABLE",
         "packs": 3,
-        "predicted_success": 0.877,
-        "realised_success": 0.645,
+        "predicted_success": 0.895,
+        "realised_success": 0.691,
         "cost_usd": 4910.13,
-        "cvar95_usd": 103457.72,
+        "cvar95_usd": 97129.16,
         "violations": [],
-        "stable": false,
-        "same_plan": false,
-        "same_plan_without_incumbent": false,
-        "realised_in_own_world": 0.894,
+        "stable": true,
+        "same_plan": true,
+        "same_plan_without_incumbent": true,
+        "realised_in_own_world": 0.91,
         "feasibility": {
           "verdict": "LIMITED_BY_POLICY_OR_SOURCES",
           "binding": [
-            "repayment_inside_horizon"
+            "combined_limits"
           ],
           "cash_needed_week1_usd": 121937.26,
           "over_borrowing_cap_usd": 213957.46
@@ -606,18 +606,18 @@
         "same_plan": true
       },
       "planner_memory": {
-        "plan": "Bridge loan USD 46,000 (week 4) + Factor INV-1030 (advance USD 46,176, week 4) + Factor INV-1053 (advance USD 37,643, week 4)",
+        "plan": "Bridge loan USD 46,000 (week 4) + Factor INV-1030 (advance USD 46,176, week 4) + Factor INV-1053 (advance USD 37,643, week 4) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_NOT_REACHABLE",
         "packs": 3,
-        "predicted_success": 0.826,
-        "realised_success": 0.634,
+        "predicted_success": 0.848,
+        "realised_success": 0.686,
         "cost_usd": 4171.0,
-        "cvar95_usd": 94269.51,
+        "cvar95_usd": 85284.04,
         "violations": [],
         "stable": true,
-        "same_plan": false,
-        "same_plan_without_incumbent": false,
-        "realised_in_own_world": 0.837,
+        "same_plan": true,
+        "same_plan_without_incumbent": true,
+        "realised_in_own_world": 0.877,
         "feasibility": {
           "verdict": "LIMITED_BY_POLICY_OR_SOURCES",
           "binding": [
@@ -668,23 +668,21 @@
         "same_plan": false
       },
       "planner_memory": {
-        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1030 (advance USD 60,432, week 2) + Factor INV-1053 (advance USD 29,429, week 2)",
+        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1030 (advance USD 60,432, week 2) + Factor INV-1053 (advance USD 29,429, week 2) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_MET",
         "packs": 3,
-        "predicted_success": 0.9,
-        "realised_success": 0.731,
+        "predicted_success": 0.922,
+        "realised_success": 0.769,
         "cost_usd": 4706.0,
-        "cvar95_usd": 96950.82,
+        "cvar95_usd": 89302.14,
         "violations": [],
         "stable": true,
         "same_plan": false,
         "same_plan_without_incumbent": false,
-        "realised_in_own_world": 0.909,
+        "realised_in_own_world": 0.927,
         "feasibility": {
           "verdict": "REACHABLE",
-          "binding": [
-            "repayment_inside_horizon"
-          ],
+          "binding": [],
           "cash_needed_week1_usd": 107700.97,
           "over_borrowing_cap_usd": 193736.43
         }
@@ -857,7 +855,7 @@
         "violations": [],
         "stable": false,
         "same_plan": true,
-        "same_plan_without_incumbent": false,
+        "same_plan_without_incumbent": true,
         "realised_in_own_world": 0.772,
         "feasibility": {
           "verdict": "LIMITED_BY_POLICY_OR_SOURCES",
@@ -1026,22 +1024,22 @@
         "same_plan": true
       },
       "planner_memory": {
-        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1030 (advance USD 51,072, week 2) + Factor INV-1053 (advance USD 26,001, week 2)",
+        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1030 (advance USD 51,072, week 2) + Factor INV-1053 (advance USD 26,001, week 2) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_NOT_REACHABLE",
         "packs": 3,
-        "predicted_success": 0.871,
-        "realised_success": 0.672,
+        "predicted_success": 0.889,
+        "realised_success": 0.719,
         "cost_usd": 4220.49,
-        "cvar95_usd": 105110.31,
+        "cvar95_usd": 96995.02,
         "violations": [],
         "stable": false,
         "same_plan": true,
         "same_plan_without_incumbent": true,
-        "realised_in_own_world": 0.868,
+        "realised_in_own_world": 0.885,
         "feasibility": {
           "verdict": "LIMITED_BY_POLICY_OR_SOURCES",
           "binding": [
-            "repayment_inside_horizon"
+            "combined_limits"
           ],
           "cash_needed_week1_usd": 110860.07,
           "over_borrowing_cap_usd": 197398.89
@@ -1086,18 +1084,18 @@
         "same_plan": true
       },
       "planner_memory": {
-        "plan": "Bridge loan USD 46,000 (week 4) + Factor INV-1030 (advance USD 61,584, week 4) + Factor INV-1053 (advance USD 31,930, week 4)",
+        "plan": "Bridge loan USD 46,000 (week 4) + Factor INV-1030 (advance USD 61,584, week 4) + Factor INV-1053 (advance USD 31,930, week 4) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_MET",
         "packs": 3,
-        "predicted_success": 0.9,
-        "realised_success": 0.767,
+        "predicted_success": 0.91,
+        "realised_success": 0.788,
         "cost_usd": 4536.51,
-        "cvar95_usd": 64829.11,
+        "cvar95_usd": 57187.69,
         "violations": [],
         "stable": true,
         "same_plan": false,
         "same_plan_without_incumbent": false,
-        "realised_in_own_world": 0.906,
+        "realised_in_own_world": 0.911,
         "feasibility": {
           "verdict": "REACHABLE",
           "binding": [
@@ -1209,18 +1207,18 @@
         "same_plan": true
       },
       "planner_memory": {
-        "plan": "Bridge loan USD 46,000 (week 3) + Factor INV-1030 (advance USD 44,112, week 3) + Factor INV-1053 (advance USD 34,246, week 3)",
+        "plan": "Bridge loan USD 46,000 (week 3) + Factor INV-1030 (advance USD 44,112, week 3) + Factor INV-1053 (advance USD 34,246, week 3) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_NOT_REACHABLE",
         "packs": 3,
-        "predicted_success": 0.861,
-        "realised_success": 0.679,
+        "predicted_success": 0.872,
+        "realised_success": 0.729,
         "cost_usd": 4279.29,
-        "cvar95_usd": 97252.74,
+        "cvar95_usd": 91919.41,
         "violations": [],
         "stable": true,
         "same_plan": true,
         "same_plan_without_incumbent": true,
-        "realised_in_own_world": 0.877,
+        "realised_in_own_world": 0.897,
         "feasibility": {
           "verdict": "LIMITED_BY_POLICY_OR_SOURCES",
           "binding": [
@@ -1579,7 +1577,7 @@
         "violations": [],
         "stable": true,
         "same_plan": true,
-        "same_plan_without_incumbent": false,
+        "same_plan_without_incumbent": true,
         "realised_in_own_world": 0.924,
         "feasibility": {
           "verdict": "REACHABLE",
@@ -1589,18 +1587,18 @@
         }
       },
       "planner_learning": {
-        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1030 (advance USD 50,832, week 2) + Factor INV-1053 (advance USD 35,543, week 2)",
+        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1030 (advance USD 50,832, week 2) + Factor INV-1053 (advance USD 35,543, week 2) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_NOT_REACHABLE",
         "packs": 3,
-        "predicted_success": 0.869,
-        "realised_success": 0.837,
+        "predicted_success": 0.885,
+        "realised_success": 0.855,
         "cost_usd": 4563.14,
-        "cvar95_usd": 68458.1,
+        "cvar95_usd": 62991.62,
         "violations": [],
         "stable": true,
         "same_plan": true,
         "same_plan_without_incumbent": true,
-        "realised_in_own_world": 0.894,
+        "realised_in_own_world": 0.909,
         "feasibility": {
           "verdict": "LIMITED_BY_POLICY_OR_SOURCES",
           "binding": [
@@ -1687,18 +1685,18 @@
         "same_plan": false
       },
       "planner_memory": {
-        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1030 (advance USD 40,416, week 2) + Factor INV-1053 (advance USD 26,464, week 2)",
+        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1030 (advance USD 40,416, week 2) + Factor INV-1053 (advance USD 26,464, week 2) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_NOT_REACHABLE",
         "packs": 3,
-        "predicted_success": 0.833,
-        "realised_success": 0.557,
+        "predicted_success": 0.855,
+        "realised_success": 0.614,
         "cost_usd": 4087.71,
-        "cvar95_usd": 109794.76,
+        "cvar95_usd": 100414.76,
         "violations": [],
-        "stable": true,
-        "same_plan": false,
-        "same_plan_without_incumbent": false,
-        "realised_in_own_world": 0.848,
+        "stable": false,
+        "same_plan": true,
+        "same_plan_without_incumbent": true,
+        "realised_in_own_world": 0.874,
         "feasibility": {
           "verdict": "LIMITED_BY_POLICY_OR_SOURCES",
           "binding": [
@@ -1869,18 +1867,18 @@
         "same_plan": true
       },
       "planner_memory": {
-        "plan": "Bridge loan USD 46,000 (week 3) + Factor INV-1030 (advance USD 53,232, week 3) + Factor INV-1053 (advance USD 34,339, week 3)",
+        "plan": "Bridge loan USD 46,000 (week 3) + Factor INV-1030 (advance USD 53,232, week 3) + Factor INV-1053 (advance USD 34,339, week 3) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_NOT_REACHABLE",
         "packs": 3,
-        "predicted_success": 0.874,
-        "realised_success": 0.647,
+        "predicted_success": 0.885,
+        "realised_success": 0.672,
         "cost_usd": 4498.88,
-        "cvar95_usd": 87338.64,
+        "cvar95_usd": 80132.64,
         "violations": [],
         "stable": true,
         "same_plan": true,
         "same_plan_without_incumbent": true,
-        "realised_in_own_world": 0.884,
+        "realised_in_own_world": 0.895,
         "feasibility": {
           "verdict": "LIMITED_BY_POLICY_OR_SOURCES",
           "binding": [
@@ -1892,18 +1890,18 @@
         }
       },
       "planner_learning": {
-        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1030 (advance USD 53,232, week 2) + Factor INV-1053 (advance USD 34,339, week 2)",
+        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1030 (advance USD 53,232, week 2) + Factor INV-1053 (advance USD 34,339, week 2) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_NOT_REACHABLE",
         "packs": 3,
-        "predicted_success": 0.835,
-        "realised_success": 0.768,
+        "predicted_success": 0.85,
+        "realised_success": 0.803,
         "cost_usd": 4633.24,
-        "cvar95_usd": 87408.88,
+        "cvar95_usd": 80202.87,
         "violations": [],
         "stable": true,
         "same_plan": true,
         "same_plan_without_incumbent": true,
-        "realised_in_own_world": 0.824,
+        "realised_in_own_world": 0.859,
         "feasibility": {
           "verdict": "LIMITED_BY_POLICY_OR_SOURCES",
           "binding": [
@@ -1954,18 +1952,18 @@
         }
       },
       "planner_learning": {
-        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1053 (advance USD 28,471, week 2) + Factor INV-1045 (advance USD 23,881, week 2) + Ask supplier to cut PO-2214 deposit to 15%",
+        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1053 (advance USD 28,471, week 2) + Factor INV-1049 (advance USD 21,352, week 2) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_NOT_REACHABLE",
         "packs": 3,
-        "predicted_success": 0.736,
-        "realised_success": 0.644,
-        "cost_usd": 3622.52,
-        "cvar95_usd": 115466.48,
+        "predicted_success": 0.758,
+        "realised_success": 0.674,
+        "cost_usd": 3700.61,
+        "cvar95_usd": 107853.5,
         "violations": [],
         "stable": true,
         "same_plan": true,
         "same_plan_without_incumbent": true,
-        "realised_in_own_world": 0.782,
+        "realised_in_own_world": 0.806,
         "feasibility": {
           "verdict": "LIMITED_BY_POLICY_OR_SOURCES",
           "binding": [
@@ -2138,23 +2136,22 @@
         }
       },
       "planner_learning": {
-        "plan": "Bridge loan USD 46,000 (week 3) + Factor INV-1053 (advance USD 36,068, week 3) + Factor INV-1045 (advance USD 27,717, week 3) + Ask supplier to cut PO-2214 deposit to 15%",
+        "plan": "Bridge loan USD 46,000 (week 3) + Factor INV-1053 (advance USD 36,068, week 3) + Factor INV-1038 (advance USD 24,482, week 3) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_NOT_REACHABLE",
         "packs": 3,
-        "predicted_success": 0.875,
-        "realised_success": 0.844,
-        "cost_usd": 3925.05,
-        "cvar95_usd": 72230.55,
+        "predicted_success": 0.888,
+        "realised_success": 0.858,
+        "cost_usd": 3959.33,
+        "cvar95_usd": 61879.47,
         "violations": [],
-        "stable": true,
+        "stable": false,
         "same_plan": false,
         "same_plan_without_incumbent": false,
-        "realised_in_own_world": 0.883,
+        "realised_in_own_world": 0.89,
         "feasibility": {
           "verdict": "LIMITED_BY_POLICY_OR_SOURCES",
           "binding": [
-            "timing",
-            "repayment_inside_horizon"
+            "timing"
           ],
           "cash_needed_week1_usd": 89149.51,
           "over_borrowing_cap_usd": 173115.39
@@ -2297,18 +2294,18 @@
         "same_plan": true
       },
       "planner_memory": {
-        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1053 (advance USD 42,522, week 2) + Factor INV-1030 (advance USD 40,224, week 2)",
+        "plan": "Bridge loan USD 46,000 (week 2) + Factor INV-1053 (advance USD 42,522, week 2) + Factor INV-1030 (advance USD 40,224, week 2) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_NOT_REACHABLE",
         "packs": 3,
-        "predicted_success": 0.871,
-        "realised_success": 0.674,
+        "predicted_success": 0.889,
+        "realised_success": 0.72,
         "cost_usd": 4631.99,
-        "cvar95_usd": 113466.81,
+        "cvar95_usd": 106367.06,
         "violations": [],
         "stable": true,
-        "same_plan": false,
-        "same_plan_without_incumbent": false,
-        "realised_in_own_world": 0.873,
+        "same_plan": true,
+        "same_plan_without_incumbent": true,
+        "realised_in_own_world": 0.899,
         "feasibility": {
           "verdict": "LIMITED_BY_POLICY_OR_SOURCES",
           "binding": [
@@ -2417,18 +2414,18 @@
         "same_plan": true
       },
       "planner_memory": {
-        "plan": "Bridge loan USD 46,000 (week 3) + Factor INV-1030 (advance USD 45,504, week 3) + Factor INV-1053 (advance USD 34,092, week 3)",
+        "plan": "Bridge loan USD 46,000 (week 3) + Factor INV-1030 (advance USD 45,504, week 3) + Factor INV-1053 (advance USD 34,092, week 3) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_NOT_REACHABLE",
         "packs": 3,
-        "predicted_success": 0.787,
-        "realised_success": 0.465,
+        "predicted_success": 0.811,
+        "realised_success": 0.516,
         "cost_usd": 4417.03,
-        "cvar95_usd": 114351.87,
+        "cvar95_usd": 105985.53,
         "violations": [],
         "stable": false,
         "same_plan": true,
         "same_plan_without_incumbent": true,
-        "realised_in_own_world": 0.802,
+        "realised_in_own_world": 0.822,
         "feasibility": {
           "verdict": "LIMITED_BY_POLICY_OR_SOURCES",
           "binding": [
@@ -2538,18 +2535,18 @@
         "same_plan": true
       },
       "planner_memory": {
-        "plan": "Bridge loan USD 46,000 (week 4) + Factor INV-1030 (advance USD 43,584, week 4) + Factor INV-1053 (advance USD 31,806, week 4)",
+        "plan": "Bridge loan USD 46,000 (week 4) + Factor INV-1030 (advance USD 43,584, week 4) + Factor INV-1053 (advance USD 31,806, week 4) + Ask supplier to cut PO-2214 deposit to 15%",
         "status": "GOAL_NOT_REACHABLE",
         "packs": 3,
-        "predicted_success": 0.852,
-        "realised_success": 0.702,
+        "predicted_success": 0.863,
+        "realised_success": 0.729,
         "cost_usd": 4114.08,
-        "cvar95_usd": 92391.81,
+        "cvar95_usd": 84230.09,
         "violations": [],
         "stable": true,
         "same_plan": false,
         "same_plan_without_incumbent": false,
-        "realised_in_own_world": 0.86,
+        "realised_in_own_world": 0.874,
         "feasibility": {
           "verdict": "LIMITED_BY_POLICY_OR_SOURCES",
           "binding": [

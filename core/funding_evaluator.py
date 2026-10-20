@@ -24,6 +24,7 @@ _CENT = Decimal("0.01")
 class FactoringTerms(BaseModel):
     """Terms of the mock partner factor."""
 
+    recourse: str = Field(default="recourse", pattern="^(recourse|non_recourse)$")
     advance_pct: Decimal = Field(gt=0, le=100)
     fee_pct_of_invoice: Decimal = Field(ge=0)
     interest_pa_pct: Decimal = Field(ge=0)
@@ -227,3 +228,27 @@ def rank_options(request: FundingRequest, catalog: LenderCatalog) -> List[Liquid
 def options_by_id(options: List[LiquidityOption]) -> Dict[str, LiquidityOption]:
     """Index a ranked menu by option id."""
     return {option.id: option for option in options}
+
+
+def schedule_for(option: LiquidityOption, *, quote_date, drawdown_date, due_date=None, invoice_usd=None,
+                 catalog: Optional[LenderCatalog] = None):
+    """The FundingSchedule behind an eligible factoring or loan quote (core/funding_schedule.py).
+
+    With drawdown on the quote date the schedule reproduces the quote exactly (tested); a later drawdown
+    re-prices the interest for the days actually financed.
+    """
+    from datetime import timedelta
+    from core.funding_schedule import FundingSchedule
+    if not option.eligible or option.type not in ("factoring", "loan") or option.amount_usd is None:
+        return None
+    a = option.assumptions
+    if option.type == "factoring":
+        return FundingSchedule(option_id=option.id, option_type="factoring", quote_date=quote_date, drawdown_date=drawdown_date,
+                               expected_settlement_date=due_date, principal_usd=Decimal(option.amount_usd),
+                               rate_pa_pct=Decimal(str(a["interest_pa_pct"])), settlement_fee_usd=Decimal(option.cost_breakdown["fee_usd"]),
+                               fee_basis="invoice", invoice_usd=Decimal(invoice_usd),
+                               recourse=(catalog.factoring.recourse if catalog and catalog.factoring else "recourse"))
+    return FundingSchedule(option_id=option.id, option_type="loan", quote_date=quote_date, drawdown_date=drawdown_date,
+                           expected_settlement_date=drawdown_date + timedelta(days=int(a["days"])), principal_usd=Decimal(option.amount_usd),
+                           rate_pa_pct=Decimal(str(a["interest_pa_pct"])), upfront_fee_usd=Decimal(option.cost_breakdown["fee_usd"]),
+                           fee_basis="loan_amount")
