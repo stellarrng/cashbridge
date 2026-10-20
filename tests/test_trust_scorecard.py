@@ -2,10 +2,13 @@
 
 import json
 
+import pytest
+
 from eval import trust_scorecard
 from config.settings import EXECUTION_EVIDENCE_DIR
 
 
+@pytest.mark.slow
 def test_scorecard_all_cases_pass():
     result = trust_scorecard.run()
     failed = [c["id"] for c in result["security"] + result["agent"] if not c["passed"]]

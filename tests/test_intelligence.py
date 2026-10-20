@@ -182,8 +182,8 @@ def test_local_ocr_on_synthetic_scanned_image():
 
 def test_working_capital_eda_does_not_invent_missing_payables():
     r = financial_summary()
-    assert r['ratios']['dso_days_estimate'] == round(948367*365/4615385,3)
+    assert r['ratios']['dso_days_estimate'] == round(948032*365/4615385,3)
     assert r['ratios']['dio_days_estimate'] == round(309800*365/3230770,3)
     assert r['ratios']['dpo_days'] is None
     assert r['ratios']['cash_conversion_cycle_days'] is None
-    assert r['ratios']['net_working_capital_usd'] == 763167
+    assert r['ratios']['net_working_capital_usd'] == 762832

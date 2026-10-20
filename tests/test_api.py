@@ -87,7 +87,7 @@ def test_openapi_docs_are_available(client):
 
 
 def test_without_a_built_ui_the_root_explains_how_to_build_it(client):
-    assert "make ui" in client.get("/").json()["ui"]
+    assert "ui/web/dist" in client.get("/").json()["ui"]
 
 
 def test_built_bundle_is_served_with_spa_fallback(backend, tmp_path):

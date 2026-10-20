@@ -20,7 +20,7 @@ import json
 import os
 import threading
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Literal, Optional
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -117,6 +117,24 @@ class AutopilotBody(BaseModel):
     goal: str = Field(default="Close the forecast cash gap safely", max_length=300)
 
 
+class IntelligencePlanBody(BaseModel):
+    goal: Literal["keep_cash_positive", "keep_above_buffer"] = "keep_cash_positive"
+    min_probability: Optional[float] = Field(default=None, description="One of 0.8, 0.85, 0.9, 0.95")
+
+
+class EventBody(BaseModel):
+    kind: Literal["buyer_delay", "order_cancelled", "deposit_up", "early_payment"]
+
+
+class AlertDecisionBody(BaseModel):
+    accept: bool
+
+
+class ModelDecisionBody(BaseModel):
+    approve: bool
+    note: str = Field(default="", max_length=300)
+
+
 class BankDecisionBody(BaseModel):
     decision: str = Field(pattern="^(APPROVE_FUNDING|REQUEST_INFO|DECLINE)$")
     note: str = Field(default="", max_length=500)
@@ -170,6 +188,35 @@ def create_app(backend_provider: Callable[[], Any] = get_backend, dist_dir: Path
                        allow_headers=["Authorization", "Content-Type"], expose_headers=["Content-Disposition"])
     app.include_router(automation_router)
     lock = threading.Lock()
+
+    from fastapi.exception_handlers import http_exception_handler
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    @app.exception_handler(StarletteHTTPException)
+    async def record_denials(request: Request, exc: StarletteHTTPException):
+        """Every refused API call (401 / 403) is written to the hash-chained audit log, with who tried what."""
+        if exc.status_code in (401, 403) and request.url.path.startswith(("/api/", "/packs", "/forecast", "/audit")):
+            who = "anonymous"
+            token = auth.bearer(request.headers.get("authorization"))
+            if token:
+                try:
+                    p = auth.get_sessions().verify(token)
+                    who = f"{p.user_id} ({p.role}, {p.tenant_id})"
+                except Exception:  # forged, expired or signed-out token
+                    who = "invalid token"
+            try:
+                with lock:
+                    b = backend_provider()
+                    from config.settings import Tier
+                    from schemas.agent_schemas import Decision
+                    b.coord.audit.append(case_id=b.coord.case.case_id, agent="api_gateway",
+                                         tool=f"denied {request.method} {request.url.path}"[:80], tier=Tier.L0_READ,
+                                         decision=Decision.BLOCKED, reason=f"HTTP {exc.status_code}: {exc.detail} [{who}]"[:300],
+                                         input_payload={"path": request.url.path, "method": request.method, "who": who},
+                                         output_payload={"status": exc.status_code})
+            except Exception:  # logging must never turn a refusal into a 500
+                pass
+        return await http_exception_handler(request, exc)
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
@@ -250,6 +297,7 @@ def create_app(backend_provider: Callable[[], Any] = get_backend, dist_dir: Path
                           "first_negative_week_after": cov["first_negative_week_after"], "residual_gap_usd": cov["residual_gap_usd"],
                           "trough_week": cov["trough_week"]}
             return {"synthetic": True, "company": snap["meta"]["company"], "kpis": snap["kpis"], "bridge": bridge,
+                    "robustness": b.public_robustness() if bridge else None,
                     "weeks": [{"week": w["week"], "closing": w["closing"], "status": w["status"]} for w in snap["forecast"]["weeks"]],
                     "options": [{"name": o["name"], "apr_pct": o["apr_pct"], "type": o["type"]} for o in options],
                     "eval": {"passed": snap["evidence"]["eval"]["passed"], "total": snap["evidence"]["eval"]["total"]}
@@ -297,6 +345,61 @@ def create_app(backend_provider: Callable[[], Any] = get_backend, dist_dir: Path
             raise HTTPException(status_code=403, detail="Only the preparer (Chief accountant) can let the Autopilot draft a pack; "
                                                         "the Director can run it in plan-only mode")
         return call(lambda b: b.run_autopilot(principal.user_id, body.execute, body.goal), refusal_status=409)
+
+    @app.get('/api/settings/policy', tags=['auth'])
+    def settings_policy(principal: Principal = Depends(auth.current_principal)) -> Dict[str, Any]:
+        """Organisation policy as the server enforces it. Read-only: it is changed by deployment, not by a browser."""
+        from agents import intelligence_core as ic
+        from config.settings import CONCENTRATION_ALERT_PCT, MIN_CASH_BUFFER_USD, OTP_VALIDITY_SECONDS
+        return {
+            "mode": "production" if runtime_mode.is_production() else "demo",
+            "you": {"user_id": principal.user_id, "role": principal.role, "tenant": principal.tenant_id,
+                    "permissions": sorted(principal.permissions)},
+            "cash": {"buffer_usd": float(MIN_CASH_BUFFER_USD), "concentration_alert_pct": float(CONCENTRATION_ALERT_PCT)},
+            "approvals": {"otp_validity_seconds": OTP_VALIDITY_SECONDS, "session_hours": auth.SESSION_TTL_SECONDS // 3600,
+                          "segregation_of_duties": "The person who prepares a funding pack cannot approve it",
+                          "lender_decision": "Recorded by a named credit reviewer"},
+            "planner": {"goals": {k: {"label": v["label"], "min_probability": v["min_probability"]} for k, v in ic.GOALS.items()},
+                        "allowed_probabilities": list(ic.ALLOWED_PROBABILITIES), "max_packs_per_plan": ic.POLICY["max_packs_per_plan"],
+                        "over_borrowing_factor": ic.POLICY["over_borrowing_factor"],
+                        "min_p_on_time_to_pledge": ic.POLICY["min_p_on_time_to_pledge"],
+                        "min_days_to_due_after_draw": ic.POLICY["min_days_to_due_after_draw"]},
+            "alerts": ic.ALERT_POLICY,
+            "change_process": "Set on the server and audited; a browser cannot change these values.",
+        }
+
+    # ------------------------------------------------------------ intelligence core
+    @app.get('/api/intelligence', tags=['agentic'])
+    def intelligence_status(_: Principal = Depends(sme("sme:read"))) -> Dict[str, Any]:
+        return call(lambda b: b.intelligence_status())
+
+    @app.post('/api/intelligence/plan', tags=['agentic'])
+    def intelligence_plan(body: IntelligencePlanBody, _: Principal = Depends(sme("sme:analyze"))) -> Dict[str, Any]:
+        return call(lambda b: b.intelligence(body.goal, body.min_probability), refusal_status=422)
+
+    @app.post('/api/intelligence/simulate-outcome', tags=['agentic'])
+    def intelligence_outcome(_: None = Depends(demo_only), principal: Principal = Depends(sme("sme:analyze"))) -> Dict[str, Any]:
+        return call(lambda b: b.intelligence_simulate_outcome(principal.user_id))
+
+    @app.post('/api/intelligence/events', tags=['agentic'])
+    def intelligence_event(body: EventBody, _: None = Depends(demo_only), principal: Principal = Depends(sme("sme:analyze"))) -> Dict[str, Any]:
+        return call(lambda b: b.intelligence_event(body.kind, principal.user_id))
+
+    @app.post('/api/intelligence/events/reset', tags=['agentic'])
+    def intelligence_events_reset(_: None = Depends(demo_only), __: Principal = Depends(sme("sme:analyze"))) -> Dict[str, Any]:
+        return call(lambda b: b.intelligence_reset_events())
+
+    @app.post('/api/intelligence/inbox/{alert_id}', tags=['agentic'])
+    def intelligence_alert(alert_id: str, body: AlertDecisionBody, principal: Principal = Depends(sme("sme:approve"))) -> Dict[str, Any]:
+        return call(lambda b: b.intelligence_decide_alert(alert_id, body.accept, principal.user_id))
+
+    @app.post('/api/intelligence/propose-update', tags=['agentic'])
+    def intelligence_propose(principal: Principal = Depends(sme("sme:prepare"))) -> Dict[str, Any]:
+        return call(lambda b: b.intelligence_propose_update(principal.user_id))
+
+    @app.post('/api/intelligence/decide-update', tags=['agentic'])
+    def intelligence_decide(body: ModelDecisionBody, principal: Principal = Depends(sme("sme:approve"))) -> Dict[str, Any]:
+        return call(lambda b: b.intelligence_decide_update(body.approve, principal.user_id, body.note))
 
     @app.post('/api/chat/explain-concept', tags=['conversation'])
     def explain_concept(body: ConceptBody, _: Principal = Depends(sme("sme:analyze"))) -> Dict[str, Any]:
@@ -499,7 +602,7 @@ def create_app(backend_provider: Callable[[], Any] = get_backend, dist_dir: Path
 
         @app.get("/", include_in_schema=False)
         def root() -> JSONResponse:
-            return JSONResponse({"app": "CashBridge (SYNTHETIC demo)", "ui": "not built: run `make ui`", "docs": "/docs"})
+            return JSONResponse({"app": "CashBridge (SYNTHETIC demo)", "ui": "missing: ui/web/dist is the no-build web app; restore it from the repository", "docs": "/docs"})
 
     return app
 

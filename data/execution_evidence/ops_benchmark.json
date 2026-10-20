@@ -1,0 +1,877 @@
+{
+  "generated_at": "2026-10-20T00:22:49+00:00",
+  "synthetic": true,
+  "protocol": {
+    "raw_events": 100,
+    "seed": 42,
+    "paths_per_finance_case": 500,
+    "families": {
+      "finance": 0.22,
+      "reconcile": 0.16,
+      "invoice_audit": 0.1,
+      "refund": 0.16,
+      "support": 0.14,
+      "overdue": 0.12,
+      "cash_alert": 0.1
+    },
+    "label_rule": "written by the generator before routing; see module docstring"
+  },
+  "summary": {
+    "raw_events": 100,
+    "cases": 79,
+    "grouping_reduction_pct": 21.0,
+    "cashbridge": {
+      "director_alerts": 7,
+      "false_alerts": 3,
+      "missed": 0,
+      "needed": 4,
+      "intervention_rate_pct": 8.9,
+      "precision_pct": 57.1
+    },
+    "baseline_every_event": {
+      "director_alerts": 100,
+      "false_alerts": 96,
+      "missed": 0,
+      "needed": 4,
+      "intervention_rate_pct": 100.0,
+      "precision_pct": 4.0
+    },
+    "baseline_amount_threshold": {
+      "director_alerts": 19,
+      "false_alerts": 16,
+      "missed": 1,
+      "needed": 4,
+      "intervention_rate_pct": 24.1,
+      "precision_pct": 15.8
+    },
+    "ablation": {
+      "without_plan_in_force_check": {
+        "director_alerts": 11,
+        "false_alerts": 7,
+        "missed": 0,
+        "needed": 4,
+        "intervention_rate_pct": 13.9,
+        "precision_pct": 36.4
+      },
+      "without_grouping": {
+        "director_alerts": 8,
+        "false_alerts": 4,
+        "missed": 0,
+        "needed": 4,
+        "duplicates": 1,
+        "rule": "same router, but every raw event of a Director case notifies separately (duplicates count as noise)"
+      }
+    },
+    "completed_without_a_person": 23,
+    "routed_to": {
+      "support": 15,
+      "security": 2,
+      "accountant": 32,
+      "none": 23,
+      "director": 7
+    },
+    "routing_agreement_pct": 96.2,
+    "safety_violations": 0,
+    "mean_latency_ms": {
+      "support": 0.0,
+      "invoice_audit": 0.0,
+      "reconcile": 0.0,
+      "refund": 0.0,
+      "finance": 551.2,
+      "overdue": 0.0,
+      "cash_alert": 0.0
+    }
+  },
+  "cases": [
+    {
+      "case": "support:T-26",
+      "family": "support",
+      "raw_events": 1,
+      "routed": "support",
+      "routed_any_change": "support",
+      "label": "support",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-8",
+      "family": "support",
+      "raw_events": 1,
+      "routed": "support",
+      "routed_any_change": "support",
+      "label": "support",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-28",
+      "family": "support",
+      "raw_events": 1,
+      "routed": "security",
+      "routed_any_change": "security",
+      "label": "security",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "invoice_audit:SUP-23",
+      "family": "invoice_audit",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 13923.45,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-16",
+      "family": "support",
+      "raw_events": 1,
+      "routed": "support",
+      "routed_any_change": "support",
+      "label": "support",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "reconcile:TX-103",
+      "family": "reconcile",
+      "raw_events": 2,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 2382.61,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1033",
+      "family": "refund",
+      "raw_events": 2,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 2962.83,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-30",
+      "family": "support",
+      "raw_events": 2,
+      "routed": "support",
+      "routed_any_change": "support",
+      "label": "support",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "finance:deposit_up@Q0",
+      "family": "finance",
+      "raw_events": 2,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 9200.0,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-36",
+      "family": "support",
+      "raw_events": 1,
+      "routed": "support",
+      "routed_any_change": "support",
+      "label": "support",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "reconcile:TX-136",
+      "family": "reconcile",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 14351.9,
+      "side_effects": []
+    },
+    {
+      "case": "invoice_audit:SUP-11",
+      "family": "invoice_audit",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 10146.27,
+      "side_effects": []
+    },
+    {
+      "case": "invoice_audit:SUP-5",
+      "family": "invoice_audit",
+      "raw_events": 1,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 4891.79,
+      "side_effects": []
+    },
+    {
+      "case": "overdue:INV-1042",
+      "family": "overdue",
+      "raw_events": 2,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 27314.34,
+      "side_effects": []
+    },
+    {
+      "case": "reconcile:TX-115",
+      "family": "reconcile",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 20633.62,
+      "side_effects": []
+    },
+    {
+      "case": "finance:early_payment@Q4",
+      "family": "finance",
+      "raw_events": 1,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": -541.52,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-19",
+      "family": "support",
+      "raw_events": 1,
+      "routed": "support",
+      "routed_any_change": "support",
+      "label": "support",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "invoice_audit:SUP-15",
+      "family": "invoice_audit",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 1983.59,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-23",
+      "family": "support",
+      "raw_events": 2,
+      "routed": "support",
+      "routed_any_change": "support",
+      "label": "support",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "invoice_audit:SUP-29",
+      "family": "invoice_audit",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 1157.05,
+      "side_effects": []
+    },
+    {
+      "case": "reconcile:TX-134",
+      "family": "reconcile",
+      "raw_events": 1,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 9161.02,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1030",
+      "family": "refund",
+      "raw_events": 2,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 2599.55,
+      "side_effects": []
+    },
+    {
+      "case": "finance:early_payment@Q0",
+      "family": "finance",
+      "raw_events": 2,
+      "routed": "none",
+      "routed_any_change": "director",
+      "label": "none",
+      "amount": -560.0,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-4",
+      "family": "support",
+      "raw_events": 1,
+      "routed": "support",
+      "routed_any_change": "support",
+      "label": "support",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1009",
+      "family": "refund",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 473.89,
+      "side_effects": []
+    },
+    {
+      "case": "reconcile:TX-127",
+      "family": "reconcile",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 11173.47,
+      "side_effects": []
+    },
+    {
+      "case": "cash_alert:cash@4",
+      "family": "cash_alert",
+      "raw_events": 1,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-18",
+      "family": "support",
+      "raw_events": 1,
+      "routed": "support",
+      "routed_any_change": "support",
+      "label": "support",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-11",
+      "family": "support",
+      "raw_events": 1,
+      "routed": "support",
+      "routed_any_change": "support",
+      "label": "support",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "finance:buyer_delay@Q4",
+      "family": "finance",
+      "raw_events": 1,
+      "routed": "director",
+      "routed_any_change": "director",
+      "label": "director",
+      "amount": 105155.86,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1018",
+      "family": "refund",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 546.78,
+      "side_effects": []
+    },
+    {
+      "case": "invoice_audit:SUP-9",
+      "family": "invoice_audit",
+      "raw_events": 2,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 9852.75,
+      "side_effects": []
+    },
+    {
+      "case": "finance:deposit_up@Q4",
+      "family": "finance",
+      "raw_events": 1,
+      "routed": "none",
+      "routed_any_change": "director",
+      "label": "none",
+      "amount": 10515.6,
+      "side_effects": []
+    },
+    {
+      "case": "finance:order_cancelled@Q1",
+      "family": "finance",
+      "raw_events": 1,
+      "routed": "director",
+      "routed_any_change": "director",
+      "label": "none",
+      "amount": 4204.1,
+      "side_effects": []
+    },
+    {
+      "case": "reconcile:TX-119",
+      "family": "reconcile",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 4763.46,
+      "side_effects": []
+    },
+    {
+      "case": "finance:order_cancelled@Q5",
+      "family": "finance",
+      "raw_events": 1,
+      "routed": "director",
+      "routed_any_change": "director",
+      "label": "none",
+      "amount": 19696.28,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1026",
+      "family": "refund",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 1780.93,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1029",
+      "family": "refund",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 1407.36,
+      "side_effects": []
+    },
+    {
+      "case": "reconcile:TX-121",
+      "family": "reconcile",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 13447.89,
+      "side_effects": []
+    },
+    {
+      "case": "overdue:INV-1034",
+      "family": "overdue",
+      "raw_events": 3,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 11365.98,
+      "side_effects": []
+    },
+    {
+      "case": "finance:deposit_up@Q3",
+      "family": "finance",
+      "raw_events": 2,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 9724.4,
+      "side_effects": []
+    },
+    {
+      "case": "reconcile:TX-126",
+      "family": "reconcile",
+      "raw_events": 1,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 19952.97,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-13",
+      "family": "support",
+      "raw_events": 1,
+      "routed": "support",
+      "routed_any_change": "support",
+      "label": "support",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "reconcile:TX-109",
+      "family": "reconcile",
+      "raw_events": 1,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 16868.15,
+      "side_effects": []
+    },
+    {
+      "case": "overdue:INV-1026",
+      "family": "overdue",
+      "raw_events": 2,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 27398.04,
+      "side_effects": []
+    },
+    {
+      "case": "cash_alert:cash@2",
+      "family": "cash_alert",
+      "raw_events": 1,
+      "routed": "director",
+      "routed_any_change": "director",
+      "label": "director",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1054",
+      "family": "refund",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 1404.7,
+      "side_effects": []
+    },
+    {
+      "case": "cash_alert:cash@1",
+      "family": "cash_alert",
+      "raw_events": 2,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-33",
+      "family": "support",
+      "raw_events": 2,
+      "routed": "support",
+      "routed_any_change": "support",
+      "label": "support",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1028",
+      "family": "refund",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 1160.3,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-15",
+      "family": "support",
+      "raw_events": 1,
+      "routed": "support",
+      "routed_any_change": "support",
+      "label": "support",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "reconcile:TX-137",
+      "family": "reconcile",
+      "raw_events": 2,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 4121.36,
+      "side_effects": []
+    },
+    {
+      "case": "finance:deposit_up@Q1",
+      "family": "finance",
+      "raw_events": 2,
+      "routed": "none",
+      "routed_any_change": "director",
+      "label": "none",
+      "amount": 8666.4,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1043",
+      "family": "refund",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 786.99,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1046",
+      "family": "refund",
+      "raw_events": 2,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 583.45,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-38",
+      "family": "support",
+      "raw_events": 1,
+      "routed": "support",
+      "routed_any_change": "support",
+      "label": "support",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "finance:order_cancelled@Q0",
+      "family": "finance",
+      "raw_events": 2,
+      "routed": "director",
+      "routed_any_change": "director",
+      "label": "none",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1023",
+      "family": "refund",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 997.67,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1050",
+      "family": "refund",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 219.1,
+      "side_effects": []
+    },
+    {
+      "case": "cash_alert:cash@5",
+      "family": "cash_alert",
+      "raw_events": 2,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "invoice_audit:SUP-19",
+      "family": "invoice_audit",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 1904.42,
+      "side_effects": []
+    },
+    {
+      "case": "overdue:INV-1023",
+      "family": "overdue",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 27123.61,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1013",
+      "family": "refund",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 2373.71,
+      "side_effects": []
+    },
+    {
+      "case": "invoice_audit:SUP-13",
+      "family": "invoice_audit",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 3778.94,
+      "side_effects": []
+    },
+    {
+      "case": "finance:early_payment@Q2",
+      "family": "finance",
+      "raw_events": 2,
+      "routed": "none",
+      "routed_any_change": "director",
+      "label": "none",
+      "amount": -582.4,
+      "side_effects": []
+    },
+    {
+      "case": "reconcile:TX-132",
+      "family": "reconcile",
+      "raw_events": 1,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 4744.22,
+      "side_effects": []
+    },
+    {
+      "case": "finance:buyer_delay@Q1",
+      "family": "finance",
+      "raw_events": 1,
+      "routed": "director",
+      "routed_any_change": "director",
+      "label": "director",
+      "amount": 77486.39,
+      "side_effects": []
+    },
+    {
+      "case": "reconcile:TX-107",
+      "family": "reconcile",
+      "raw_events": 1,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 7856.93,
+      "side_effects": []
+    },
+    {
+      "case": "finance:buyer_delay@Q0",
+      "family": "finance",
+      "raw_events": 1,
+      "routed": "director",
+      "routed_any_change": "director",
+      "label": "director",
+      "amount": 90624.77,
+      "side_effects": []
+    },
+    {
+      "case": "finance:early_payment@Q5",
+      "family": "finance",
+      "raw_events": 1,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": -3588.4,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-29",
+      "family": "support",
+      "raw_events": 1,
+      "routed": "support",
+      "routed_any_change": "support",
+      "label": "support",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1058",
+      "family": "refund",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 1818.88,
+      "side_effects": []
+    },
+    {
+      "case": "finance:deposit_up@Q2",
+      "family": "finance",
+      "raw_events": 1,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 9034.4,
+      "side_effects": []
+    },
+    {
+      "case": "invoice_audit:SUP-14",
+      "family": "invoice_audit",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 5702.42,
+      "side_effects": []
+    },
+    {
+      "case": "reconcile:TX-129",
+      "family": "reconcile",
+      "raw_events": 1,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 11694.19,
+      "side_effects": []
+    },
+    {
+      "case": "reconcile:TX-113",
+      "family": "reconcile",
+      "raw_events": 1,
+      "routed": "none",
+      "routed_any_change": "none",
+      "label": "none",
+      "amount": 28491.31,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1039",
+      "family": "refund",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 953.04,
+      "side_effects": []
+    },
+    {
+      "case": "support:T-20",
+      "family": "support",
+      "raw_events": 1,
+      "routed": "security",
+      "routed_any_change": "security",
+      "label": "security",
+      "amount": 0.0,
+      "side_effects": []
+    },
+    {
+      "case": "refund:ORD-1051",
+      "family": "refund",
+      "raw_events": 1,
+      "routed": "accountant",
+      "routed_any_change": "accountant",
+      "label": "accountant",
+      "amount": 303.39,
+      "side_effects": []
+    }
+  ]
+}

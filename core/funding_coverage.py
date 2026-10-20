@@ -85,13 +85,13 @@ def coverage(
             ("Factoring settles when the pledged invoice is due: advance plus total cost leaves the balance in week "
              f"{repay_week}." if option.type == "factoring" and repay_week else
              "Loan is a single bullet repayment after its term." if option.type == "loan" else ""),
-            "The 13-week base forecast contains open receivables only; no new sales are modelled.",
+            "The 13-week base forecast contains open invoices and confirmed orders (at shipment confidence); no unconfirmed sales.",
         ],
     }
 
 
 def peak_need(weeks: Sequence[Any], buffer_usd: Decimal) -> Dict[str, Any]:
-    """Cash needed to keep every week at or above zero / the buffer, receivables-only forecast."""
+    """Cash needed to keep every week at or above zero / the buffer in the base forecast."""
     trough = min(weeks, key=lambda r: Decimal(r.closing))
     closing = Decimal(trough.closing)
     return {

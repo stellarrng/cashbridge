@@ -6,6 +6,8 @@ Direct method
   * Expected inflow = invoice value x p_on_time, placed in the invoice's due week.
   * The late remainder (value x (1 - p_on_time)) arrives LATE_PAYMENT_DELAY_WEEKS later.
   * A buyer's dated promise to pay overrides both: the full value lands in the promised week.
+  * A confirmed, not-yet-invoiced order counts ship_confidence x its value, due on its planned
+    invoice date + terms, and is then treated like an invoice. It is never a receivable.
   * Outflows = weekly fixed costs + month-end payroll + supplier deposits.
   * A week is "shortfall" below 0 and "at_risk" below the cash buffer.
 """
@@ -22,8 +24,10 @@ from config.settings import (
     LATE_PAYMENT_DELAY_WEEKS,
     USD_VND,
 )
+from schemas.document_schemas import Money
 from schemas.forecast_schemas import (
     CCCMetrics,
+    ConfirmedOrder,
     DepositPlan,
     ForecastInputs,
     ForecastResult,
@@ -86,11 +90,25 @@ def _week_of(start: date, day: date) -> int:
     return max(1, (day - start).days // 7 + 1)
 
 
+def order_as_receivable(order: ConfirmedOrder) -> OpenReceivable:
+    """The expected (confidence-weighted) part of a confirmed order, in the shape the engine uses."""
+    expected = Money.from_amount(order.amount.amount * Decimal(str(order.ship_confidence)), order.amount.currency)
+    return OpenReceivable(
+        invoice_id=order.order_ref,
+        buyer_id=order.buyer_id,
+        buyer_name=order.buyer_name,
+        market=order.market,
+        amount=expected,
+        due_date=order.due_date,
+        p_on_time=order.p_on_time,
+    )
+
+
 def _invoice_views(inputs: ForecastInputs) -> List[_InvoiceView]:
     views: List[_InvoiceView] = []
     fx_factor = Decimal(1) + inputs.fx_change_pct / 100
     tariff_cut = inputs.tariff_rate_pct * inputs.tariff_shared_pct / Decimal(10_000)
-    for rec in inputs.receivables:
+    for rec in list(inputs.receivables) + [order_as_receivable(o) for o in inputs.confirmed_orders]:
         raw = rec.amount.to_usd()
         after_fx = _cents(raw * fx_factor) if rec.amount.currency.value != "USD" else raw
         final = _cents(after_fx * (Decimal(1) - tariff_cut)) if rec.market == "US" else after_fx
@@ -224,6 +242,7 @@ def shortfall_attribution(
                 )
             )
 
+    order_refs = {o.order_ref for o in inputs.confirmed_orders}
     baseline = inputs.opening_cash_usd
     fx_total = Decimal(0)
     tariff_total = Decimal(0)
@@ -236,13 +255,17 @@ def shortfall_attribution(
         late_week = view.due_week + LATE_PAYMENT_DELAY_WEEKS
         if view.late > 0 and late_week > week:
             rec = view.receivable
+            is_order = rec.invoice_id in order_refs
             drivers.append(
                 ShortfallAttribution(
-                    driver=f"{rec.invoice_id} ({rec.buyer_name}) is likely late: {round(rec.p_on_time * 100)}% chance of on-time payment",
+                    driver=(f"Confirmed order {rec.invoice_id} ({rec.buyer_name}) is likely paid late"
+                            if is_order else
+                            f"{rec.invoice_id} ({rec.buyer_name}) is likely late: {round(rec.p_on_time * 100)}% chance of on-time payment"),
                     amount_usd=view.late,
-                    source_ref=f"inv:{rec.invoice_id}",
+                    source_ref=f"order:{rec.invoice_id}" if is_order else f"inv:{rec.invoice_id}",
                 )
             )
+    drivers = _fold_small_late_drivers(drivers)
     if tariff_total:
         drivers.append(
             ShortfallAttribution(
@@ -262,12 +285,34 @@ def shortfall_attribution(
     baseline -= sum((_recurring_cost(inputs, w) for w in range(1, week + 1)), Decimal(0))
     drivers.append(
         ShortfallAttribution(
-            driver="Opening cash plus scheduled inflows, net of fixed costs and payroll",
+            driver="Opening cash plus scheduled inflows (invoices and confirmed orders), net of fixed costs and payroll",
             amount_usd=-baseline,
             source_ref="ledger:baseline",
         )
     )
     return drivers
+
+
+SMALL_DRIVER_USD = Decimal("2000")
+
+
+def _fold_small_late_drivers(drivers: List[ShortfallAttribution]) -> List[ShortfallAttribution]:
+    """Keep the attribution readable: late-payment drivers under SMALL_DRIVER_USD are summed into one line.
+
+    The total is unchanged, so the drivers still add up to the shortfall exactly.
+    """
+    small = [d for d in drivers if d.source_ref.startswith(("inv:", "order:")) and d.amount_usd < SMALL_DRIVER_USD]
+    if len(small) < 2:
+        return drivers
+    kept = [d for d in drivers if d not in small]
+    kept.append(
+        ShortfallAttribution(
+            driver=f"{len(small)} other invoices/orders likely paid late (each under USD {SMALL_DRIVER_USD:,.0f})",
+            amount_usd=sum((d.amount_usd for d in small), Decimal(0)),
+            source_ref="inv:" + ",".join(d.source_ref.split(":", 1)[1] for d in small),
+        )
+    )
+    return kept
 
 
 # ------------------------------------------------------------------- what-if

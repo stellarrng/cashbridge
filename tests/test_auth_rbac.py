@@ -143,3 +143,22 @@ def test_security_headers_present(client):
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
     assert response.headers["cache-control"] == "no-store"
+
+
+def test_refused_calls_are_written_to_the_audit_chain(client, backend):
+    from security.audit_log import verify_chain
+    assert client.post("/api/approve", json={"code": "123456"}, headers=client.header("sme.lan")).status_code == 403
+    assert client.get("/api/snapshot", headers={"Authorization": "Bearer not-a-token"}).status_code == 401
+    lines = [l for l in backend.coord.audit_path.read_text().splitlines() if '"api_gateway"' in l]
+    assert len(lines) >= 2 and all('"BLOCKED"' in l for l in lines)
+    assert "sme.lan (sme_accountant" in backend.coord.audit_path.read_text()
+    assert verify_chain(backend.coord.audit_path)[0] is True
+
+
+def test_organisation_policy_is_read_only_and_needs_a_session(client):
+    assert client.get("/api/settings/policy", headers={"Authorization": "Bearer nope"}).status_code == 401
+    pol = client.get("/api/settings/policy", headers=client.header("sme.minh")).json()
+    assert pol["you"]["role"] == "sme_director" and "sme:approve" in pol["you"]["permissions"]
+    assert pol["planner"]["max_packs_per_plan"] == 3 and "browser cannot change" in pol["change_process"]
+    assert client.get("/api/settings/policy", headers=client.header("bank.lihua")).json()["you"]["tenant"] != pol["you"]["tenant"]
+    assert client.post("/api/settings/policy", json={"max_packs_per_plan": 99}, headers=client.header("sme.minh")).status_code == 405

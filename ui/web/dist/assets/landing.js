@@ -13,10 +13,11 @@
   // ---------------------------------------------------------------- chart
   const SAMPLE = {
     company: "Binh Duong Timberworks Co., Ltd. (SYNTHETIC)",
-    weeks: [42000, 14160, 2434.23, 8110.23, 5866.19, 10860.19, -43881.89, -75457.89, -53675.39, -56189.39, -94325.39, -128195.39, -151195.39],
-    bridge: { amount_usd: 48000, apr_pct: 17.12, funding_week: 7, trough_week: 13, residual_gap_usd: 152546.62,
-      closing_after: [42000, 14160, 2434.23, 8110.23, 5866.19, 10860.19, 4118.11, -27457.89, -55026.62, -57540.62, -95676.62, -129546.62, -152546.62] },
-    first_week: 7, shortfall: 43881.89,
+    weeks: [40250.4, 21219.72, 14694.66, 7975.06, 12450.3, 27757.42, -42831.63, -17358.91, 19619.13, 41137.79, 31516.0, 46503.38, 71238.16],
+    bridge: { amount_usd: 48000, apr_pct: 17.12, funding_week: 7, trough_week: 7, residual_gap_usd: 0,
+      closing_after: [40250.4, 21219.72, 14694.66, 7975.06, 12450.3, 27757.42, 5168.37, 30641.09, 18267.9, 39786.56, 30164.77, 45152.15, 69886.93] },
+    robustness: { single_pack_p: 0.28, core_p: 0.87, core_packs: 3 },
+    first_week: 7, shortfall: 42831.63,
   };
 
   function drawChart(d) {
@@ -46,7 +47,7 @@
       out += `<line class="span" x1="${x1}" x2="${x1}" y1="${yb}" y2="${ya}" stroke-dasharray="3 3"/>`;
       out += `<text class="label bridge" x="${x1 + 8}" y="${ya - 8}">${esc(t("lc.advance", { a: usd(d.bridge.amount_usd) }))}</text>`;
       const tw = d.bridge.trough_week - 1;
-      out += `<text class="label deficit" x="${x(tw) - 14}" y="${y(d.bridge.closing_after[tw]) + 4}" text-anchor="end">${esc(t("lc.still", { a: usd(d.bridge.residual_gap_usd) }))}</text>`;
+      if (d.bridge.residual_gap_usd > 0) out += `<text class="label deficit" x="${x(tw) - 14}" y="${y(d.bridge.closing_after[tw]) + 4}" text-anchor="end">${esc(t("lc.still", { a: usd(d.bridge.residual_gap_usd) }))}</text>`;
     }
     d.weeks.forEach((v, i) => { if (v < 0) out += `<circle class="dot-neg" cx="${x(i)}" cy="${y(v)}" r="3.5"/>`; });
     const fi = d.first_week - 1;
@@ -56,8 +57,9 @@
     $("noteGap").textContent = t("lc.week", { w: d.first_week, a: usd(d.shortfall) });
     if (d.bridge) {
       $("noteBridge").textContent = t("lc.apr", { a: usd(d.bridge.amount_usd), p: Number(d.bridge.apr_pct).toFixed(1) });
-      $("noteResidual").textContent = t("lc.by", { a: usd(d.bridge.residual_gap_usd), w: d.bridge.trough_week });
+      if (d.bridge.residual_gap_usd > 0) $("noteResidual").textContent = t("lc.by", { a: usd(d.bridge.residual_gap_usd), w: d.bridge.trough_week });
     }
+    if (d.robustness) $("noteResidual").textContent = t("lc.robust", { a: Math.round(d.robustness.single_pack_p * 100), b: Math.round(d.robustness.core_p * 100) });
   }
 
   async function loadOverview() {
@@ -65,7 +67,7 @@
     try {
       const o = await CB.get("/api/public/overview", { anonymous: true });
       if (!o.kpis.first_shortfall_week) return;
-      drawChart({ company: o.company, weeks: o.weeks.map((w) => w.closing), bridge: o.bridge,
+      drawChart({ company: o.company, weeks: o.weeks.map((w) => w.closing), bridge: o.bridge, robustness: o.robustness,
         first_week: o.kpis.first_shortfall_week, shortfall: o.kpis.shortfall_usd });
     } catch (e) { /* static preview: keep the labelled sample */ }
   }
@@ -136,7 +138,7 @@
 
   function enter(session) {
     CB.save({ token: session.token, user: session.user, expires_at: session.expires_at });
-    window.location.href = "/app#" + (session.user.portal === "bank" ? "inbox" : "overview");
+    window.location.href = "/app#" + (session.user.portal === "bank" ? "inbox" : session.user.role === "sme_director" ? "core/decide" : "overview");
   }
 
   async function demoLogin(userId) {
@@ -178,6 +180,14 @@
   applyLang();
   loadOverview();
   loadScores();
+  if (params.get("signedout")) {
+    // Confirm the sign-out (the server session was ended) and drop the flag from the address bar.
+    const n = document.createElement("div");
+    n.style.cssText = "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:90;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;max-width:calc(100% - 32px)";
+    n.setAttribute("role", "status"); n.textContent = t("auth.signedOut");
+    document.body.appendChild(n); setTimeout(() => n.remove(), 3200);
+    history.replaceState(null, "", "/");
+  }
   if (params.get("signin")) openAuth(params.get("signin") === "bank" ? "bank" : "sme");
   else if (existing && existing.user && params.get("stay") !== "1") {
     // Already signed in in this tab: offer a direct way back instead of a dialog.

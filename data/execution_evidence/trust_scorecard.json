@@ -1,20 +1,71 @@
 {
-  "generated_at": "2026-10-19T01:33:11+00:00",
+  "generated_at": "2026-10-20T00:26:40+00:00",
   "synthetic": true,
   "summary": {
     "security": {
-      "passed": 20,
-      "total": 20
+      "passed": 25,
+      "total": 25
     },
     "agent": {
       "passed": 5,
       "total": 5
     },
     "model": {
-      "brier_model": 0.2006,
-      "brier_baseline": 0.2141,
-      "brier_improvement_pct": 6.3,
-      "n_predictions": 18
+      "brier_model": 0.0907,
+      "brier_baseline": 0.1458,
+      "brier_improvement_pct": 37.8,
+      "n_predictions": 167
+    },
+    "planner": {
+      "fixed_workflow": {
+        "label": "A. Fixed workflow",
+        "goal_success_mean": 0.0867,
+        "expected_cost_mean_usd": 960.15,
+        "policy_violations": 6,
+        "overconfidence_pp": 20.6,
+        "stability_pct": 92.5,
+        "same_plan_pct": 80.0
+      },
+      "planner_memory": {
+        "label": "B. Planner + memory",
+        "goal_success_mean": 0.6487,
+        "expected_cost_mean_usd": 4085.6,
+        "policy_violations": 0,
+        "overconfidence_pp": 19.3,
+        "stability_pct": 70.0,
+        "same_plan_pct": 55.0
+      },
+      "planner_learning": {
+        "label": "C. Planner + learning",
+        "goal_success_mean": 0.668,
+        "expected_cost_mean_usd": 4012.29,
+        "policy_violations": 0,
+        "overconfidence_pp": 9.3,
+        "stability_pct": 77.5,
+        "same_plan_pct": 77.5
+      }
+    },
+    "ops": {
+      "raw_events": 100,
+      "cases": 79,
+      "cashbridge": {
+        "director_alerts": 7,
+        "false_alerts": 3,
+        "missed": 0,
+        "needed": 4,
+        "intervention_rate_pct": 8.9,
+        "precision_pct": 57.1
+      },
+      "baseline_every_event": {
+        "director_alerts": 100,
+        "false_alerts": 96,
+        "missed": 0,
+        "needed": 4,
+        "intervention_rate_pct": 100.0,
+        "precision_pct": 4.0
+      },
+      "completed_without_a_person": 23,
+      "safety_violations": 0
     }
   },
   "security": [
@@ -137,6 +188,36 @@
       "title": "Production mode refuses the public demo OTP secret",
       "passed": true,
       "error": null
+    },
+    {
+      "id": "CORE-01",
+      "title": "Intelligence Core cannot pledge a confirmed order (not a receivable)",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "CORE-02",
+      "title": "A world-model update cannot be activated by the person who proposed it",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "CORE-03",
+      "title": "Lender cannot read the SME's Intelligence Core",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "CORE-04",
+      "title": "A Director-inbox alert cannot be decided by the Chief accountant",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "EVID-03",
+      "title": "A refused API call is written to the hash-chained audit log with who tried it",
+      "passed": true,
+      "error": null
     }
   ],
   "agent": [
@@ -183,12 +264,66 @@
   ],
   "model": {
     "method": "walk-forward: train on all earlier invoices, predict the next one",
-    "n_predictions": 18,
-    "brier_model": 0.2006,
-    "brier_baseline": 0.2141,
-    "brier_improvement_pct": 6.3,
-    "accuracy_model_pct": 72.2,
-    "accuracy_baseline_pct": 72.2,
-    "caveat": "Only 18 out-of-sample predictions on SYNTHETIC history: indicative, not statistically significant."
+    "n_predictions": 167,
+    "brier_model": 0.0907,
+    "brier_baseline": 0.1458,
+    "brier_improvement_pct": 37.8,
+    "accuracy_model_pct": 86.8,
+    "accuracy_baseline_pct": 82.6,
+    "caveat": "Only 167 out-of-sample predictions on SYNTHETIC history: indicative, not statistically significant."
+  },
+  "planner": {
+    "generated_at": "2026-10-20T00:19:46+00:00",
+    "protocol": {
+      "test_cases": 40,
+      "train_episodes": 8,
+      "plan_paths": 1000,
+      "eval_paths": 1000,
+      "hidden_test_world": "hidden test world (simulated): Oakline pays later, orders slip more than stated",
+      "goal": {
+        "label": "Keep every week at or above zero",
+        "floor": "zero",
+        "min_probability": 0.9
+      }
+    },
+    "learning_gate": {
+      "accepted": true,
+      "episodes": 8,
+      "observations": 321,
+      "loglik_current": -0.3925,
+      "loglik_candidate": -0.3676,
+      "gain_per_observation": 0.0249,
+      "held_out_wins": 7,
+      "reason": "Candidate predicts held-out outcomes better"
+    },
+    "summary": {
+      "fixed_workflow": {
+        "label": "A. Fixed workflow",
+        "goal_success_mean": 0.0867,
+        "expected_cost_mean_usd": 960.15,
+        "policy_violations": 6,
+        "overconfidence_pp": 20.6,
+        "stability_pct": 92.5,
+        "same_plan_pct": 80.0
+      },
+      "planner_memory": {
+        "label": "B. Planner + memory",
+        "goal_success_mean": 0.6487,
+        "expected_cost_mean_usd": 4085.6,
+        "policy_violations": 0,
+        "overconfidence_pp": 19.3,
+        "stability_pct": 70.0,
+        "same_plan_pct": 55.0
+      },
+      "planner_learning": {
+        "label": "C. Planner + learning",
+        "goal_success_mean": 0.668,
+        "expected_cost_mean_usd": 4012.29,
+        "policy_violations": 0,
+        "overconfidence_pp": 9.3,
+        "stability_pct": 77.5,
+        "same_plan_pct": 77.5
+      }
+    }
   }
 }

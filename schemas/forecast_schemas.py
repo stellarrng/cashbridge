@@ -72,6 +72,31 @@ class OpenReceivable(BaseModel):
     )
 
 
+class ConfirmedOrder(BaseModel):
+    """A buyer purchase order that is confirmed but not yet shipped or invoiced.
+
+    It is not a receivable: it cannot be pledged or factored and it is excluded from every
+    "open receivables" metric. The forecast counts only ``ship_confidence`` of its value, then
+    applies the buyer's on-time probability exactly as for an invoice.
+    """
+
+    order_ref: str
+    buyer_id: str
+    buyer_name: str
+    market: str
+    amount: Money
+    invoice_date: date = Field(description="Planned ship / invoice date")
+    terms_days: int = Field(ge=0, le=180)
+    ship_confidence: float = Field(ge=0.0, le=1.0)
+    p_on_time: float = Field(ge=0.0, le=1.0)
+
+    @property
+    def due_date(self) -> date:
+        from datetime import timedelta
+
+        return self.invoice_date + timedelta(days=self.terms_days)
+
+
 class DepositPlan(BaseModel):
     """A supplier deposit: ``po_value_usd`` times ``pct`` paid in a given week."""
 
@@ -98,6 +123,7 @@ class ForecastInputs(BaseModel):
     opening_cash_usd: Decimal
     buffer_usd: Decimal = MIN_CASH_BUFFER_USD
     receivables: List[OpenReceivable] = Field(default_factory=list)
+    confirmed_orders: List[ConfirmedOrder] = Field(default_factory=list)
     weekly_fixed_costs_usd: Decimal = Decimal("0")
     payroll_usd: Decimal = Decimal("0")
     deposits: List[DepositPlan] = Field(default_factory=list)

@@ -1,3 +1,5 @@
+> Historical note (v1). Since v5 the React/Vite prototype is removed; the only web app is the no-build `ui/web/dist`. Current test count: run `make test`.
+
 # Verification — Privacy-first CashBridge demo
 
 **Date:** 2026-10-19 (synthetic project dataset).

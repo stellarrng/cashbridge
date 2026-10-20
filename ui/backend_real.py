@@ -7,6 +7,7 @@ Fields for features that are not built yet are null or empty, as the contract al
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import tempfile
@@ -17,6 +18,10 @@ from typing import Any, Callable, Dict, List, Optional
 from pydantic import ValidationError
 
 from agents.autopilot import FinanceAutopilot
+from agents import intelligence_core as ic
+from core import scenario_simulator as sim
+
+_SEED_CACHE: Dict[str, str] = {}  # simulated past quarters, keyed by inputs + world model
 from agents.cfo_assistant import CfoAssistant
 from agents.concept_explainer import ConceptExplainer
 from agents.decision_copilot import DecisionCopilot
@@ -77,6 +82,8 @@ class RealBackend:
         self._last_contract: Optional[Dict[str, Any]] = None
         self._last_autopilot: Optional[Dict[str, Any]] = None
         self._lender_review: Dict[str, Any] = self._empty_lender_review()
+        self._intel_dir = Path(self.coord.audit_path).parent.parent / "intelligence"
+        self._last_plan: Optional[Dict[str, Any]] = None
         self._start()
 
     # ------------------------------------------------------------------ setup
@@ -90,6 +97,7 @@ class RealBackend:
         self._last_contract = None
         self._last_autopilot = None
         self._lender_review = self._empty_lender_review()
+        self._reset_intelligence()
 
     @staticmethod
     def _empty_lender_review() -> Dict[str, Any]:
@@ -273,6 +281,9 @@ class RealBackend:
             "as_of": c.as_of.isoformat(),
             "fx_note": FX_NOTE,
             "last_error": self._last_error,
+            "director_alerts_open": sum(1 for a in getattr(self, "_inbox", []) if a["status"] == "OPEN"),
+            "model_update_pending": bool(ic.ModelRegistry(self._intel_dir / "model_registry.json").status()["pending"])
+            if hasattr(self, "_intel_dir") else False,
         }
 
     def _kpis(self, forecast: ForecastResult) -> Dict[str, Any]:
@@ -433,9 +444,204 @@ class RealBackend:
     # ------------------------------------------------------------------ autopilot
     def run_autopilot(self, actor: Optional[str], execute: bool, goal: str = "") -> Dict[str, Any]:
         """Governed agent pass. ``execute`` lets it draft the pack (preparer role only, checked by the API)."""
-        result = FinanceAutopilot(self.coord).run(actor=actor, execute=execute, goal=goal or "Close the forecast cash gap safely")
+        _, registry = self._intel()
+        core = ic.IntelligenceCore(params=registry.active(), n_paths=1000)
+        result = FinanceAutopilot(self.coord, core=core).run(actor=actor, execute=execute, goal=goal or "Close the forecast cash gap safely")
         self._last_autopilot = result
         return result
+
+    # ------------------------------------------------------------- intelligence core
+    def _reset_intelligence(self) -> None:
+        """Each demo session starts from the prior world model and an empty (lazily seeded) memory."""
+        if self._intel_dir.exists():
+            shutil.rmtree(self._intel_dir, ignore_errors=True)
+        self._last_plan = None
+        self._twin_events: List[str] = []
+        self._twin_plan: Optional[Dict[str, Any]] = None
+        self._inbox: List[Dict[str, Any]] = []
+        self._digest: List[Dict[str, Any]] = []
+
+    def _intel(self):
+        memory = ic.CaseMemory(self._intel_dir / "case_memory.jsonl")
+        registry = ic.ModelRegistry(self._intel_dir / "model_registry.json")
+        if not memory.records():
+            # SIMULATED past quarters so memory and learning have something to show in the demo. The result depends
+            # only on the inputs and the world model, so it is computed once per process and copied afterwards.
+            inputs = ic.CoreInputs.from_coordinator(self.coord)
+            key = hashlib.sha256((inputs.forecast_inputs.model_dump_json() + registry.active().version).encode()).hexdigest()
+            if key not in _SEED_CACHE:
+                ic.seed_memory(memory, inputs, ic.IntelligenceCore(registry.active(), n_paths=600), episodes=8, seed=7)
+                _SEED_CACHE[key] = memory.path.read_text(encoding="utf-8")
+            else:
+                memory.path.write_text(_SEED_CACHE[key], encoding="utf-8")
+        return memory, registry
+
+    def intelligence(self, goal: str = "keep_cash_positive", min_probability: Optional[float] = None) -> Dict[str, Any]:
+        """Run the Core: state, ranked allowed plans, the chosen one, memory and the learning status."""
+        memory, registry = self._intel()
+        params = registry.active()
+        self.coord._gate("intelligence_core", "plan_liquidity", Tier.L1_ANALYZE,
+                         {"goal": goal, "min_probability": min_probability, "world_model": params.version})
+        inputs = self._twin_inputs()  # the live case plus any events that have happened since
+        result = ic.IntelligenceCore(params=params).plan(inputs, goal, baseline_actions=ic.fixed_workflow_actions(inputs),
+                                                        memory=memory, min_probability=min_probability,
+                                                        incumbent=self._twin_plan["actions"] if self._twin_plan else None)
+        run_id = f"RUN-{len([r for r in memory.records() if r['type'] == 'plan']) + 1:03d}"
+        memory.remember_plan(run_id, result, source="LIVE")
+        self._last_plan = dict(result.as_dict(), run_id=run_id)
+        return {"plan": self._last_plan, "learning": self._learning_status(memory, registry), "benchmark": self._benchmark_summary(),
+                "twin": self.twin_status()}
+
+    def public_robustness(self) -> Optional[Dict[str, Any]]:
+        """Headline for the landing page: how often the single pack and the Core plan keep cash at or above zero."""
+        _, registry = self._intel()
+        key = (self.coord.forecast_run_id, self.coord.state.value, registry.active().version)
+        if getattr(self, "_robust_cache", (None,))[0] == key:
+            return self._robust_cache[1]
+        inputs = ic.CoreInputs.from_coordinator(self.coord)
+        result = ic.IntelligenceCore(params=registry.active(), n_paths=1000).plan(inputs, baseline_actions=ic.fixed_workflow_actions(inputs))
+        out = {"single_pack_p": result.baseline.get("p_goal"), "core_p": result.chosen["p_goal"], "core_plan": result.chosen["description"],
+               "core_packs": result.chosen["packs"], "status": result.status, "paths": 1000, "world_model": registry.active().version}
+        self._robust_cache = (key, out)
+        return out
+
+    # ------------------------------------------------------- events and executive inbox
+    def _twin_inputs(self) -> "ic.CoreInputs":
+        inputs = ic.CoreInputs.from_coordinator(self.coord)
+        for kind in self._twin_events:
+            inputs = ic.apply_event(inputs, kind)
+        return inputs
+
+    def _twin_core(self) -> "ic.IntelligenceCore":
+        _, registry = self._intel()
+        return ic.IntelligenceCore(params=registry.active(), n_paths=1000)
+
+    def twin_status(self) -> Dict[str, Any]:
+        return {"catalogue": [{"kind": k, **v} for k, v in ic.EVENTS.items()], "applied": list(self._twin_events),
+                "plan_in_force": {k: self._twin_plan[k] for k in ("description", "p_goal", "cost_usd", "packs")} if self._twin_plan else None,
+                "inbox": [{k: v for k, v in a.items() if k != "proposed_plan"}
+                          for a in sorted(self._inbox, key=lambda a: (a["status"] != "OPEN", -a["priority"]["score"]))],
+                "digest": self._digest[::-1], "policy": ic.ALERT_POLICY,
+                "counts": {"events": len(self._inbox) + len(self._digest), "director_alerts": len(self._inbox), "digest_items": len(self._digest),
+                           "open_alerts": sum(1 for a in self._inbox if a["status"] == "OPEN")},
+                "note": "Demo events are buttons; in production they would arrive from the bank feed, ERP and inbox parser."}
+
+    def intelligence_event(self, kind: str, actor: Optional[str]) -> Dict[str, Any]:
+        """Apply a catalogue event to the twin, re-plan, and route the result to the Director or the digest."""
+        if kind not in ic.EVENTS:
+            raise ValueError(f"unknown event {kind!r}")
+        if kind in self._twin_events:
+            raise ValueError("This event has already happened in this session; reset the events to replay it")
+        core = self._twin_core()
+        before = self._twin_inputs()
+        if self._twin_plan is None:
+            self._twin_plan = core.plan(before).chosen
+        after = ic.apply_event(before, kind)
+        self.coord._gate("intelligence_core", "plan_liquidity", Tier.L1_ANALYZE, {"event": kind, "actor": actor})
+        started = datetime.now()
+        assessment = ic.assess_event(core, before, after, kind, self._twin_plan)
+        assessment["latency_ms"] = int((datetime.now() - started).total_seconds() * 1000)
+        chosen = assessment.pop("_chosen")
+        self._twin_events.append(kind)
+        self._last_plan = None  # the decision view re-plans on the new state
+        item = dict(assessment, id=f"EVT-{len(self._inbox) + len(self._digest) + 1:03d}", recorded_by=actor)
+        if assessment["route"] == "DIRECTOR_INBOX":
+            item.update(status="OPEN", proposed_plan=chosen)
+            self._inbox.append(item)
+        else:
+            item.update(status="HANDLED")
+            self._twin_plan = chosen  # same shape (or kept); nothing for the Director to approve
+            self._digest.append(item)
+        return {"assessment": {k: v for k, v in item.items() if k != "proposed_plan"}, "twin": self.twin_status()}
+
+    def intelligence_decide_alert(self, alert_id: str, accept: bool, reviewer: str) -> Dict[str, Any]:
+        item = next((a for a in self._inbox if a["id"] == alert_id), None)
+        if item is None:
+            raise LookupError("alert not found")
+        if item["status"] != "OPEN":
+            raise ValueError("This alert has already been decided")
+        self.coord._gate("model_owner", "record_plan_decision", Tier.L2_INTERNAL_WRITE,
+                         {"alert": alert_id, "accept": accept}, human_approver=reviewer)
+        if accept:
+            self._twin_plan = item["proposed_plan"]
+        self._last_plan = None
+        item.update(status="ACCEPTED" if accept else "KEPT_CURRENT_PLAN", decided_by=reviewer)
+        return self.twin_status()
+
+    def intelligence_reset_events(self) -> Dict[str, Any]:
+        self._twin_events, self._twin_plan, self._inbox, self._digest = [], None, [], []
+        self._last_plan = None
+        return self.twin_status()
+
+    def intelligence_status(self) -> Dict[str, Any]:
+        memory, registry = self._intel()
+        return {"plan": self._last_plan, "learning": self._learning_status(memory, registry), "benchmark": self._benchmark_summary(),
+                "twin": self.twin_status()}
+
+    def _learning_status(self, memory: "ic.CaseMemory", registry: "ic.ModelRegistry") -> Dict[str, Any]:
+        episodes = memory.episodes()
+        return {"registry": registry.status(), "memory_chain_ok": memory.verify(), "episodes": len(episodes),
+                "episodes_with_miss": sum(1 for e in episodes if not e["outcome"]["goal_met"]),
+                "recent": [{"run_id": e["run_id"], "source": e["source"], "plan": e["description"], "predicted_p_goal": e["predicted"]["p_goal"],
+                            "goal_met": e["outcome"]["goal_met"], "trough_usd": e["outcome"]["trough_usd"],
+                            "cause": e["outcome"]["attribution"]["label"], "lesson": e["outcome"]["attribution"]["lesson"]}
+                           for e in episodes[-10:]][::-1]}
+
+    def intelligence_simulate_outcome(self, actor: Optional[str]) -> Dict[str, Any]:
+        """Demo only: let one quarter 'happen' in the hidden test world for the last plan, then explain it."""
+        if not self._last_plan:
+            raise ValueError("Run the Intelligence Core first")
+        memory, registry = self._intel()
+        self.coord._gate("intelligence_core", "simulate_outcome", Tier.L1_ANALYZE, {"run_id": self._last_plan["run_id"]})
+        inputs = ic.CoreInputs.from_coordinator(self.coord)
+        seed = 900 + len(memory.records())
+        realised = sim.realise(inputs.forecast_inputs, ic.HIDDEN_TEST_WORLD, seed=seed)
+        outcome = ic.attribute_outcome(inputs, self._last_plan["chosen"]["actions"], realised)
+        memory.remember_outcome(self._last_plan["run_id"], dict(outcome, items=ic.observed_items(realised),
+                                                                truth_world=ic.HIDDEN_TEST_WORLD.label, recorded_by=actor))
+        return {"run_id": self._last_plan["run_id"], "outcome": outcome, "learning": self._learning_status(memory, registry)}
+
+    def intelligence_propose_update(self, actor: Optional[str]) -> Dict[str, Any]:
+        """Fit a candidate world model on recorded outcomes and gate it offline. It is stored as pending only."""
+        memory, registry = self._intel()
+        observed = [e["outcome"]["items"] for e in memory.episodes()]
+        current = registry.active()
+        learner = ic.WorldModelLearner(current)
+        metrics = learner.evaluate(observed, current)
+        candidate = learner.fit(observed)
+        self.coord._gate("intelligence_core", "propose_model_update", Tier.L2_INTERNAL_WRITE,
+                         {"candidate": candidate.version, "accepted_offline": metrics["accepted"]})
+        pending = registry.propose(candidate, metrics, proposed_by=actor or "intelligence_core")
+        return {"pending": pending, "learning": self._learning_status(memory, registry)}
+
+    def intelligence_decide_update(self, approve: bool, reviewer: str, note: str = "") -> Dict[str, Any]:
+        memory, registry = self._intel()
+        pending = registry.status()["pending"]
+        if not pending:
+            raise ValueError("No pending model update")
+        if approve and reviewer == pending.get("proposed_by"):
+            raise ValueError("Segregation of duties: the proposer cannot approve the model update")
+        if approve and not pending["metrics"].get("accepted"):
+            raise ValueError("The offline evaluation did not accept this candidate; it cannot be activated")
+        self.coord._gate("model_owner", "activate_model_update", Tier.L2_INTERNAL_WRITE,
+                         {"approve": approve, "note": note}, human_approver=reviewer)
+        try:
+            entry = registry.decide(approve, reviewer, note)
+        except PermissionError as error:
+            raise ValueError(str(error)) from error
+        self._last_plan = None  # the next plan must use the active model
+        return {"decision": entry, "learning": self._learning_status(memory, registry)}
+
+    @staticmethod
+    def _benchmark_summary() -> Optional[Dict[str, Any]]:
+        path = EXECUTION_EVIDENCE_DIR / "planner_benchmark.json"
+        if not path.exists():
+            return None
+        data = json.loads(path.read_text(encoding="utf-8"))
+        ops_path = EXECUTION_EVIDENCE_DIR / "ops_benchmark.json"
+        ops = json.loads(ops_path.read_text(encoding="utf-8"))["summary"] if ops_path.exists() else None
+        return {"generated_at": data["generated_at"], "protocol": data["protocol"], "summary": data["summary"],
+                "learning_gate": data["learning_gate"], "ceiling_within_cap": data.get("ceiling_within_cap"), "ops": ops}
 
     # ------------------------------------------------------------------ bank portal
     def _submitted_pack(self) -> Dict[str, Any]:
@@ -623,6 +829,7 @@ class RealBackend:
         self._last_autopilot = None
         self._lender_review = self._empty_lender_review()
         self.coord.reset()
+        self._reset_intelligence()
         self._chat = [self._briefing()]
         return self.get_snapshot()
 

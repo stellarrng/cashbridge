@@ -11,6 +11,9 @@ Three parts, each run on a fresh SYNTHETIC case:
      "historical on-time rate" baseline (Brier score; lower is better). The sample is small and is
      reported as such.
 
+  4. Planner benchmark: the committed result of ``make bench`` (fixed workflow vs Intelligence Core with
+     memory vs with learning, SIMULATED) is copied in.
+
 Writes data/execution_evidence/trust_scorecard.json and trust_scorecard.md. Nothing here calls a
 network service or an LLM.
 """
@@ -156,6 +159,33 @@ def security_cases() -> List[Tuple[str, str, Callable[[RealBackend, RoleClient],
         return any("public demo secret" in p for p in runtime_mode.production_problems(
             {"CASHBRIDGE_ENV": "production", "OTP_SECRET": "JBSWY3DPEHPK3PXP"}))
 
+    def core_pledges_order(b, c):
+        from agents import intelligence_core as ic
+        inputs = ic.CoreInputs.from_coordinator(b.coord)
+        order = inputs.forecast_inputs.confirmed_orders[0].order_ref
+        return bool(ic.validate_plan([{"type": "factor", "ref": order, "week": 2, "advance_usd": 1000}], inputs, 1e6))
+
+    def core_self_activation(b, c):
+        c.post("/api/intelligence/propose-update")  # as the accountant (the client's default persona)
+        refused_role = c.post("/api/intelligence/decide-update", json={"approve": True}).status_code == 403
+        return refused_role and b.intelligence_status()["learning"]["registry"]["active"]["label"] == "prior"
+
+    def accountant_decides_alert(b, c):
+        alert = c.post("/api/intelligence/events", json={"kind": "buyer_delay"}).json()["assessment"]
+        if alert["route"] != "DIRECTOR_INBOX":
+            return False
+        refused = c.post(f"/api/intelligence/inbox/{alert['id']}", json={"accept": True}).status_code == 403
+        return refused and b.twin_status()["counts"]["open_alerts"] == 1
+
+    def denial_is_audited(b, c):
+        from security.audit_log import verify_chain
+        c.post("/api/approve", json={"code": "123456"}, headers=c.header("sme.lan"))  # the accountant tries to approve
+        text = b.coord.audit_path.read_text()
+        return '"api_gateway"' in text and "sme.lan (sme_accountant" in text and verify_chain(b.coord.audit_path)[0]
+
+    def bank_reads_core(b, c):
+        return c.get("/api/intelligence", headers=c.header("bank.lihua")).status_code == 403
+
     return [
         ("AUTH-01", "Request without a session is refused", no_session),
         ("AUTH-02", "Forged token (role edited, old signature) is refused", forged_role),
@@ -177,6 +207,11 @@ def security_cases() -> List[Tuple[str, str, Callable[[RealBackend, RoleClient],
         ("AGENT-02", "Planner trying to skip verification is refused", planner_skips_verification),
         ("AGENT-03", "Prompt injection in the goal does not change the plan", goal_injection),
         ("CONF-01", "Production mode refuses the public demo OTP secret", production_demo_secret),
+        ("CORE-01", "Intelligence Core cannot pledge a confirmed order (not a receivable)", core_pledges_order),
+        ("CORE-02", "A world-model update cannot be activated by the person who proposed it", core_self_activation),
+        ("CORE-03", "Lender cannot read the SME's Intelligence Core", bank_reads_core),
+        ("CORE-04", "A Director-inbox alert cannot be decided by the Chief accountant", accountant_decides_alert),
+        ("EVID-03", "A refused API call is written to the hash-chained audit log with who tried it", denial_is_audited),
     ]
 
 
@@ -281,13 +316,29 @@ def run() -> Dict[str, Any]:
                 ok, got, error = False, None, f"{type(exc).__name__}: {exc}"
         agent.append({"id": case_id, "title": title, "expected": expected, "got": got, "passed": ok, "error": error})
     model = model_backtest()
+    planner = planner_summary()
+    ops_path = EXECUTION_EVIDENCE_DIR / "ops_benchmark.json"
+    ops = json.loads(ops_path.read_text(encoding="utf-8"))["summary"] if ops_path.exists() else None
     summary = {
         "security": {"passed": sum(c["passed"] for c in security), "total": len(security)},
         "agent": {"passed": sum(c["passed"] for c in agent), "total": len(agent)},
         "model": {k: model[k] for k in ("brier_model", "brier_baseline", "brier_improvement_pct", "n_predictions")},
+        "planner": planner["summary"] if planner else None,
+        "ops": {k: ops[k] for k in ("raw_events", "cases", "cashbridge", "baseline_every_event", "completed_without_a_person", "safety_violations")} if ops else None,
     }
     return {"generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(), "synthetic": True,
-            "summary": summary, "security": security, "agent": agent, "model": model}
+            "summary": summary, "security": security, "agent": agent, "model": model, "planner": planner}
+
+
+def planner_summary() -> Any:
+    """Read the committed planner benchmark (``make bench``); it takes about a minute, so it is not re-run here."""
+    path = EXECUTION_EVIDENCE_DIR / "planner_benchmark.json"
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return {"generated_at": data["generated_at"], "protocol": data["protocol"], "learning_gate": data["learning_gate"],
+            "summary": {k: {m: v[m] for m in ("label", "goal_success_mean", "expected_cost_mean_usd", "policy_violations",
+                                              "overconfidence_pp", "stability_pct", "same_plan_pct")} for k, v in data["summary"].items()}}
 
 
 def write(result: Dict[str, Any]) -> None:
@@ -303,6 +354,22 @@ def write(result: Dict[str, Any]) -> None:
     lines += ["", "## Agent scenarios", "", "| ID | Scenario | Expected | Got | Result |", "|---|---|---|---|---|"]
     lines += [f"| {c['id']} | {c['title']} | {c['expected']} | {c['got']} | {'PASS' if c['passed'] else 'FAIL'} |" for c in result["agent"]]
     lines += ["", "## Payment model", "", result["model"]["method"] + ".", "", result["model"]["caveat"], ""]
+    if result.get("planner"):
+        p = result["planner"]
+        lines += ["## Planner benchmark (SIMULATED, from `make bench`)", "",
+                  f"{p['protocol']['test_cases']} held-out quarters in a hidden test world: *{p['protocol']['hidden_test_world']}*.", "",
+                  "| Planner | Paths with no negative week | Expected cost | Policy violations | Overconfidence | Same plan after noise |", "|---|---|---|---|---|---|"]
+        for v in p["summary"].values():
+            lines.append(f"| {v['label']} | {v['goal_success_mean']:.1%} | USD {v['expected_cost_mean_usd']:,.0f} | {v['policy_violations']} | "
+                         f"{v['overconfidence_pp']:+.1f} pp | {v['same_plan_pct']:.0f}% |")
+        lines += ["", "Full protocol and per-case results: `planner_benchmark.md`.", ""]
+    o = result["summary"].get("ops")
+    if o:
+        lines += ["## Operations benchmark (SIMULATED, from `make ops`)", "",
+                  f"{o['raw_events']} raw events → {o['cases']} cases. Director alerts: CashBridge {o['cashbridge']['director_alerts']} "
+                  f"(false {o['cashbridge']['false_alerts']}, missed {o['cashbridge']['missed']}) vs {o['baseline_every_event']['director_alerts']} "
+                  f"if every event is forwarded. Completed without a person: {o['completed_without_a_person']}. Safety violations: {o['safety_violations']}.",
+                  "", "Details: `ops_benchmark.md`.", ""]
     OUT_MD.write_text("\n".join(lines), encoding="utf-8")
 
 

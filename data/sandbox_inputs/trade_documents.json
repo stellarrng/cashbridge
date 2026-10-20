@@ -187,6 +187,365 @@
       "quantity": 115,
       "seller_tax_id": "0312345678",
       "shipped_on_board_date": "2026-10-11"
+    },
+    {
+      "bl_number": "BL-1001",
+      "buyer_id": "B-US-02",
+      "invoice_no": "INV-1001",
+      "package_count": 107,
+      "port_of_discharge": "Long Beach",
+      "port_of_loading": "Cat Lai",
+      "quantity": 107,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-08-21"
+    },
+    {
+      "bl_number": "BL-1002",
+      "buyer_id": "B-JP-01",
+      "invoice_no": "INV-1002",
+      "package_count": 98,
+      "port_of_discharge": "Yokohama",
+      "port_of_loading": "Cat Lai",
+      "quantity": 98,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-08-28"
+    },
+    {
+      "bl_number": "BL-1003",
+      "buyer_id": "B-US-01",
+      "invoice_no": "INV-1003",
+      "package_count": 102,
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 102,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-08-13"
+    },
+    {
+      "bl_number": "BL-1004",
+      "buyer_id": "B-CN-01",
+      "invoice_no": "INV-1004",
+      "package_count": 99,
+      "port_of_discharge": "Shenzhen",
+      "port_of_loading": "Cat Lai",
+      "quantity": 99,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-08-28"
+    },
+    {
+      "bl_number": "BL-1005",
+      "buyer_id": "B-US-01",
+      "invoice_no": "INV-1005",
+      "package_count": 104,
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 104,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-08-20"
+    },
+    {
+      "bl_number": "BL-1039",
+      "buyer_id": "B-US-02",
+      "invoice_no": "INV-1039",
+      "package_count": 46,
+      "port_of_discharge": "Long Beach",
+      "port_of_loading": "Cat Lai",
+      "quantity": 46,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-09-11"
+    },
+    {
+      "bl_number": "BL-1040",
+      "buyer_id": "B-US-02",
+      "invoice_no": "INV-1040",
+      "package_count": 113,
+      "port_of_discharge": "Long Beach",
+      "port_of_loading": "Cat Lai",
+      "quantity": 113,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-09-18"
+    },
+    {
+      "bl_number": "BL-1041",
+      "buyer_id": "B-JP-01",
+      "invoice_no": "INV-1041",
+      "package_count": 86,
+      "port_of_discharge": "Yokohama",
+      "port_of_loading": "Cat Lai",
+      "quantity": 86,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-09-25"
+    },
+    {
+      "bl_number": "BL-1042",
+      "buyer_id": "B-US-01",
+      "invoice_no": "INV-1042",
+      "package_count": 97,
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 97,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-09-10"
+    },
+    {
+      "bl_number": "BL-1043",
+      "buyer_id": "B-CN-01",
+      "invoice_no": "INV-1043",
+      "package_count": 97,
+      "port_of_discharge": "Shenzhen",
+      "port_of_loading": "Cat Lai",
+      "quantity": 97,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-10-02"
+    },
+    {
+      "bl_number": "BL-1044",
+      "buyer_id": "B-US-01",
+      "invoice_no": "INV-1044",
+      "package_count": 99,
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 99,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-09-17"
+    },
+    {
+      "bl_number": "BL-1045",
+      "buyer_id": "B-US-02",
+      "invoice_no": "INV-1045",
+      "package_count": 127,
+      "port_of_discharge": "Long Beach",
+      "port_of_loading": "Cat Lai",
+      "quantity": 127,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-10-09"
+    },
+    {
+      "bl_number": "BL-1046",
+      "buyer_id": "B-US-02",
+      "invoice_no": "INV-1046",
+      "package_count": 123,
+      "port_of_discharge": "Long Beach",
+      "port_of_loading": "Cat Lai",
+      "quantity": 123,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-10-09"
+    },
+    {
+      "bl_number": "BL-1047",
+      "buyer_id": "B-JP-01",
+      "invoice_no": "INV-1047",
+      "package_count": 131,
+      "port_of_discharge": "Yokohama",
+      "port_of_loading": "Cat Lai",
+      "quantity": 131,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-10-09"
+    },
+    {
+      "bl_number": "BL-1048",
+      "buyer_id": "B-US-01",
+      "invoice_no": "INV-1048",
+      "package_count": 102,
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 102,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-10-01"
+    },
+    {
+      "bl_number": "BL-1049",
+      "buyer_id": "B-US-01",
+      "invoice_no": "INV-1049",
+      "package_count": 101,
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 101,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-10-15"
+    },
+    {
+      "bl_number": "BL-1050",
+      "buyer_id": "B-JP-01",
+      "invoice_no": "INV-1050",
+      "package_count": 40,
+      "port_of_discharge": "Yokohama",
+      "port_of_loading": "Cat Lai",
+      "quantity": 40,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-09-04"
+    },
+    {
+      "bl_number": "BL-1051",
+      "buyer_id": "B-US-01",
+      "invoice_no": "INV-1051",
+      "package_count": 58,
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 58,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-10-01"
+    },
+    {
+      "bl_number": "BL-1052",
+      "buyer_id": "B-US-01",
+      "invoice_no": "INV-1052",
+      "package_count": 35,
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 35,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-10-15"
+    },
+    {
+      "bl_number": "BL-1053",
+      "buyer_id": "B-JP-01",
+      "invoice_no": "INV-1053",
+      "package_count": 168,
+      "port_of_discharge": "Yokohama",
+      "port_of_loading": "Cat Lai",
+      "quantity": 168,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-10-13"
+    },
+    {
+      "bl_number": "BL-1054",
+      "buyer_id": "B-US-01",
+      "invoice_no": "INV-1054",
+      "package_count": 192,
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 192,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-10-14"
+    },
+    {
+      "bl_number": "BL-1055",
+      "buyer_id": "B-CN-01",
+      "invoice_no": "INV-1055",
+      "package_count": 176,
+      "port_of_discharge": "Shenzhen",
+      "port_of_loading": "Cat Lai",
+      "quantity": 176,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-10-15"
+    },
+    {
+      "bl_number": "BL-1056",
+      "buyer_id": "B-US-01",
+      "invoice_no": "INV-1056",
+      "package_count": 184,
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 184,
+      "seller_tax_id": "0312345678",
+      "shipped_on_board_date": "2026-10-16"
+    }
+  ],
+  "confirmed_orders": [
+    {
+      "amount": {
+        "amount": "24000.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-CN-01",
+      "buyer_name": "Shenzhen Greenhome Trading Ltd. (SYNTHETIC)",
+      "invoice_date": "2026-11-08",
+      "market": "CN",
+      "order_ref": "SO-2301",
+      "ship_confidence": "0.90",
+      "terms_days": 45
+    },
+    {
+      "amount": {
+        "amount": "22000.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-JP-01",
+      "buyer_name": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "invoice_date": "2026-11-08",
+      "market": "JP",
+      "order_ref": "SO-2302",
+      "ship_confidence": "0.90",
+      "terms_days": 45
+    },
+    {
+      "amount": {
+        "amount": "61000.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-02",
+      "buyer_name": "Harbor Living Inc. (SYNTHETIC)",
+      "invoice_date": "2026-11-15",
+      "market": "US",
+      "order_ref": "SO-2303",
+      "ship_confidence": "0.90",
+      "terms_days": 45
+    },
+    {
+      "amount": {
+        "amount": "29000.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-JP-01",
+      "buyer_name": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "invoice_date": "2026-11-22",
+      "market": "JP",
+      "order_ref": "SO-2304",
+      "ship_confidence": "0.90",
+      "terms_days": 45
+    },
+    {
+      "amount": {
+        "amount": "33900.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-02",
+      "buyer_name": "Harbor Living Inc. (SYNTHETIC)",
+      "invoice_date": "2026-11-22",
+      "market": "US",
+      "order_ref": "SO-2305",
+      "ship_confidence": "0.90",
+      "terms_days": 45
+    },
+    {
+      "amount": {
+        "amount": "29000.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-CN-01",
+      "buyer_name": "Shenzhen Greenhome Trading Ltd. (SYNTHETIC)",
+      "invoice_date": "2026-11-22",
+      "market": "CN",
+      "order_ref": "SO-2306",
+      "ship_confidence": "0.90",
+      "terms_days": 45
+    },
+    {
+      "amount": {
+        "amount": "48000.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-02",
+      "buyer_name": "Harbor Living Inc. (SYNTHETIC)",
+      "invoice_date": "2026-11-29",
+      "market": "US",
+      "order_ref": "SO-2307",
+      "ship_confidence": "0.90",
+      "terms_days": 45
+    },
+    {
+      "amount": {
+        "amount": "47800.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-02",
+      "buyer_name": "Harbor Living Inc. (SYNTHETIC)",
+      "invoice_date": "2026-11-29",
+      "market": "US",
+      "order_ref": "SO-2308",
+      "ship_confidence": "0.90",
+      "terms_days": 45
     }
   ],
   "invoices": [
@@ -512,6 +871,443 @@
       "port_of_loading": "Cat Lai",
       "quantity": 115,
       "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "24740.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-02",
+      "buyer_name": "Harbor Living Inc. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-10-21",
+      "invoice_no": "INV-1001",
+      "issue_date": "2026-08-22",
+      "market": "US",
+      "package_count": 107,
+      "po_number": "PO-1001",
+      "port_of_discharge": "Long Beach",
+      "port_of_loading": "Cat Lai",
+      "quantity": 107,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "22737.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-JP-01",
+      "buyer_name": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-10-28",
+      "invoice_no": "INV-1002",
+      "issue_date": "2026-08-29",
+      "market": "JP",
+      "package_count": 98,
+      "po_number": "PO-1002",
+      "port_of_discharge": "Yokohama",
+      "port_of_loading": "Cat Lai",
+      "quantity": 98,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "23480.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-10-28",
+      "invoice_no": "INV-1003",
+      "issue_date": "2026-08-14",
+      "market": "US",
+      "package_count": 102,
+      "po_number": "PO-1003",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 102,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "162490.00",
+        "currency": "CNY"
+      },
+      "buyer_id": "B-CN-01",
+      "buyer_name": "Shenzhen Greenhome Trading Ltd. (SYNTHETIC)",
+      "currency": "CNY",
+      "due_date": "2026-10-28",
+      "invoice_no": "INV-1004",
+      "issue_date": "2026-08-29",
+      "market": "CN",
+      "package_count": 99,
+      "po_number": "PO-1004",
+      "port_of_discharge": "Shenzhen",
+      "port_of_loading": "Cat Lai",
+      "quantity": 99,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "23915.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-11-04",
+      "invoice_no": "INV-1005",
+      "issue_date": "2026-08-21",
+      "market": "US",
+      "package_count": 104,
+      "po_number": "PO-1005",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 104,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "10765.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-02",
+      "buyer_name": "Harbor Living Inc. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-11-11",
+      "invoice_no": "INV-1039",
+      "issue_date": "2026-09-12",
+      "market": "US",
+      "package_count": 46,
+      "po_number": "PO-1039",
+      "port_of_discharge": "Long Beach",
+      "port_of_loading": "Cat Lai",
+      "quantity": 46,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "26082.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-02",
+      "buyer_name": "Harbor Living Inc. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-11-18",
+      "invoice_no": "INV-1040",
+      "issue_date": "2026-09-19",
+      "market": "US",
+      "package_count": 113,
+      "po_number": "PO-1040",
+      "port_of_discharge": "Long Beach",
+      "port_of_loading": "Cat Lai",
+      "quantity": 113,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "19999.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-JP-01",
+      "buyer_name": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-11-25",
+      "invoice_no": "INV-1041",
+      "issue_date": "2026-09-26",
+      "market": "JP",
+      "package_count": 86,
+      "po_number": "PO-1041",
+      "port_of_discharge": "Yokohama",
+      "port_of_loading": "Cat Lai",
+      "quantity": 86,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "22356.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-11-25",
+      "invoice_no": "INV-1042",
+      "issue_date": "2026-09-11",
+      "market": "US",
+      "package_count": 97,
+      "po_number": "PO-1042",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 97,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "159300.00",
+        "currency": "CNY"
+      },
+      "buyer_id": "B-CN-01",
+      "buyer_name": "Shenzhen Greenhome Trading Ltd. (SYNTHETIC)",
+      "currency": "CNY",
+      "due_date": "2026-12-02",
+      "invoice_no": "INV-1043",
+      "issue_date": "2026-10-03",
+      "market": "CN",
+      "package_count": 97,
+      "po_number": "PO-1043",
+      "port_of_discharge": "Shenzhen",
+      "port_of_loading": "Cat Lai",
+      "quantity": 97,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "22960.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-02",
+      "invoice_no": "INV-1044",
+      "issue_date": "2026-09-18",
+      "market": "US",
+      "package_count": 99,
+      "po_number": "PO-1044",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 99,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "29237.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-02",
+      "buyer_name": "Harbor Living Inc. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-09",
+      "invoice_no": "INV-1045",
+      "issue_date": "2026-10-10",
+      "market": "US",
+      "package_count": 127,
+      "po_number": "PO-1045",
+      "port_of_discharge": "Long Beach",
+      "port_of_loading": "Cat Lai",
+      "quantity": 127,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "28410.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-02",
+      "buyer_name": "Harbor Living Inc. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-09",
+      "invoice_no": "INV-1046",
+      "issue_date": "2026-10-10",
+      "market": "US",
+      "package_count": 123,
+      "po_number": "PO-1046",
+      "port_of_discharge": "Long Beach",
+      "port_of_loading": "Cat Lai",
+      "quantity": 123,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "30150.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-JP-01",
+      "buyer_name": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-09",
+      "invoice_no": "INV-1047",
+      "issue_date": "2026-10-10",
+      "market": "JP",
+      "package_count": 131,
+      "po_number": "PO-1047",
+      "port_of_discharge": "Yokohama",
+      "port_of_loading": "Cat Lai",
+      "quantity": 131,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "23640.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-16",
+      "invoice_no": "INV-1048",
+      "issue_date": "2026-10-02",
+      "market": "US",
+      "package_count": 102,
+      "po_number": "PO-1048",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 102,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "23310.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-30",
+      "invoice_no": "INV-1049",
+      "issue_date": "2026-10-16",
+      "market": "US",
+      "package_count": 101,
+      "po_number": "PO-1049",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 101,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "9372.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-JP-01",
+      "buyer_name": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-11-04",
+      "invoice_no": "INV-1050",
+      "issue_date": "2026-09-05",
+      "market": "JP",
+      "package_count": 40,
+      "po_number": "PO-1050",
+      "port_of_discharge": "Yokohama",
+      "port_of_loading": "Cat Lai",
+      "quantity": 40,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "13529.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-16",
+      "invoice_no": "INV-1051",
+      "issue_date": "2026-10-02",
+      "market": "US",
+      "package_count": 58,
+      "po_number": "PO-1051",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 58,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "8186.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-30",
+      "invoice_no": "INV-1052",
+      "issue_date": "2026-10-16",
+      "market": "US",
+      "package_count": 35,
+      "po_number": "PO-1052",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 35,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "38600.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-JP-01",
+      "buyer_name": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2027-01-22",
+      "invoice_no": "INV-1053",
+      "issue_date": "2026-10-14",
+      "market": "JP",
+      "package_count": 168,
+      "po_number": "PO-1053",
+      "port_of_discharge": "Yokohama",
+      "port_of_loading": "Cat Lai",
+      "quantity": 168,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "44250.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2027-01-28",
+      "invoice_no": "INV-1054",
+      "issue_date": "2026-10-15",
+      "market": "US",
+      "package_count": 192,
+      "po_number": "PO-1054",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 192,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "290000.00",
+        "currency": "CNY"
+      },
+      "buyer_id": "B-CN-01",
+      "buyer_name": "Shenzhen Greenhome Trading Ltd. (SYNTHETIC)",
+      "currency": "CNY",
+      "due_date": "2027-01-25",
+      "invoice_no": "INV-1055",
+      "issue_date": "2026-10-16",
+      "market": "CN",
+      "package_count": 176,
+      "po_number": "PO-1055",
+      "port_of_discharge": "Shenzhen",
+      "port_of_loading": "Cat Lai",
+      "quantity": 176,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "42410.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2027-01-29",
+      "invoice_no": "INV-1056",
+      "issue_date": "2026-10-17",
+      "market": "US",
+      "package_count": 184,
+      "po_number": "PO-1056",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 184,
+      "seller_tax_id": "0312345678"
     }
   ],
   "purchase_orders": [
@@ -802,6 +1598,397 @@
       "port_of_discharge": "Los Angeles",
       "port_of_loading": "Cat Lai",
       "quantity": 115,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "24740.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-02",
+      "buyer_name": "Harbor Living Inc. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-10-21",
+      "issue_date": "2026-07-23",
+      "package_count": 107,
+      "po_number": "PO-1001",
+      "port_of_discharge": "Long Beach",
+      "port_of_loading": "Cat Lai",
+      "quantity": 107,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "22737.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-JP-01",
+      "buyer_name": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-10-28",
+      "issue_date": "2026-07-30",
+      "package_count": 98,
+      "po_number": "PO-1002",
+      "port_of_discharge": "Yokohama",
+      "port_of_loading": "Cat Lai",
+      "quantity": 98,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "23480.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-10-28",
+      "issue_date": "2026-07-15",
+      "package_count": 102,
+      "po_number": "PO-1003",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 102,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "162490.00",
+        "currency": "CNY"
+      },
+      "buyer_id": "B-CN-01",
+      "buyer_name": "Shenzhen Greenhome Trading Ltd. (SYNTHETIC)",
+      "currency": "CNY",
+      "due_date": "2026-10-28",
+      "issue_date": "2026-07-30",
+      "package_count": 99,
+      "po_number": "PO-1004",
+      "port_of_discharge": "Shenzhen",
+      "port_of_loading": "Cat Lai",
+      "quantity": 99,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "23915.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-11-04",
+      "issue_date": "2026-07-22",
+      "package_count": 104,
+      "po_number": "PO-1005",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 104,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "10765.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-02",
+      "buyer_name": "Harbor Living Inc. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-11-11",
+      "issue_date": "2026-08-13",
+      "package_count": 46,
+      "po_number": "PO-1039",
+      "port_of_discharge": "Long Beach",
+      "port_of_loading": "Cat Lai",
+      "quantity": 46,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "26082.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-02",
+      "buyer_name": "Harbor Living Inc. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-11-18",
+      "issue_date": "2026-08-20",
+      "package_count": 113,
+      "po_number": "PO-1040",
+      "port_of_discharge": "Long Beach",
+      "port_of_loading": "Cat Lai",
+      "quantity": 113,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "19999.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-JP-01",
+      "buyer_name": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-11-25",
+      "issue_date": "2026-08-27",
+      "package_count": 86,
+      "po_number": "PO-1041",
+      "port_of_discharge": "Yokohama",
+      "port_of_loading": "Cat Lai",
+      "quantity": 86,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "22356.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-11-25",
+      "issue_date": "2026-08-12",
+      "package_count": 97,
+      "po_number": "PO-1042",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 97,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "159300.00",
+        "currency": "CNY"
+      },
+      "buyer_id": "B-CN-01",
+      "buyer_name": "Shenzhen Greenhome Trading Ltd. (SYNTHETIC)",
+      "currency": "CNY",
+      "due_date": "2026-12-02",
+      "issue_date": "2026-09-03",
+      "package_count": 97,
+      "po_number": "PO-1043",
+      "port_of_discharge": "Shenzhen",
+      "port_of_loading": "Cat Lai",
+      "quantity": 97,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "22960.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-02",
+      "issue_date": "2026-08-19",
+      "package_count": 99,
+      "po_number": "PO-1044",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 99,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "29237.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-02",
+      "buyer_name": "Harbor Living Inc. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-09",
+      "issue_date": "2026-09-10",
+      "package_count": 127,
+      "po_number": "PO-1045",
+      "port_of_discharge": "Long Beach",
+      "port_of_loading": "Cat Lai",
+      "quantity": 127,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "28410.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-02",
+      "buyer_name": "Harbor Living Inc. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-09",
+      "issue_date": "2026-09-10",
+      "package_count": 123,
+      "po_number": "PO-1046",
+      "port_of_discharge": "Long Beach",
+      "port_of_loading": "Cat Lai",
+      "quantity": 123,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "30150.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-JP-01",
+      "buyer_name": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-09",
+      "issue_date": "2026-09-10",
+      "package_count": 131,
+      "po_number": "PO-1047",
+      "port_of_discharge": "Yokohama",
+      "port_of_loading": "Cat Lai",
+      "quantity": 131,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "23640.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-16",
+      "issue_date": "2026-09-02",
+      "package_count": 102,
+      "po_number": "PO-1048",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 102,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "23310.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-30",
+      "issue_date": "2026-09-16",
+      "package_count": 101,
+      "po_number": "PO-1049",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 101,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "9372.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-JP-01",
+      "buyer_name": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-11-04",
+      "issue_date": "2026-08-06",
+      "package_count": 40,
+      "po_number": "PO-1050",
+      "port_of_discharge": "Yokohama",
+      "port_of_loading": "Cat Lai",
+      "quantity": 40,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "13529.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-16",
+      "issue_date": "2026-09-02",
+      "package_count": 58,
+      "po_number": "PO-1051",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 58,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "8186.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2026-12-30",
+      "issue_date": "2026-09-16",
+      "package_count": 35,
+      "po_number": "PO-1052",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 35,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "38600.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-JP-01",
+      "buyer_name": "Kyoto Interiors K.K. (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2027-01-22",
+      "issue_date": "2026-09-14",
+      "package_count": 168,
+      "po_number": "PO-1053",
+      "port_of_discharge": "Yokohama",
+      "port_of_loading": "Cat Lai",
+      "quantity": 168,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "44250.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2027-01-28",
+      "issue_date": "2026-09-15",
+      "package_count": 192,
+      "po_number": "PO-1054",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 192,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "290000.00",
+        "currency": "CNY"
+      },
+      "buyer_id": "B-CN-01",
+      "buyer_name": "Shenzhen Greenhome Trading Ltd. (SYNTHETIC)",
+      "currency": "CNY",
+      "due_date": "2027-01-25",
+      "issue_date": "2026-09-16",
+      "package_count": 176,
+      "po_number": "PO-1055",
+      "port_of_discharge": "Shenzhen",
+      "port_of_loading": "Cat Lai",
+      "quantity": 176,
+      "seller_tax_id": "0312345678"
+    },
+    {
+      "amount": {
+        "amount": "42410.00",
+        "currency": "USD"
+      },
+      "buyer_id": "B-US-01",
+      "buyer_name": "Oakline Home LLC (SYNTHETIC)",
+      "currency": "USD",
+      "due_date": "2027-01-29",
+      "issue_date": "2026-09-17",
+      "package_count": 184,
+      "po_number": "PO-1056",
+      "port_of_discharge": "Los Angeles",
+      "port_of_loading": "Cat Lai",
+      "quantity": 184,
       "seller_tax_id": "0312345678"
     }
   ],

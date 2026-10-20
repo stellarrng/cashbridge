@@ -1,10 +1,9 @@
-"""The committed React bundle and its source follow the project rules."""
+"""The committed no-build web app (ui/web/dist) follows the project rules."""
 
 import re
 from pathlib import Path
 
 WEB = Path(__file__).resolve().parent.parent / "ui" / "web"
-SOURCES = [p for p in (WEB / "src").rglob("*") if p.suffix in {".ts", ".tsx", ".css"}]
 
 
 DIST = WEB / "dist"
@@ -38,24 +37,16 @@ def test_web_ui_never_calculates_money():
     assert not re.search(r"[*/]\s*365|365\s*[*/]", js) and "* 0.8" not in js
 
 
-def test_source_has_no_external_urls_and_no_forbidden_words():
-    for path in SOURCES:
+def test_web_app_has_no_forbidden_claims():
+    for path in list(DIST.glob("*.html")) + list((DIST / "assets").glob("*.*")):
         text = path.read_text()
-        assert not re.search(r"https?://", text), f"external URL in {path.name}"
         for word in ("WeBank Factoring", "immutable", "tamper-proof"):
             assert word.lower() not in text.lower(), f"{word} in {path.name}"
 
 
-def test_design_system_colours_are_the_only_ones_used():
-    css = (WEB / "src" / "styles.css").read_text()
-    allowed = {"#0c0d0e", "#16181a", "#2a2d30", "#f4f4f3", "#8a8d90", "#c5a059", "#7fa88b", "#cc5f52", "#55585b"}
-    used = {c.lower() for c in re.findall(r"#[0-9a-fA-F]{6}\b", css)}
-    assert used <= allowed, used - allowed
-    assert not re.search(r"gradient|backdrop-filter|box-shadow:\s*0 0", css)
-
-
-def test_no_chart_or_ui_library_dependencies():
-    import json
-
-    deps = json.loads((WEB / "package.json").read_text())["dependencies"]
-    assert not {"recharts", "chart.js", "d3", "plotly.js", "antd", "@mui/material", "tailwindcss"} & set(deps)
+def test_there_is_one_web_app_and_no_build_step():
+    """No vendored chart/UI library, and no leftover React/Vite project whose build would overwrite dist."""
+    assert sorted(p.name for p in (DIST / "assets").iterdir()) == [
+        "api.js", "app.css", "app.js", "base.css", "charts.js", "config.js", "i18n.js", "landing.css", "landing.js", "premium-ui.css"]
+    for leftover in ("src", "package.json", "vite.config.ts", "index.html"):
+        assert not (WEB / leftover).exists(), leftover

@@ -133,6 +133,16 @@ class PermissionGatekeeper:
 
     @staticmethod
     def _decide_l2(payload: Dict[str, Any], human_approver: Optional[str], tool: str = ""):
+        if tool == "propose_model_update":
+            return Decision.ALLOWED, "proposal stored as pending; activation needs a named human", None
+        if tool == "record_plan_decision":
+            if human_approver:
+                return Decision.ALLOWED, f"plan decision recorded by {human_approver}", None
+            return Decision.BLOCKED, "a plan decision must be made by a named human", None
+        if tool == "activate_model_update":
+            if human_approver:
+                return Decision.ALLOWED, f"world-model update decided by {human_approver}", None
+            return Decision.BLOCKED, "a world-model update must be activated by a named human", None
         if tool == "record_credit_decision":
             if human_approver:
                 return Decision.ALLOWED, f"credit decision recorded by human reviewer {human_approver}", None

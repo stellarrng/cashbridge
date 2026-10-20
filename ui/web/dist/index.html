@@ -10,6 +10,7 @@
 <script src="/assets/i18n.js"></script>
 <link rel="stylesheet" href="/assets/base.css">
 <link rel="stylesheet" href="/assets/landing.css">
+<link rel="stylesheet" href="/assets/premium-ui.css">
 </head>
 <body>
 <a class="sr-only" href="#main">Skip to content</a>
@@ -57,9 +58,9 @@
       </div>
       <svg id="cashChart" viewBox="0 0 640 360" role="img" aria-label="Weekly closing cash for 13 weeks"></svg>
       <figcaption id="chartCaption" class="chart-notes">
-        <div><b id="noteGap">Week 7: −$43,882</b><span data-i18n="chart.gap">first negative week, found by the forecast</span></div>
+        <div><b id="noteGap">Week 7: −$42,832</b><span data-i18n="chart.gap">first negative week, found by the forecast</span></div>
         <div><b id="noteBridge">$48,000 at 17.1% a year</b><span data-i18n="chart.bridge">cheapest option that covers it</span></div>
-        <div><b id="noteResidual">−$152,547 by week 13</b><span data-i18n="chart.residual">what the advance does not fix; the agent says so</span></div>
+        <div><b id="noteResidual">28% → 87%</b><span data-i18n="chart.residual">simulated quarters that stay at or above zero: one advance vs the Intelligence Core's plan</span></div>
       </figcaption>
     </figure>
   </section>
@@ -93,6 +94,7 @@
           <li data-i18n="p.sme.c1">Run the Autopilot from cash gap to a drafted funding pack</li>
           <li data-i18n="p.sme.c2">See every figure tagged verified, calculated, estimated, assumed or missing</li>
           <li data-i18n="p.sme.c3">Test what-ifs: slower buyers, smaller deposits, FX moves</li>
+          <li data-i18n="p.sme.c5">See how often a plan survives 2,000 simulated quarters, and which plan the Intelligence Core would pick</li>
           <li data-i18n="p.sme.c4">Review contracts, bids, budgets and green-investment evidence</li>
         </ul>
         <ul class="cannot">
@@ -126,9 +128,9 @@
         <p data-i18n="trust.lede">Run <code>make trust</code> to reproduce these numbers. They come from the same code that serves this page.</p>
       </div>
       <div class="scores" id="scores">
-        <div class="score"><b id="scSec">20/20</b><span data-i18n="trust.sec">adversarial requests refused or detected: forged sessions, self-approval, replayed codes, double financing, tampered documents, prompt injection</span></div>
+        <div class="score"><b id="scSec">25/25</b><span data-i18n="trust.sec">adversarial requests refused or detected: forged sessions, self-approval, replayed codes, double financing, tampered documents, prompt injection</span></div>
         <div class="score"><b id="scAgent">5/5</b><span data-i18n="trust.agent">Autopilot scenarios end correctly, including the ones where the right move is to stop or hand over to a person</span></div>
-        <div class="score"><b id="scModel">0.201 vs 0.214</b><span data-i18n="trust.model">Brier score of the buyer payment model against the historical-rate baseline, walk-forward on 18 synthetic invoices: indicative only</span></div>
+        <div class="score"><b id="scModel">0.091 vs 0.146</b><span data-i18n="trust.model">Brier score of the buyer payment model against the historical-rate baseline, walk-forward on 167 synthetic invoices: synthetic data, indicative only</span></div>
       </div>
       <div class="claims">
         <div><h3 data-i18n="cl.works">Working in this demo</h3><p data-i18n="cl.works.d">Forecast, matching, APR, coverage and stress engines; OTP-bound approval; hash-chained audit log and invoice registry; server-side roles for both portals.</p></div>

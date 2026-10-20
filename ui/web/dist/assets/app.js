@@ -36,7 +36,7 @@
     }
   }
   const can = (perm) => state.user && state.user.permissions.includes(perm);
-  const engineNote = () => (window.I18N.lang() === "en" ? "" : `<p class="note engine-note">${esc(t("ui.engineNote"))}</p>`);
+  const engineNote = () => (window.I18N.lang() === "en" ? "" : `<p class="note engine-note adv">${esc(t("ui.engineNote"))}</p>`);
   const head = (title, lede, actions = "") => `<div class="head"><div><h1>${esc(title)}</h1>${lede ? `<p>${lede}</p>` : ""}</div>${actions ? `<div class="row">${actions}</div>` : ""}</div>`;
   const kpi = (label, value, cls = "", foot = "") => `<div class="kpi ${cls.includes("hl") ? "hl" : ""}"><span>${esc(label)}</span><b class="${cls.replace("hl", "")}">${esc(value)}</b>${foot ? `<small>${foot}</small>` : ""}</div>`;
   const statusPill = (s) => {
@@ -67,22 +67,46 @@
   }
 
   // ------------------------------------------------------------------ navigation
-  const SME_NAV = [["grp.decide", ["overview", "autopilot", "cash", "evidence", "funding"]], ["grp.analyse", ["analytics", "project", "contracts", "green"]], ["grp.control", ["trust"]]];
-  const BANK_NAV = [["grp.review", ["inbox", "trust"]]];
+  // Navigation is a task-focused projection of SERVER-issued permissions.
+  // It is never the authorization boundary (every API still checks the session).
+  const ACCOUNTANT_NAV = [["grp.decide", ["overview", "autopilot", "evidence", "cash", "funding"]], ["grp.analyse", ["analytics", "project", "contracts", "green"]], ["grp.control", ["trust"]], ["grp.system", ["settings"]]];
+  const DIRECTOR_NAV = [["grp.decide", ["core", "funding", "cash"]], ["grp.analyse", ["analytics", "project", "green"]], ["grp.control", ["trust"]], ["grp.system", ["settings"]]];
+  const SME_NAV = [["grp.decide", ["overview", "autopilot", "core", "cash", "evidence", "funding"]], ["grp.analyse", ["analytics", "project", "contracts", "green"]], ["grp.control", ["trust"]], ["grp.system", ["settings"]]];
+  function navigationForUser() {
+    if (!state.user) return [];
+    if (state.user.portal === "bank") return BANK_NAV;
+    if (can("sme:approve") && !can("sme:prepare")) return DIRECTOR_NAV;
+    if (can("sme:prepare") && !can("sme:approve")) return ACCOUNTANT_NAV;
+    return SME_NAV;
+  }
+  const BANK_NAV = [["grp.review", ["inbox", "trust"]], ["grp.system", ["settings"]]];
   function renderNav(current) {
-    const groups = state.user.portal === "bank" ? BANK_NAV : SME_NAV;
+    const groups = navigationForUser();
     const pending = state.snap && state.snap.meta.case_state === "AWAITING_APPROVAL" && can("sme:approve") ? 1 : 0;
+    const alerts = state.snap && can("sme:approve") ? (state.snap.meta.director_alerts_open || 0) : 0;
     $("side").innerHTML = groups.map(([title, items]) => `<h4>${esc(t(title))}</h4>` + items.map((id) =>
-      `<a href="#${id}" ${current === id ? 'aria-current="page"' : ""}>${esc(t("nav." + id))}${id === "funding" && pending ? `<span class="count" data-tip="${esc(t("next.approve"))}">1</span>` : ""}</a>`).join("")).join("");
+      `<a href="#${id}" ${current === id ? 'aria-current="page"' : ""}>${esc(t("nav." + id))}${id === "funding" && pending ? `<span class="count" data-tip="${esc(t("next.approve"))}">1</span>` : ""}${id === "core" && alerts ? `<span class="count" data-tip="${esc(t("core.inbox"))}">${alerts}</span>` : ""}</a>`).join("")).join("")
+      + `<h4>${esc(t("grp.account"))}</h4><a href="/?stay=1">${esc(t("nav.landing"))}</a>`
+      + `<button type="button" class="side-btn" id="sideSwitch">${esc(t("app.switch"))}</button><button type="button" class="side-btn" id="sideLogout">${esc(t("app.logout"))}</button>`
+      + `<div class="side-user">${userCard()}</div>`;
+    $("sideSwitch").onclick = switchAccount;
+    $("sideLogout").onclick = signOut;
+  }
+  function userCard() {
+    const u = state.user;
+    const initials = (state.cfg && (state.cfg.demo_accounts || []).find((a) => a.user_id === u.user_id) || {}).initials || u.name.split(" ").map((x) => x[0]).join("").slice(0, 2);
+    return `<span class="av" aria-hidden="true">${esc(initials)}</span><span><b>${esc(u.name)}</b><span>${esc(t("role." + u.role))}</span></span>`;
   }
 
   const routes = {};
   async function route() {
-    const hash = (location.hash || "").slice(1) || (state.user.portal === "bank" ? "inbox" : "overview");
+    // Role-based home: the lender reviews cases, the Director decides, the accountant works the queue.
+    const home = state.user.portal === "bank" ? "inbox" : can("sme:approve") ? "core" : "overview";
+    const hash = (location.hash || "").slice(1) || home;
     const [name, arg] = hash.split("/");
-    const allowed = state.user.portal === "bank" ? ["inbox", "case", "trust"] : ["overview", "autopilot", "cash", "evidence", "funding", "analytics", "project", "contracts", "green", "trust"];
-    const target = allowed.includes(name) ? name : allowed[0];
-    state.current = hash;
+    const allowed = state.user.portal === "bank" ? ["inbox", "case", "trust", "settings"] : navigationForUser().flatMap((group) => group[1]);
+    const target = allowed.includes(name) ? name : home;
+    state.current = target === name ? hash : target;
     renderNav(target === "case" ? "inbox" : target);
     page.innerHTML = `<p class="muted">${esc(t("app.loading"))}</p>`;
     try { await routes[target](arg); } catch (e) {
@@ -108,7 +132,7 @@
       if (!s) return;
       CB.save({ token: s.token, user: s.user, expires_at: s.expires_at });
       window.removeEventListener("hashchange", route);
-      location.hash = s.user.portal === "bank" ? "inbox" : (state.current.split("/")[0] || "overview");
+      location.hash = s.user.portal === "bank" ? "inbox" : s.user.permissions.includes("sme:approve") ? "core" : "overview";
       location.reload();
     });
   }
@@ -151,7 +175,24 @@
 
     const activity = s.evidence.audit_tail.slice(-6).reverse().map((a) => `<li><span class="mono small">#${a.seq}</span><span>${esc(a.agent)} · ${esc(a.tool)}</span>${statusPill(a.decision)}</li>`).join("");
 
-    page.innerHTML = roleStrip() + head(t("ov.title"), esc(t("ov.lede"))) +
+    // Work queue for this role: each tile is an action the signed-in person can actually take.
+    const director = can("sme:approve");
+    const tile = (label, n, href, icon, foot) => `<a class="work-tile ${n ? "due" : ""}" href="${href}"><span class="wt-l">${esc(label)}</span><b>${n}</b><span class="wt-i" aria-hidden="true">${icon}</span>${foot ? `<small>${esc(foot)}</small>` : ""}</a>`;
+    const I = { inbox: "▤", bank: "⌂", check: "✓", alert: "!", model: "◇", pack: "▣" };
+    const exceptions = s.verification.filter((v) => v.status !== "ELIGIBLE").length + s.scans.filter((x) => x.status !== "READ").length;
+    const unmatched = s.reconciliation.rows.filter((r) => r.status === "NEEDS_HUMAN").length;
+    const tiles = director ? [
+      tile(t("wq.approve"), stateNow === "AWAITING_APPROVAL" ? 1 : 0, "#funding", I.pack, t("wq.approveF")),
+      tile(t("wq.alerts"), s.meta.director_alerts_open || 0, "#core/decide", I.alert, t("wq.alertsF")),
+      tile(t("wq.model"), s.meta.model_update_pending ? 1 : 0, "#core/evidence", I.model, t("wq.modelF")),
+      tile(t("wq.lender"), ["FUNDED", "REJECTED"].includes(stateNow) ? 1 : 0, "#funding", I.bank, t("wq.lenderF")),
+    ] : [
+      tile(t("wq.exceptions"), exceptions, "#evidence", I.check, t("wq.exceptionsF")),
+      tile(t("wq.unmatched"), unmatched, "#evidence", I.bank, t("wq.unmatchedF")),
+      tile(t("wq.held"), s.alerts.length, "#evidence", I.inbox, t("wq.heldF")),
+      tile(t("wq.prepare"), ["INVOICE_VERIFIED", "OPTIONS_RANKED"].includes(stateNow) || s.pack.status === "REJECTED_BY_DIRECTOR" ? 1 : 0, "#autopilot", I.pack, t("wq.prepareF")),
+    ];
+    page.innerHTML = roleStrip() + head(t("ov.title"), esc(t("ov.lede"))) + `<div class="work-queue">${tiles.join("")}</div>` +
       `<div class="kpis cards">
         ${kpi(t("ov.cash"), usd(k.cash_today_usd), "hl", esc(t("ov.cashFoot")))}
         ${kpi(t("ov.gap"), k.first_shortfall_week ? t("lbl.week", { w: k.first_shortfall_week }) : "–", "neg", k.shortfall_usd ? `${esc(t("ov.gapFoot"))} <b class="neg">${usd(k.shortfall_usd)}</b>` : "")}
@@ -208,7 +249,8 @@
         <ul class="list">${rec.why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>
         <div class="caution"><b>${esc(t("ap.notFix"))}</b><ul class="list">${rec.what_would_change.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>
         ${rec.coverage ? `<h3 class="mini">${esc(t("ap.withWithout"))}</h3>${weeklyColumns(state.snap.forecast.weeks, rec.coverage.weeks.map((w) => w.closing_after))}<p class="note">${esc(rec.coverage.assumptions.filter(Boolean).join(" "))}</p>` : ""}
-        <h3 class="mini">${esc(t("ap.conditions"))}</h3><ul class="list">${rec.conditions.map((c) => `<li>${esc(c)}</li>`).join("")}</ul></section>`;
+        <h3 class="mini">${esc(t("ap.conditions"))}</h3><ul class="list">${rec.conditions.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>
+        ${rec.core_plan ? `<div class="row" style="margin-top:12px"><a class="btn ghost" href="#core">${esc(t("core.open"))}</a></div>` : ""}</section>`;
     }
     html += `<section class="panel"><h2>${esc(t("ap.did"))}</h2><p class="sub">${esc(t("ap.didSub"))}</p><ol class="trace">${r.steps.map((s) => `
       <li class="${esc(s.status)}"><span class="n">${s.n}</span><div><span class="tool">${esc(s.tool)}</span><h3>${esc(s.result)}</h3><p class="why">${esc(s.why)}</p>
@@ -216,7 +258,7 @@
       ${r.refused_proposals.length ? `<div class="caution"><b>${esc(t("ap.refused"))}</b><ul class="list">${r.refused_proposals.map((x) => `<li>${esc(x.proposed)}: ${esc(x.reason)}</li>`).join("")}</ul></div>` : ""}
       ${r.goal_injection_detected ? `<p class="note">${esc(t("ap.injected"))}</p>` : ""}
       <h3 class="mini">${esc(t("ap.guardrails"))}</h3><ul class="list small">${r.guardrails.map((g) => `<li>${esc(g)}</li>`).join("")}</ul></section>
-      <section class="panel"><h2>${esc(t("ap.register"))}</h2><p class="sub">${esc(t("ap.registerSub", { n: r.evidence.length }))}</p>
+      <section class="panel adv"><h2>${esc(t("ap.register"))}</h2><p class="sub">${esc(t("ap.registerSub", { n: r.evidence.length }))}</p>
       ${C.stack(order.map((s_) => ({ label: t("ev." + s_), value: counts[s_] || 0, cls: "evc-" + s_ })))}
       <div class="filters" id="evFilters">${["ALL"].concat(order).map((key) =>
         `<button type="button" data-f="${key}" aria-pressed="${state.evFilter === key}">${esc(key === "ALL" ? t("ap.all") : t("ev." + key))} ${key === "ALL" ? r.evidence.length : counts[key] || 0}</button>`).join("")}</div>
@@ -239,6 +281,232 @@
     });
     apply();
   }
+
+
+  // ------------------------------------------------------------------ SME: Intelligence Core
+  const pp = (x) => (x == null ? "–" : Math.round(x * 100) + "%");
+  // Decision trace: five steps rebuilt from the run that produced the plan on screen (not an illustration).
+  // Feasibility certificate: which limit stops the goal, shown only when the goal is not reached.
+  function feasBlock(plan) {
+    const f = plan.feasibility;
+    if (!f || f.verdict === "REACHABLE") return "";
+    return `<h4 class="mini">${esc(t("tr2.feas", { g: pp(f.goal_probability) }))}</h4>
+      <p class="small">${esc(t("tr2.feas.v." + f.verdict, { n: usd(f.cash_needed_week1_usd), c: usd(f.over_borrowing_cap_usd), e: usd(f.eligible_sources_usd) }))}</p>
+      <ul class="list small">${f.binding.map((b) => `<li>${esc(b.text)}</li>`).join("")}</ul>
+      <div class="scroll"><table class="small"><thead><tr><th>${esc(t("tr2.feas.probe"))}</th><th>${esc(t("tr2.feas.p"))}</th></tr></thead><tbody>
+      <tr><td>${esc(t("tr2.feas.now"))}</td><td><b>${pp(f.best_allowed_p_goal)}</b></td></tr>
+      ${f.probes.map((p) => `<tr><td>${esc(p.change)}<div class="muted">${esc(p.limit)}</div></td><td>${pp(p.p_goal)}</td></tr>`).join("")}</tbody></table></div>
+      <p class="note">${esc(t("tr2.feas.note"))}</p>
+      <h4 class="mini">${esc(t("tr2.feas.out"))}</h4><ul class="list small">${f.outside_financing.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
+  }
+  function decisionTrace(plan, tw, snap, open) {
+    const st_ = plan.state, ch = plan.chosen, risk = st_.risk_without_action, base = st_.base_case, cons = st_.considered || {};
+    const ver = snap ? snap.verification : [];
+    const ok = ver.filter((v) => v.status === "ELIGIBLE").length;
+    const excluded = Object.entries(st_.receivables.excluded || {});
+    const alts = plan.ranked.filter((r) => r.plan_id !== ch.plan_id).slice(0, 2);
+    const caseState = snap ? snap.meta.case_state : "";
+    const step = (n, key, status, summary, body) => `<li class="ts ${status}"><details><summary><span class="ts-n">${n}</span><span class="ts-t"><b>${esc(t("tr2." + key))}</b><span>${summary}</span></span><span class="pill ${status === "done" ? "ok" : status === "wait" ? "warn" : "bad"}">${esc(t("tr2.st." + status))}</span></summary><div class="ts-b">${body}</div></details></li>`;
+    const events = tw && tw.applied.length ? `<li>${esc(t("tr2.events"))}: ${tw.applied.map((k) => esc(t("core.ev." + k))).join(", ")}</li>` : "";
+    return panel(t("tr2.title"), esc(t("tr2.sub")), `<ol class="trace2">
+      ${step(1, "risk", base.first_negative_week ? "attention" : "done",
+        base.first_negative_week ? esc(t("tr2.risk.s", { w: base.first_negative_week, a: usd(base.shortfall_usd), p: pp(risk.p_no_negative_week) })) : esc(t("tr2.risk.none")),
+        `<ul class="list small"><li>${esc(t("tr2.risk.b1", { a: usd(base.min_closing_usd) }))}</li><li>${esc(t("tr2.risk.b2", { p: pp(risk.p_no_negative_week), n: plan.world_model.paths }))}</li>${events}</ul>`)}
+      ${step(2, "evidence", excluded.length ? "attention" : "done", esc(t("tr2.ev.s", { ok, n: ver.length || ok, x: excluded.length })),
+        `<ul class="list small"><li>${esc(t("tr2.ev.b1", { n: st_.receivables.pledgeable.length }))}</li>${excluded.slice(0, 4).map(([k, v]) => `<li><span class="mono">${esc(k)}</span>: ${esc(v)}</li>`).join("")}<li>${esc(t("tr2.ev.b2", { n: st_.confirmed_orders.count }))}</li></ul><a class="btn ghost small" href="#evidence">${esc(t("tr2.open"))}</a>`)}
+      ${step(3, "scenarios", "done", esc(t("tr2.sc.s", { n: cons.plans_scored || plan.ranked.length, r: cons.plans_refused || 0, p: plan.world_model.paths })),
+        `<ul class="list small"><li>${esc(t("tr2.sc.b1", { m: cons.plans_meeting_goal || 0, g: pp(plan.goal.min_probability) }))}</li><li>${esc(t("tr2.sc.b2", { w: (cons.draw_weeks || []).join(", ") }))}</li><li>${esc(t("tr2.sc.b3"))} <span class="mono">${esc(plan.world_model.version)}</span></li></ul>`)}
+      ${step(4, "rec", plan.status === "GOAL_MET" ? "done" : "attention", esc(ch.description) + ` · ${pp(ch.p_goal)} · ${usd(ch.cost_usd)}`,
+        `<ul class="list small">${ch.why.slice(0, 2).map((w) => `<li>${esc(w)}</li>`).join("")}${ch.shortfall_cvar95_usd != null && risk.shortfall_cvar95_usd != null ? `<li>${esc(t("tr2.cvar", { a: usd(ch.shortfall_cvar95_usd), b: usd(risk.shortfall_cvar95_usd) }))}</li>` : ""}</ul>${feasBlock(plan)}<h4 class="mini">${esc(t("tr2.alts"))}</h4><ul class="list small">${alts.map((r) => `<li>${esc(r.description)}: ${esc(r.verdict || "")}</li>`).join("")}</ul><p class="note">${esc(t("core.dc.notCredit"))}</p>`)}
+      ${step(5, "approval", open.length ? "wait" : caseState === "AWAITING_APPROVAL" ? "wait" : "done",
+        open.length ? esc(t("tr2.ap.inbox", { n: open.length })) : caseState === "AWAITING_APPROVAL" ? esc(t("tr2.ap.pack")) : esc(t("tr2.ap.none")),
+        `<ul class="list small"><li>${esc(t("tr2.ap.b1"))}</li><li>${esc(t("tr2.ap.b2"))}</li></ul>${caseState === "AWAITING_APPROVAL" && can("sme:approve") ? `<a class="btn bridge small" href="#funding">${esc(t("btn.openFunding"))}</a>` : ""}`)}
+    </ol>`);
+  }
+
+  routes.core = async (arg, fresh) => {
+    if (["decide", "analysis", "evidence"].includes(arg)) state.coreTab = arg;
+    const tab = state.coreTab || "decide";
+    const snap = await refresh().catch(() => state.snap);
+    let data = fresh || await CB.get("/api/intelligence");
+    if (!data.plan && !fresh) data = await CB.post("/api/intelligence/plan", {}).catch(() => data);  // the decision view needs a plan
+    const plan = data.plan;
+    const L = data.learning;
+    const tw = data.twin;
+    const goal = plan ? plan.goal : { id: "keep_cash_positive", min_probability: 0.9 };
+    const tabs = `<div class="tabs" role="tablist">${["decide", "analysis", "evidence"].map((k) =>
+      `<a role="tab" href="#core/${k}" aria-selected="${tab === k}" class="${tab === k ? "on" : ""} ${k === "decide" ? "" : "adv"}">${esc(t("core.tab." + k))}</a>`).join("")}</div>`;
+    let html = head(t(tab === "decide" ? "core.dc.title" : "nav.core"), esc(t(tab === "decide" ? "core.dc.lede" : "core.lede")),
+      `<button class="btn bridge" id="coreRun">${esc(t("core.run"))}</button>`) + tabs;
+
+    // ---- shared pieces
+    const alertCard = (a, open) => `<div class="alert-card ${open ? "open" : ""}"><div class="row-between"><b>${a.priority ? `<span class="pill ${a.priority.level === "HIGH" ? "bad" : a.priority.level === "MEDIUM" ? "warn" : ""}">${esc(a.priority.level)}</span> ` : ""}${esc(a.label)}</b>${statusPill(a.status === "OPEN" ? "AWAITING_APPROVAL" : a.status === "ACCEPTED" ? "APPROVED" : a.status === "HANDLED" ? "ok" : "ALLOWED")}</div>
+      <p class="small muted">${esc(a.id)} · ${esc(a.source)} · ${esc(t("lbl.week", { w: a.base_case.first_negative_week_before || "–" }))} → ${esc(t("lbl.week", { w: a.base_case.first_negative_week_after || "–" }))} · ${esc(t("core.inForce"))}: ${pp(a.plan_in_force.p_goal_before)} → ${pp(a.plan_in_force.p_goal_after)}${a.priority && a.priority.deadline && a.status === "OPEN" ? ` · ${esc(t("core.deadline"))} ${esc(a.priority.deadline)}` : ""}</p>
+      ${a.reasons.length && open ? `<ul class="list small">${a.reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
+      ${open ? `<p class="small"><b>${esc(a.new_plan.description)}</b> · ${pp(a.new_plan.p_goal)} · ${usd(a.new_plan.cost_usd)}</p>` : ""}
+      ${open && can("sme:approve") ? `<div class="row"><button class="btn bridge small" data-alert="${esc(a.id)}" data-accept="1">${esc(t("core.accept"))}</button><button class="btn ghost small" data-alert="${esc(a.id)}" data-accept="0">${esc(t("core.keep"))}</button></div>` : ""}
+      ${a.decided_by ? `<p class="small muted">${esc(a.decided_by)}</p>` : ""}</div>`;
+    const eventButtons = tw ? `<div class="row">${tw.catalogue.map((e) => `<button class="btn ghost small" data-event="${esc(e.kind)}" ${tw.applied.includes(e.kind) ? "disabled" : ""} data-tip="${esc(e.label)}">${esc(t("core.ev." + e.kind))}</button>`).join("")}
+        <button class="btn ghost small" id="evReset">${esc(t("core.evReset"))}</button></div>` : "";
+
+    if (!plan) {
+      html += `<div class="empty"><h2>${esc(t("core.empty"))}</h2></div>`;
+    } else if (tab === "decide") {
+      const ch = plan.chosen, fx = plan.fixed_workflow_plan, risk = plan.state.risk_without_action;
+      const open = tw ? tw.inbox.filter((a) => a.status === "OPEN") : [];
+      const decided = tw ? tw.inbox.filter((a) => a.status !== "OPEN") : [];
+      const headline = open.length ? t("core.dc.need", { n: open.length }) : t("core.dc.none");
+      const actions = ch.actions.map((a) => `<li><b>${esc(a.type === "factor" ? "Factoring " + a.ref : a.type === "loan" ? "Bridge loan" : "Deposit " + a.ref)}</b>
+        <span>${a.type === "deposit_cut" ? esc(a.new_pct + "%") : usd2(a.advance_usd != null ? a.advance_usd : a.amount_usd)}</span>
+        <span class="muted">${esc(t("lbl.week", { w: a.week }))}</span>${a.type === "deposit_cut" ? `<span class="pill warn">supplier</span>` : `<span class="pill">OTP</span>`}</li>`).join("");
+      const weeks = risk.p_negative_by_week.map((_, i) => "W" + (i + 1));
+      // Focus on the recommended plan; "no action" is a grey dashed reference; the single advance is a muted comparison.
+      const simple = prefGet("view") === "simple";
+      const noneV = risk.p_negative_by_week.map((x) => x * 100), planV = ch.p_negative_by_week.map((x) => x * 100);
+      const series = [{ name: t("core.s.none"), values: noneV, color: "var(--ink-3)", dash: "5 4", muted: true }];
+      if (fx && !simple) series.push({ name: t("core.s.fixed"), values: fx.p_negative_by_week.map((x) => x * 100), color: "var(--s2)", muted: true });
+      series.push({ name: t("core.s.plan"), values: planV, color: "var(--s1)", width: 3 });
+      const ref = fx && !simple ? fx.p_negative_by_week.map((x) => x * 100) : noneV;
+      const peak = ref.indexOf(Math.max(...ref));
+      const riskOpts = { fmt: (v) => v.toFixed(0) + "%", yfmt: (v) => Math.round(v) + "%", label: t("core.risk"), endLabels: true, dots: "ends",
+        annotate: { index: peak, text: t("core.peak", { w: peak + 1, a: Math.round(ref[peak]) + "%", b: Math.round(planV[peak]) + "%" }) },
+        tipExtra: (i) => t("core.delta", { d: (planV[i] - noneV[i]).toFixed(0) }) };
+      html = roleStrip() + html;
+      const sim = `<span class="pill sim">${esc(t("lbl.sim"))}</span> `;
+      html += `<div class="decision ${open.length ? "warn" : ""}"><div><h2>${esc(headline)}</h2><p>${esc(t("core.dc.sub"))}</p></div></div>` + engineNote() +
+        `<div class="kpis cards">
+        ${kpi(t("core.k.none"), pp(risk.p_no_negative_week), "neg", sim + esc(t("core.k.foot")))}
+        ${kpi(t("core.k.fixed"), fx ? pp(fx.p_goal) : "–", "warn", sim + (fx ? esc(fx.description) : ""))}
+        ${kpi(t("core.k.plan"), pp(ch.p_goal), "hl", sim + esc(t("core.status." + plan.status)))}
+        ${kpi(t("core.k.cost"), usd(ch.cost_usd), "", `${ch.packs} ${esc(t("col.packs").toLowerCase())}`)}
+      </div>
+      ${decisionTrace(plan, tw, snap, open)}
+      <div class="dash">
+        <div class="span2">${panel(t("core.inbox"), esc(t("core.dc.inboxSub")),
+          (open.length ? open.map((a) => alertCard(a, true)).join("") : `<p class="muted">${esc(t("core.dc.empty"))}</p>`) +
+          (decided.length ? `<details class="more"><summary>${esc(t("core.dc.decided", { n: decided.length }))}</summary>${decided.map((a) => alertCard(a, false)).join("")}</details>` : "") +
+          (tw && tw.digest.length ? `<details class="more"><summary>${esc(t("core.dc.digest", { n: tw.digest.length }))}</summary>${tw.digest.map((a) => alertCard(a, false)).join("")}</details>` : "") +
+          `<h3 class="mini">${esc(t("core.dc.simulate"))}</h3>${eventButtons}<p class="small muted" style="margin-top:8px">${tw ? esc(t("core.evCount", { e: tw.counts.events, a: tw.counts.director_alerts })) : ""}</p>`)}</div>
+        ${panel(t("core.chosen"), esc(t("core.status." + plan.status)), `<ul class="plan-actions">${actions}</ul><ul class="list small">${ch.why.slice(0, 2).map((w) => `<li>${esc(w)}</li>`).join("")}</ul>
+          <div class="row"><a class="btn ghost small" href="#core/analysis">${esc(t("core.dc.compare"))}</a><a class="btn ghost small" href="#core/evidence">${esc(t("core.dc.evidence"))}</a></div><p class="note">${esc(t("core.dc.notCredit"))}</p>`)}
+        <div class="span3">${panel(t("core.risk"), esc(t("core.riskSub")), C.lines(weeks, series, riskOpts))}</div>
+      </div>`;
+    } else if (tab === "analysis") {
+      const ch = plan.chosen, risk = plan.state.risk_without_action;
+      const weeks = risk.p_negative_by_week.map((_, i) => "W" + (i + 1));
+      const goalSel = `<label class="field inline">${esc(t("core.goal"))}<select id="coreGoal">${["keep_cash_positive", "keep_above_buffer"].map((g) =>
+        `<option value="${g}" ${goal.id === g ? "selected" : ""}>${esc(t("core.goal." + g))}</option>`).join("")}</select></label>
+        <label class="field inline">${esc(t("core.prob"))}<select id="coreProb">${[0.8, 0.85, 0.9, 0.95].map((p) =>
+        `<option value="${p}" ${Math.abs(goal.min_probability - p) < 1e-9 ? "selected" : ""}>${pp(p)} ${esc(t("core.ofPaths"))}</option>`).join("")}</select></label>
+        <a class="btn ghost small" href="#cash">${esc(t("core.whatif"))}</a>`;
+      const band = C.lines(weeks, [
+        { name: t("core.s.noneP10"), values: risk.closing_p10_by_week, color: "var(--ink-3)", dash: "5 4", muted: true },
+        { name: t("core.s.planP10"), values: ch.closing_p10_by_week, color: "var(--s1)", width: 3 },
+        { name: t("core.s.planP50"), values: ch.closing_p50_by_week, color: "var(--s2)", muted: true },
+      ], { fmt: (v) => usd(v), label: t("core.band"), endLabels: true, dots: "ends" });
+      const cons = plan.state.considered;
+      const row = (r) => `<tr class="${r.plan_id === ch.plan_id ? "chosen" : ""}"><td>${esc(r.description)}${r.verdict ? `<div class="muted small">${esc(r.verdict)}</div>` : ""}</td><td>${C.hbars([{ label: "", value: r.p_goal * 100, display: pp(r.p_goal), cls: r.p_goal >= goal.min_probability ? "cb-good" : "cb-muted" }])}</td><td>${usd(r.cost_usd)}</td><td>${r.packs}</td></tr>`;
+      const tableHead = `<thead><tr><th>${esc(t("col.plan"))}</th><th>${esc(t("col.pgoal"))}</th><th>${esc(t("col.ecost"))}</th><th>${esc(t("col.packs"))}</th></tr></thead>`;
+      html += `<form class="panel goal-bar" id="coreForm">${goalSel}</form>` +
+        panel(t("core.ranked"), esc(t("core.rankedSub")) + (cons ? ` · <b>${esc(t("core.considered", { n: cons.plans_scored, r: cons.plans_refused, m: cons.plans_meeting_goal }))}</b>` : ""),
+          `<div class="scroll"><table>${tableHead}<tbody>${plan.ranked.slice(0, 3).map(row).join("")}</tbody></table></div>
+          ${plan.ranked.length > 3 ? `<details class="more"><summary>${esc(t("core.allPlans", { n: plan.ranked.length }))}</summary><div class="scroll"><table>${tableHead}<tbody>${plan.ranked.slice(3).map(row).join("")}</tbody></table></div></details>` : ""}`) +
+        `<div class="dash"><div class="span2">${panel(t("core.band"), esc(t("core.bandSub")), band)}</div>
+        ${panel(t("core.chosen"), esc(ch.description), `<ul class="list small">${ch.why.map((w) => `<li>${esc(w)}</li>`).join("")}${ch.incumbent && ch.incumbent.kept && ch.incumbent.instead_of ? `<li>${esc(ch.incumbent.reason)}</li>` : ""}</ul><p class="note">${esc(t("core.packNote"))}</p>`)}
+        <div class="span3">${panel(t("core.constraints"), "", `<ul class="list small">
+          <li>${esc(plan.state.constraints.allowed_actions.join(", "))}</li>
+          <li>max ${plan.state.constraints.max_packs_per_plan} ${esc(t("col.packs").toLowerCase())}</li>
+          <li>cap ${usd(plan.state.constraints.over_borrowing_cap_usd)}</li>
+          <li>${esc(plan.state.constraints.every_pack_needs)}</li></ul>` +
+          (plan.rejected.length ? `<h3 class="mini">${esc(t("core.rejected"))}</h3><ul class="list small">${plan.rejected.slice(0, 5).map((r) => `<li>${esc(r.description)}: ${esc(r.violations.join("; "))}</li>`).join("")}</ul>` : "") +
+          (tw ? `<p class="note">${esc(tw.policy)}</p>` : ""))}</div></div>`;
+    } else {
+      html += panel(t("core.wm"), `${plan.world_model.paths} paths · seed ${plan.world_model.seed}`,
+        `<p><b class="mono">${esc(plan.world_model.version)}</b> <span class="pill">${esc(plan.world_model.label)}</span> · ${esc(t("core.memory"))}: ${L.memory_chain_ok ? "hash chain intact" : "BROKEN"}</p>`);
+      if (plan.similar_cases.length) html += panel(t("core.memory"), esc(t("core.memorySub")), `<div class="scroll"><table><tbody>${plan.similar_cases.map((m) =>
+        `<tr><td class="mono small">${esc(m.run_id)}<div><span class="pill">${esc(m.source)}</span></div></td><td>${esc(m.plan)}<div class="muted small">${esc(m.lesson)}</div></td><td>${pp(m.predicted_p_goal)}</td><td>${m.goal_met ? `<span class="pill ok">${esc(t("core.met"))}</span>` : `<span class="pill bad">${esc(t("core.missed"))}</span><div class="muted small">${esc(m.primary_cause.replaceAll("_", " "))}</div>`}</td></tr>`).join("")}</tbody></table></div>`);
+      // learning panel
+      const reg = L.registry, pend = reg.pending;
+      const shifts = Object.entries(reg.active.buyer_logit_shift || {}).map(([b, v]) => `${b} ${v > 0 ? "+" : ""}${v}`).join(", ") || "none";
+      const learnBody = `<div class="grid2"><div><h3 class="mini">${esc(t("core.active"))}</h3><p><b class="mono">${esc(reg.active_version)}</b> <span class="pill">${esc(reg.active.label)}</span></p>
+          <p class="small muted">buyer shifts: ${esc(shifts)} · order shipment scale ${esc(reg.active.ship_scale)} · slowdown ${pp(reg.active.slowdown_prob)}</p>
+          <p class="small">${esc(t("core.episodes"))}: <b>${L.episodes}</b> (${L.episodes_with_miss} ${esc(t("core.missed"))})</p></div>
+        <div><h3 class="mini">${esc(t("core.pending"))}</h3>${pend ? `<p><b class="mono">${esc(pend.version)}</b> · ${esc(pend.proposed_by)}</p>
+          <p class="small">${esc(t("core.gate"))}: ${esc(pend.metrics.reason)} (${esc(String(pend.metrics.loglik_current))} → ${esc(String(pend.metrics.loglik_candidate))}, ${esc(String(pend.metrics.held_out_wins))}/${esc(String(pend.metrics.episodes))})</p>
+          <p class="small muted">buyer shifts: ${esc(Object.entries(pend.params.buyer_logit_shift).map(([b, v]) => `${b} ${v > 0 ? "+" : ""}${v}`).join(", "))} · ship scale ${esc(pend.params.ship_scale)}</p>
+          ${can("sme:approve") ? `<div class="row"><button class="btn bridge" id="coreApprove" ${pend.metrics.accepted ? "" : "disabled"}>${esc(t("core.approve"))}</button><button class="btn ghost" id="coreReject">${esc(t("core.reject"))}</button></div>` : ""}`
+          : `<p class="muted">${esc(t("core.noPending"))}</p>`}</div></div>
+        <div class="row" style="margin-top:10px">${plan ? `<button class="btn ghost" id="coreSim">${esc(t("core.simulate"))}</button>` : ""}${can("sme:prepare") ? `<button class="btn ghost" id="corePropose">${esc(t("core.propose"))}</button>` : ""}</div>
+        <div id="coreOutcome"></div>
+        <h3 class="mini">${esc(t("core.history"))}</h3><div class="scroll"><table><tbody>${reg.history.slice().reverse().map((h) => `<tr><td class="mono small">${esc(h.version)}</td><td>${esc(h.label)}</td><td class="small">${esc(h.approved_by || h.rejected_by || "")}</td><td class="small muted">${esc(h.ts || "")}</td></tr>`).join("")}</tbody></table></div>
+        ${L.recent.length ? `<h3 class="mini">${esc(t("core.episodes"))}</h3><div class="scroll"><table><tbody>${L.recent.map((e) => `<tr><td class="mono small">${esc(e.run_id)} <span class="pill">${esc(e.source)}</span></td><td class="small">${esc(e.plan)}</td><td>${pp(e.predicted_p_goal)}</td><td>${e.goal_met ? `<span class="pill ok">${esc(t("core.met"))}</span>` : `<span class="pill bad">${esc(t("core.missed"))}</span>`}</td><td class="small muted">${esc(e.cause)}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
+      html += panel(t("core.learn"), esc(t("core.learnSub")), learnBody);
+      const b = data.benchmark;
+      if (b) {
+        const names = ["fixed_workflow", "planner_memory", "planner_learning"];
+        const bars = C.hbars(names.map((n, i) => ({ label: b.summary[n].label, value: b.summary[n].goal_success_mean * 100, display: (b.summary[n].goal_success_mean * 100).toFixed(1) + "%", cls: i === 2 ? "cb-accent" : "cb-muted", strong: i === 2 })));
+        html += panel(t("core.bench"), esc(t("core.benchSub")) + ` · ${esc(b.generated_at)}`, `<h3 class="mini">${esc(t("core.b.success"))}</h3>${bars}
+          <div class="scroll"><table><thead><tr><th></th>${names.map((n) => `<th>${esc(b.summary[n].label)}</th>`).join("")}</tr></thead><tbody>
+          <tr><td>${esc(t("core.k.cost"))}</td>${names.map((n) => `<td>${usd(b.summary[n].expected_cost_mean_usd)}</td>`).join("")}</tr>
+          ${b.summary[names[0]].shortfall_cvar95_mean_usd != null ? `<tr><td>${esc(t("core.b.cvar"))}</td>${names.map((n) => `<td>${usd(b.summary[n].shortfall_cvar95_mean_usd)}</td>`).join("")}</tr>` : ""}
+          <tr><td>${esc(t("core.b.overconf"))}</td>${names.map((n) => `<td>${b.summary[n].overconfidence_pp > 0 ? "+" : ""}${b.summary[n].overconfidence_pp} pp</td>`).join("")}</tr>
+          <tr><td>${esc(t("core.b.viol"))}</td>${names.map((n) => `<td>${b.summary[n].policy_violations}</td>`).join("")}</tr>
+          <tr><td>${esc(t("core.b.same"))}</td>${names.map((n) => `<td>${b.summary[n].same_plan_pct != null ? b.summary[n].same_plan_pct + "%" : "–"}</td>`).join("")}</tr>
+          <tr><td>${esc(t("core.b.stable"))}</td>${names.map((n) => `<td>${b.summary[n].stability_pct}%</td>`).join("")}</tr>
+          ${b.summary.planner_learning.same_plan_without_incumbent_pct != null ? `<tr><td>${esc(t("abl.noIncumbent"))}</td>${names.map((n) => `<td>${b.summary[n].same_plan_without_incumbent_pct != null ? b.summary[n].same_plan_without_incumbent_pct + "%" : "–"}</td>`).join("")}</tr>
+          <tr><td>${esc(t("abl.ownWorld"))}</td>${names.map((n) => `<td>${b.summary[n].overconfidence_own_world_pp != null ? (b.summary[n].overconfidence_own_world_pp > 0 ? "+" : "") + b.summary[n].overconfidence_own_world_pp + " pp" : "–"}</td>`).join("")}</tr>` : ""}</tbody></table></div>
+          ${b.ceiling_within_cap ? `<p class="small">${esc(t("abl.ceiling", { m: pp(b.ceiling_within_cap.mean), k: b.ceiling_within_cap.cases_reaching_90pct, n: b.protocol.test_cases }))}</p>` : ""}`);
+        if (b.ops) {
+          const o = b.ops, cb = o.cashbridge, ev = o.baseline_every_event, th = o.baseline_amount_threshold;
+          html += panel(t("ops.title"), esc(t("ops.sub", { r: o.raw_events, c: o.cases })),
+            C.hbars([{ label: t("ops.every"), value: ev.director_alerts, display: String(ev.director_alerts), cls: "cb-muted" },
+                     { label: t("ops.threshold"), value: th.director_alerts, display: String(th.director_alerts), cls: "cb-muted" },
+                     { label: "CashBridge", value: cb.director_alerts, display: String(cb.director_alerts), cls: "cb-accent", strong: true }]) +
+            `<div class="scroll"><table><thead><tr><th></th><th>${esc(t("ops.every"))}</th><th>${esc(t("ops.threshold"))}</th><th>CashBridge</th></tr></thead><tbody>
+            <tr><td>${esc(t("ops.false"))}</td><td>${ev.false_alerts}</td><td>${th.false_alerts}</td><td>${cb.false_alerts}</td></tr>
+            <tr><td>${esc(t("ops.missed"))}</td><td>${ev.missed}</td><td>${th.missed}</td><td>${cb.missed}</td></tr>
+            <tr><td>${esc(t("ops.precision"))}</td><td>${ev.precision_pct}%</td><td>${th.precision_pct}%</td><td>${cb.precision_pct}%</td></tr></tbody></table></div>
+            <p class="small">${esc(t("ops.auto", { n: o.completed_without_a_person, c: o.cases, v: o.safety_violations }))}</p>
+            ${o.ablation ? `<h3 class="mini">${esc(t("abl.title"))}</h3><div class="scroll"><table><thead><tr><th></th><th>${esc(t("ops.notif"))}</th><th>${esc(t("ops.false"))}</th><th>${esc(t("ops.missed"))}</th></tr></thead><tbody>
+            <tr><td><b>CashBridge</b></td><td>${cb.director_alerts}</td><td>${cb.false_alerts}</td><td>${cb.missed}</td></tr>
+            <tr><td>${esc(t("abl.noPlanCheck"))}</td><td>${o.ablation.without_plan_in_force_check.director_alerts}</td><td>${o.ablation.without_plan_in_force_check.false_alerts}</td><td>${o.ablation.without_plan_in_force_check.missed}</td></tr>
+            <tr><td>${esc(t("abl.noGroup"))}</td><td>${o.ablation.without_grouping.director_alerts}</td><td>${o.ablation.without_grouping.false_alerts}</td><td>${o.ablation.without_grouping.missed}</td></tr></tbody></table></div>` : ""}
+            <p class="note">${esc(t("ops.note"))}</p>`);
+        }
+      }
+    }
+    page.innerHTML = html;
+    bindRoleStrip();
+    const run = async () => {
+      $("coreRun").disabled = true;
+      const out = await act(() => CB.post("/api/intelligence/plan", $("coreGoal") ? { goal: $("coreGoal").value, min_probability: Number($("coreProb").value) } : { goal: goal.id, min_probability: goal.min_probability }));
+      $("coreRun").disabled = false;
+      if (out) routes.core(null, out);
+    };
+    $("coreRun").onclick = run;
+    if ($("coreForm")) $("coreForm").onsubmit = (e) => { e.preventDefault(); run(); };
+    if ($("coreSim")) $("coreSim").onclick = async () => {
+      const r = await act(() => CB.post("/api/intelligence/simulate-outcome"));
+      if (r) {
+        const o = r.outcome;
+        $("coreOutcome").innerHTML = `<div class="caution"><b>${esc(t("core.outcome"))} ${esc(r.run_id)}: ${o.goal_met ? esc(t("core.met")) : esc(t("core.missed"))}</b>
+          <p>${esc(o.attribution.label)}. ${esc(o.attribution.lesson)}</p><p class="small muted">trough ${usd2(o.trough_usd)} (${esc(t("lbl.week", { w: o.trough_week }))}) · ${Object.entries(o.contributions_usd).map(([k_, v]) => `${k_.replaceAll("_", " ")} ${usd(v)}`).join(" · ")}</p></div>`;
+      }
+    };
+    page.querySelectorAll("[data-event]").forEach((btn) => btn.onclick = async () => {
+      btn.disabled = true;
+      const r = await act(() => CB.post("/api/intelligence/events", { kind: btn.dataset.event }),
+        (x) => x.assessment.route === "DIRECTOR_INBOX" ? t("core.inbox") + ": " + x.assessment.id : t("core.digest"));
+      if (r) { await refresh(); renderNav("core"); routes.core(); } else btn.disabled = false;
+    });
+    if ($("evReset")) $("evReset").onclick = async () => { if (await act(() => CB.post("/api/intelligence/events/reset"))) { await refresh(); renderNav("core"); routes.core(); } };
+    page.querySelectorAll("[data-alert]").forEach((btn) => btn.onclick = async () => {
+      if (await act(() => CB.post(`/api/intelligence/inbox/${encodeURIComponent(btn.dataset.alert)}`, { accept: btn.dataset.accept === "1" }), "OK")) { await refresh(); renderNav("core"); routes.core(); }
+    });
+    if ($("corePropose")) $("corePropose").onclick = async () => { if (await act(() => CB.post("/api/intelligence/propose-update"), t("core.pending"))) routes.core(); };
+    if ($("coreApprove")) $("coreApprove").onclick = async () => { if (await act(() => CB.post("/api/intelligence/decide-update", { approve: true, note: "held-out gate passed" }), "OK")) routes.core(); };
+    if ($("coreReject")) $("coreReject").onclick = async () => { if (await act(() => CB.post("/api/intelligence/decide-update", { approve: false, note: "rejected" }), "OK")) routes.core(); };
+  };
 
   // ------------------------------------------------------------------ SME: cash forecast
   routes.cash = async () => {
@@ -538,17 +806,83 @@
     CB.clear();
     location.href = "/?signin=" + (state.user ? state.user.portal : "sme");
   }
-  $("switchBtn").onclick = switchAccount;
-  $("logoutBtn").onclick = async () => { try { await CB.post("/api/auth/logout"); } catch (e) { /* ignore */ } CB.clear(); location.href = "/"; };
+  async function signOut() { try { await CB.post("/api/auth/logout"); } catch (e) { /* ignore */ } CB.clear(); location.href = "/?signedout=1"; }
 
   function paintChrome() {
     const u = state.user;
     window.I18N.apply();
     $("portalTag").textContent = t(u.portal === "bank" ? "app.bank" : "app.sme");
-    const initials = (state.cfg && (state.cfg.demo_accounts || []).find((a) => a.user_id === u.user_id) || {}).initials || u.name.split(" ").map((x) => x[0]).join("").slice(0, 2);
-    $("me").innerHTML = `<span class="av" aria-hidden="true">${esc(initials)}</span><span><b>${esc(u.name)}</b><span>${esc(t("role." + u.role))}</span></span>`;
     document.title = t(u.portal === "bank" ? "app.bank" : "app.sme") + " | CashBridge";
   }
+
+  // ------------------------------------------------------------------ settings
+  // Personal display preferences live on this device only. Organisation policy is read from the server and
+  // shown read-only: no permission, limit or approval rule is ever stored or decided in the browser.
+  const PREFS = { view: ["advanced", "simple"], text: ["normal", "large"], motion: ["normal", "reduce"], contrast: ["normal", "high"] };
+  const prefGet = (k) => { try { const v = localStorage.getItem("cb." + k); return PREFS[k].includes(v) ? v : PREFS[k][0]; } catch (e) { return PREFS[k][0]; } };
+  const prefSet = (k, v) => { try { localStorage.setItem("cb." + k, v); } catch (e) { /* private mode: keep for this page only */ } };
+  function applyPrefs() { Object.keys(PREFS).forEach((k) => { document.documentElement.dataset[k] = prefGet(k); }); }
+  applyPrefs();
+
+  // Settings is a page in the side bar (System › Settings), like the reference app: display changes apply at once
+  // and are kept on this device; session actions sit with the account; organisation policy is read-only.
+  const fmtExpiry = (v) => {
+    const d = typeof v === "number" || /^\d+$/.test(String(v)) ? new Date(Number(v) * 1000) : new Date(v);
+    if (isNaN(d)) return String(v);
+    const loc = { en: "en-GB", vi: "vi-VN", zh: "zh-CN" }[window.I18N.lang()] || "en-GB";
+    return d.toLocaleString(loc, { dateStyle: "medium", timeStyle: "short" });
+  };
+  routes.settings = async () => {
+    const u = state.user;
+    const [pol, health] = await Promise.all([CB.get("/api/settings/policy").catch(() => null), CB.get("/api/health", { anonymous: true }).catch(() => null)]);
+    const sess = CB.session() || {};
+    const theme = document.documentElement.dataset.theme || "system";
+    const seg = (key, opts, cur, label) => `<div class="seg" role="group" aria-label="${esc(label)}">${opts.map(([v, l]) => `<button type="button" data-set="${key}" data-v="${v}" class="${v === cur ? "on" : ""}" aria-pressed="${v === cur}">${esc(l)}</button>`).join("")}</div>`;
+    const row = (title, hint, control) => `<div class="set-row"><div><b>${esc(title)}</b>${hint ? `<span>${esc(hint)}</span>` : ""}</div>${control}</div>`;
+    const sw = (key, on, title, hint) => row(title, hint, `<label class="switch"><input type="checkbox" data-sw="${key}" ${on ? "checked" : ""} aria-label="${esc(title)}"><span></span></label>`);
+    const profile = panel(t("set.profile"), esc(t("set.profileSub")), `<div class="side-user big">${userCard()}</div>
+      ${row(t("set.orgName"), "", `<span>${esc(u.org || "–")}</span>`)}
+      ${row(t("set.uid"), "", `<span class="mono">${esc(u.user_id)}</span>`)}
+      ${pol ? row(t("set.tenant"), "", `<span class="mono">${esc(pol.you.tenant)}</span>`) : ""}
+      <p class="note">${esc(t("set.roleNote"))}</p>${u.portal === "sme" ? roleStrip() : ""}`);
+    const display = panel(t("set.display"), esc(t("set.personalSub")), `
+      ${row(t("set.lang"), "", seg("lang", [["en", "English"], ["vi", "Tiếng Việt"], ["zh", "中文"]], window.I18N.lang(), t("set.lang")))}
+      ${row(t("set.theme"), "", seg("theme", [["system", t("set.system")], ["light", t("set.light")], ["dark", t("set.dark")]], theme, t("set.theme")))}
+      ${row(t("set.view"), t("set.viewHint"), seg("view", [["advanced", t("set.advanced")], ["simple", t("set.simple")]], prefGet("view"), t("set.view")))}
+      ${row(t("set.text"), "", seg("text", [["normal", t("set.normal")], ["large", t("set.large")]], prefGet("text"), t("set.text")))}
+      ${sw("motion", prefGet("motion") === "reduce", t("set.motion"), t("set.motionHint"))}
+      ${sw("contrast", prefGet("contrast") === "high", t("set.contrast"), t("set.contrastHint"))}`);
+    const session = panel(t("set.sessionData"), esc(t("set.sessionSub")), `
+      ${row(t("set.server"), "", `<span class="pill ${health ? "ok" : "bad"}">${esc(t(health ? "set.online" : "set.offline"))}</span>`)}
+      ${pol ? row(t("set.mode"), "", `<span class="mono">${esc(pol.mode)}</span>`) : ""}
+      ${sess.expires_at ? row(t("set.expires"), "", `<span>${esc(fmtExpiry(sess.expires_at))}</span>`) : ""}
+      <div class="row" style="margin-top:12px"><button class="btn ghost small" type="button" id="setSwitch">${esc(t("app.switch"))}</button><button class="btn ghost small" type="button" id="setLogout">${esc(t("app.logout"))}</button>${can("demo:reset") ? `<button class="btn danger small" type="button" id="setReset">${esc(t("tr.reset"))}</button>` : ""}</div>`);
+    const org = panel(t("set.org"), esc(t("set.orgSub")), pol ? `<div class="scroll"><table class="small"><tbody>
+        <tr><td>${esc(t("set.you"))}</td><td>${esc(t("role." + pol.you.role))}<div class="muted mono">${esc(pol.you.permissions.join(", "))}</div></td></tr>
+        <tr><td>${esc(t("set.buffer"))}</td><td>${usd(pol.cash.buffer_usd)} · ${esc(t("set.conc"))} ${pol.cash.concentration_alert_pct}%</td></tr>
+        <tr><td>${esc(t("set.approvals"))}</td><td>OTP ${pol.approvals.otp_validity_seconds}s · ${esc(t("set.session"))} ${pol.approvals.session_hours}h<div class="muted">${esc(pol.approvals.segregation_of_duties)}. ${esc(pol.approvals.lender_decision)}.</div></td></tr>
+        <tr><td>${esc(t("set.planner"))}</td><td>${Object.values(pol.planner.goals).map((g) => `${esc(g.label)} (${Math.round(g.min_probability * 100)}%)`).join("; ")} · max ${pol.planner.max_packs_per_plan} · ×${pol.planner.over_borrowing_factor}</td></tr>
+        <tr><td>${esc(t("set.alerts"))}</td><td>${esc(pol.alerts)}</td></tr></tbody></table></div><p class="note">${esc(pol.change_process)}</p>` : `<p class="muted">–</p>`);
+    page.innerHTML = head(t("set.title"), esc(t("set.lede"))) + `<div class="grid2 settings-grid">${display}${profile}${session}${org}</div>`;
+    bindRoleStrip();
+    page.querySelectorAll("[data-set]").forEach((b) => b.onclick = () => {
+      const k = b.dataset.set, v = b.dataset.v;
+      if (k === "lang") { const l = document.querySelector(`#langSwitch [data-l="${v}"]`); if (l) l.click(); return; }
+      if (k === "theme") {
+        if (v === "system") { delete document.documentElement.dataset.theme; try { localStorage.removeItem("cb.theme"); } catch (e) { /* ignore */ } }
+        else { document.documentElement.dataset.theme = v; try { localStorage.setItem("cb.theme", v); } catch (e) { /* ignore */ } }
+        document.dispatchEvent(new CustomEvent("cb:theme"));
+      } else { prefSet(k, v); applyPrefs(); routes.settings(); }
+      toast(t("set.saved"));
+    });
+    page.querySelectorAll("[data-sw]").forEach((i) => i.onchange = () => {
+      const k = i.dataset.sw;
+      prefSet(k, i.checked ? (k === "motion" ? "reduce" : "high") : "normal"); applyPrefs(); toast(t("set.saved"));
+    });
+    $("setSwitch").onclick = switchAccount;
+    $("setLogout").onclick = signOut;
+    if ($("setReset")) $("setReset").onclick = async () => { if (confirm(t("tr.reset") + "?") && await act(() => CB.post("/api/reset_demo"), "OK")) { state.summary = null; await refresh().catch(() => null); route(); } };
+  };
 
   async function start() {
     window.I18N.langSwitch($("langSwitch"));

@@ -21,4 +21,4 @@ It is not a green taxonomy certification, a lending recommendation or a bank app
 ## How to test
 `python -m pytest tests/test_green_finance.py -q`
 Full application tests need all packages in `requirements.txt` (including `pyotp`).
-Build the React UI from `ui/web` using `npm ci && npm run build`.
+The web app in `ui/web/dist` has no build step (since v5 the old React project is removed).

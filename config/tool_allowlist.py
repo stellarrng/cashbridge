@@ -31,11 +31,17 @@ TOOL_TIERS: Dict[str, Tier] = {
     "parse_reply": Tier.L1_ANALYZE,
     "schedule_reminders": Tier.L1_ANALYZE,
     "score_buyer_risk": Tier.L1_ANALYZE,
+    "plan_liquidity": Tier.L1_ANALYZE,
+    "simulate_outcome": Tier.L1_ANALYZE,
     # L2: internal writes
     "ledger_write": Tier.L2_INTERNAL_WRITE,
     "lock_period": Tier.L2_INTERNAL_WRITE,
     # L2 written by a named human at the lender, never by an agent
     "record_credit_decision": Tier.L2_INTERNAL_WRITE,
+    # L2 world-model governance: the Core may only *propose*; a named human activates
+    "propose_model_update": Tier.L2_INTERNAL_WRITE,
+    "activate_model_update": Tier.L2_INTERNAL_WRITE,
+    "record_plan_decision": Tier.L2_INTERNAL_WRITE,
     # L3: leaves the system, OTP from the Director every time
     "submit_pack": Tier.L3_EXTERNAL,
     "send_email": Tier.L3_EXTERNAL,
@@ -75,6 +81,10 @@ TOOL_ALLOWLIST: Dict[str, FrozenSet[str]] = {
     "buyer_risk_agent": frozenset({"read_payment_history", "score_buyer_risk"}),
     # The lender's human reviewer (bank portal). Reads the submitted pack, records a decision.
     "bank_reviewer": frozenset({"read_documents", "record_credit_decision"}),
+    # Internal planner: reads state, simulates, proposes. It cannot activate a model or touch a pack.
+    "intelligence_core": frozenset({"plan_liquidity", "simulate_outcome", "propose_model_update"}),
+    # The SME's human model owner (the Director in the demo) activates or rejects a proposal.
+    "model_owner": frozenset({"activate_model_update", "record_plan_decision"}),
 }
 
 

@@ -34,6 +34,16 @@ def _cents(value: Any) -> int:
         raise ValueError('Invalid amount') from None
 
 
+def _signed_cents(value: Any) -> int:
+    """Like _cents but a projected balance may be negative (that is what a cash alert is for)."""
+    if isinstance(value, bool):
+        raise ValueError('Invalid amount')
+    text = str(value).strip()
+    if text.startswith('-'):
+        return -_cents(text[1:])
+    return _cents(text)
+
+
 def _safe(value: Any, limit: int) -> str:
     if not isinstance(value, str) or not value.strip() or len(value)>limit or any(ord(c)<32 for c in value):
         raise ValueError('Invalid text identifier')
@@ -182,7 +192,7 @@ def evaluate(kind: str, data: dict[str, Any]) -> dict[str, Any]:
     minimum = _cents(data.get('minimum_reserve'))
     if not isinstance(balances, list) or len(balances) > 52:
         raise ValueError('Invalid cash forecast')
-    below = [{'period': idx + 1, 'shortfall_cents': minimum - _cents(v)} for idx, v in enumerate(balances) if _cents(v) < minimum]
+    below = [{'period': idx + 1, 'shortfall_cents': minimum - _signed_cents(v)} for idx, v in enumerate(balances) if _signed_cents(v) < minimum]
     return {'reserve_breaches': below, 'review_required': bool(below), 'payments_performed': False}
 
 

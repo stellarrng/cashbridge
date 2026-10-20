@@ -39,8 +39,8 @@ SELLER_TAX_ID = "0312345678"
 
 # ------------------------------------------------------------------ TUNING
 OPENING_CASH_USD = "80000.00"  # bank balance after today's credits
-WEEKLY_FIXED_COSTS_USD = "38000.00"
-PAYROLL_USD = "10000.00"
+WEEKLY_FIXED_COSTS_USD = "63500.00"  # suppliers + overhead + marketing, ~USD 275k a month (financial_analytics.json)
+PAYROLL_USD = "42000.00"  # month-end payroll, 120 staff
 DEPOSIT_PO_VALUE_USD = "92000.00"  # PO-2214, 30% timber deposit paid in week 7
 DEPOSIT_PCT = "30"
 DEPOSIT_DATE = date(2026, 12, 1)
@@ -176,6 +176,51 @@ _INVOICES = [
     ("INV-1035", "B-US-02", "USD", "26000.00", date(2026, 10, 11), date(2026, 11, 26), 115, 115, 115),
     ("INV-1037", "B-US-01", "USD", "59000.00", date(2026, 10, 16), date(2027, 1, 8), 260, 260, 260),
     ("INV-1038", "B-US-01", "USD", "26000.00", date(2026, 10, 12), date(2026, 12, 22), 115, 115, 115),
+    # Added in the v2 recalibration so open receivables match the ledger scale (about USD 0.85m
+    # before today's credits) and collections continue through week 13.
+    ("INV-1001", "B-US-02", "USD", "24740.00", date(2026, 8, 22), date(2026, 10, 21), 107, 107, 107),
+    ("INV-1002", "B-JP-01", "USD", "22737.00", date(2026, 8, 29), date(2026, 10, 28), 98, 98, 98),
+    ("INV-1003", "B-US-01", "USD", "23480.00", date(2026, 8, 14), date(2026, 10, 28), 102, 102, 102),
+    ("INV-1004", "B-CN-01", "CNY", "162490.00", date(2026, 8, 29), date(2026, 10, 28), 99, 99, 99),
+    ("INV-1005", "B-US-01", "USD", "23915.00", date(2026, 8, 21), date(2026, 11, 4), 104, 104, 104),
+    ("INV-1039", "B-US-02", "USD", "10765.00", date(2026, 9, 12), date(2026, 11, 11), 46, 46, 46),
+    ("INV-1040", "B-US-02", "USD", "26082.00", date(2026, 9, 19), date(2026, 11, 18), 113, 113, 113),
+    ("INV-1041", "B-JP-01", "USD", "19999.00", date(2026, 9, 26), date(2026, 11, 25), 86, 86, 86),
+    ("INV-1042", "B-US-01", "USD", "22356.00", date(2026, 9, 11), date(2026, 11, 25), 97, 97, 97),
+    ("INV-1043", "B-CN-01", "CNY", "159300.00", date(2026, 10, 3), date(2026, 12, 2), 97, 97, 97),
+    ("INV-1044", "B-US-01", "USD", "22960.00", date(2026, 9, 18), date(2026, 12, 2), 99, 99, 99),
+    ("INV-1045", "B-US-02", "USD", "29237.00", date(2026, 10, 10), date(2026, 12, 9), 127, 127, 127),
+    ("INV-1046", "B-US-02", "USD", "28410.00", date(2026, 10, 10), date(2026, 12, 9), 123, 123, 123),
+    ("INV-1047", "B-JP-01", "USD", "30150.00", date(2026, 10, 10), date(2026, 12, 9), 131, 131, 131),
+    ("INV-1048", "B-US-01", "USD", "23640.00", date(2026, 10, 2), date(2026, 12, 16), 102, 102, 102),
+    ("INV-1049", "B-US-01", "USD", "23310.00", date(2026, 10, 16), date(2026, 12, 30), 101, 101, 101),
+    ("INV-1050", "B-JP-01", "USD", "9372.00", date(2026, 9, 5), date(2026, 11, 4), 40, 40, 40),
+    ("INV-1051", "B-US-01", "USD", "13529.00", date(2026, 10, 2), date(2026, 12, 16), 58, 58, 58),
+    ("INV-1052", "B-US-01", "USD", "8186.00", date(2026, 10, 16), date(2026, 12, 30), 35, 35, 35),
+    # Long-term invoices due after the 13-week horizon. They do not move the base forecast, but an
+    # advance against them brings cash from outside the horizon into it.
+    ("INV-1053", "B-JP-01", "USD", "38600.00", date(2026, 10, 14), date(2027, 1, 22), 168, 168, 168),
+    ("INV-1054", "B-US-01", "USD", "44250.00", date(2026, 10, 15), date(2027, 1, 28), 192, 192, 192),
+    ("INV-1055", "B-CN-01", "CNY", "290000.00", date(2026, 10, 16), date(2027, 1, 25), 176, 176, 176),
+    ("INV-1056", "B-US-01", "USD", "42410.00", date(2026, 10, 17), date(2027, 1, 29), 184, 184, 184),
+]
+
+
+# Confirmed buyer orders that ship in the next weeks and are not invoiced yet. They are not
+# receivables (no B/L, cannot be pledged); the forecast counts ship_confidence x value.
+CONFIRMED_ORDERS: List[Dict[str, Any]] = [
+    {"order_ref": ref, "buyer_id": buyer, "buyer_name": _BUYERS[buyer][0], "market": _BUYERS[buyer][1],
+     "amount": _money(amount, "USD"), "invoice_date": ship.isoformat(), "terms_days": 45, "ship_confidence": "0.90"}
+    for ref, buyer, amount, ship in [
+        ("SO-2301", "B-CN-01", "24000.00", date(2026, 11, 8)),
+        ("SO-2302", "B-JP-01", "22000.00", date(2026, 11, 8)),
+        ("SO-2303", "B-US-02", "61000.00", date(2026, 11, 15)),
+        ("SO-2304", "B-JP-01", "29000.00", date(2026, 11, 22)),
+        ("SO-2305", "B-US-02", "33900.00", date(2026, 11, 22)),
+        ("SO-2306", "B-CN-01", "29000.00", date(2026, 11, 22)),
+        ("SO-2307", "B-US-02", "48000.00", date(2026, 11, 29)),
+        ("SO-2308", "B-US-02", "47800.00", date(2026, 11, 29)),
+    ]
 ]
 
 
@@ -244,6 +289,7 @@ def trade_documents() -> Dict[str, Any]:
                     "adjustable": True,
                 }
             ],
+            "confirmed_orders": CONFIRMED_ORDERS,
             "reconciled_invoice_nos": [],
         }
     )
@@ -389,9 +435,11 @@ _HISTORY_BUYERS = [
     # buyer_id, currency, invoices a year, typical amount, base days late, extra days late per x of usual size, noise (days)
     # Days late = base + extra x (amount / buyer's usual amount) + noise. An invoice much bigger than a buyer's
     # usual one is paid later; the model has to find that.
-    ("B-US-01", "USD", 20, 22000, -12.0, 12.0, 2.0),
-    ("B-JP-01", "USD", 8, 45000, -3.0, 0.0, 3.0),
-    ("B-CN-01", "CNY", 8, 120000, -2.0, 0.0, 4.0),
+    # Volumes are sized so the 12-month history adds up to the ledger revenue (about USD 4.6m, VND 120 bn).
+    # Harbor Living (B-US-02) is a new buyer since September 2026 and has no history on purpose.
+    ("B-US-01", "USD", 135, 22000, -12.0, 12.0, 2.0),
+    ("B-JP-01", "USD", 20, 45000, -3.0, 0.0, 3.0),
+    ("B-CN-01", "CNY", 30, 150000, -2.0, 0.0, 4.0),
 ]
 
 

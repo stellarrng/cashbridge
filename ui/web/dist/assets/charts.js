@@ -77,27 +77,48 @@
       <ul class="legend-inline">${parts.map((p) => `<li><i class="${p.cls}"></i>${esc(p.label)} <b>${p.value}</b></li>`).join("")}</ul>`;
   }
 
-  /* Two-series line chart over shared categories; series: [{name, values, color}] */
+  /* Line chart over shared categories; series: [{name, values, color, width?, dash?, muted?}]
+   * opts: fmt (tooltip value), yfmt (axis), endLabels (direct labels at the right end),
+   *       annotate {index, text} (dashed marker), tipExtra(i) (extra tooltip line), dots ("all" | "ends") */
   function lines(labels, series, opts = {}) {
-    const W = opts.width || 720, H = opts.height || 230, L = 54, R = 16, T = 12, B = 26;
+    const W = opts.width || 720, H = opts.height || 230, L = 54, R = opts.endLabels ? 132 : 16, T = opts.annotate ? 26 : 12, B = 26;
     const all = series.flatMap((s) => s.values);
     let max = Math.max(...all), min = Math.min(0, ...all);
     const step = niceStep(max - min || 1);
     max = Math.ceil(max / step) * step;
     const x = (i) => L + (i * (W - L - R)) / (labels.length - 1);
     const y = (v) => T + ((max - v) * (H - T - B)) / (max - min || 1);
+    const yl = opts.yfmt || k;
     let g = "";
-    for (let v = min; v <= max + 1e-9; v += step) g += `<line class="cg" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="ct" x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${k(v)}</text>`;
+    for (let v = min; v <= max + 1e-9; v += step) g += `<line class="cg" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="ct" x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${yl(v)}</text>`;
     labels.forEach((l, i) => { if (i % 2 === 0) g += `<text class="ct" x="${x(i)}" y="${H - 8}" text-anchor="middle">${esc(l)}</text>`; });
-    series.forEach((s) => {
-      g += `<path fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" d="${s.values.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join(" ")}"/>`;
+    if (opts.annotate) {
+      const ax = x(opts.annotate.index);
+      g += `<line x1="${ax}" x2="${ax}" y1="${T - 4}" y2="${H - B}" stroke="var(--ink-3)" stroke-dasharray="3 4" stroke-width="1"/>`;
+      g += `<text class="ct" x="${Math.min(ax + 6, W - R - 4)}" y="${T - 10}" text-anchor="${ax + 160 > W - R ? "end" : "start"}">${esc(opts.annotate.text)}</text>`;
+    }
+    // draw muted series first so the focus series sits on top
+    series.map((s, idx) => ({ s, idx })).sort((a, b) => (a.s.muted ? 0 : 1) - (b.s.muted ? 0 : 1)).forEach(({ s }) => {
+      g += `<path fill="none" stroke="${s.color}" stroke-width="${s.width || 2}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ""} opacity="${s.muted ? 0.75 : 1}" stroke-linejoin="round" stroke-linecap="round" d="${s.values.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join(" ")}"/>`;
     });
+    const dots = opts.dots || "all";
     labels.forEach((l, i) => {
-      const tip = l + "\n" + series.map((s) => `${s.name}: ${opts.fmt ? opts.fmt(s.values[i]) : s.values[i]}`).join("\n");
+      const tip = l + "\n" + series.map((s) => `${s.name}: ${opts.fmt ? opts.fmt(s.values[i]) : s.values[i]}`).join("\n") + (opts.tipExtra ? "\n" + opts.tipExtra(i) : "");
       g += `<rect class="hit" x="${x(i) - (W - L - R) / labels.length / 2}" y="${T}" width="${(W - L - R) / labels.length}" height="${H - T - B}" data-tip="${esc(tip)}"/>`;
-      series.forEach((s) => { g += `<circle cx="${x(i)}" cy="${y(s.values[i])}" r="3" fill="${s.color}" class="lpt"/>`; });
+      series.forEach((s) => {
+        if (dots === "all" || i === labels.length - 1) g += `<circle cx="${x(i)}" cy="${y(s.values[i])}" r="${dots === "all" ? 3 : 4}" fill="${s.color}" stroke="var(--surface, #fff)" stroke-width="2" class="lpt"/>`;
+      });
     });
-    const legend = `<ul class="legend-inline">${series.map((s) => `<li><i style="background:${s.color}"></i>${esc(s.name)}</li>`).join("")}</ul>`;
+    if (opts.endLabels) {
+      const last = labels.length - 1;
+      const placed = series.map((s) => ({ name: s.name, y: y(s.values[last]), color: s.color })).sort((a, b) => a.y - b.y);
+      for (let i = 1; i < placed.length; i++) if (placed[i].y - placed[i - 1].y < 15) placed[i].y = placed[i - 1].y + 15;
+      placed.forEach((p) => {
+        g += `<line x1="${x(last) + 7}" x2="${x(last) + 17}" y1="${p.y}" y2="${p.y}" stroke="${p.color}" stroke-width="2"/>`;
+        g += `<text class="ct cl" x="${x(last) + 21}" y="${p.y + 4}">${esc(p.name)}</text>`;
+      });
+    }
+    const legend = `<ul class="legend-inline">${series.map((s) => `<li><i style="background:${s.color}${s.dash ? ";opacity:.75" : ""}"></i>${esc(s.name)}</li>`).join("")}</ul>`;
     return `${legend}<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label || "")}">${g}</svg>`;
   }
 

@@ -27,6 +27,7 @@ from schemas.document_schemas import (
 )
 from schemas.forecast_schemas import (
     CCCMetrics,
+    ConfirmedOrder,
     DepositPlan,
     ForecastInputs,
     LedgerSnapshot,
@@ -98,6 +99,32 @@ def on_time_probabilities(directory: Path = SANDBOX_INPUTS_DIR) -> Dict[str, flo
     return {inv.invoice_no: agent.p_on_time(inv) for inv in invoices(directory)}
 
 
+def confirmed_orders(directory: Path = SANDBOX_INPUTS_DIR, agent: Optional[BuyerRiskAgent] = None) -> List[ConfirmedOrder]:
+    """Confirmed, not-yet-invoiced buyer orders, scored with the same buyer model as invoices."""
+    raw = read("trade_documents.json", directory).get("confirmed_orders", [])
+    if not raw:
+        return []
+    agent = agent or BuyerRiskAgent(read("payment_history.json", directory)["records"])
+    out = []
+    for item in raw:
+        amount = _money(item["amount"])
+        terms = int(item["terms_days"])
+        out.append(
+            ConfirmedOrder(
+                order_ref=item["order_ref"],
+                buyer_id=item["buyer_id"],
+                buyer_name=item["buyer_name"],
+                market=item["market"],
+                amount=amount,
+                invoice_date=date.fromisoformat(item["invoice_date"]),
+                terms_days=terms,
+                ship_confidence=float(item["ship_confidence"]),
+                p_on_time=agent.p_on_time_for(item["buyer_id"], terms, float(amount.to_usd())),
+            )
+        )
+    return out
+
+
 def forecast_inputs(
     reconciled_invoice_nos: Iterable[str] = (),
     directory: Path = SANDBOX_INPUTS_DIR,
@@ -143,6 +170,7 @@ def forecast_inputs(
         weekly_fixed_costs_usd=Decimal(profile["weekly_fixed_costs_usd"]),
         payroll_usd=Decimal(profile["payroll_usd"]),
         receivables=receivables,
+        confirmed_orders=confirmed_orders(directory),
         deposits=deposits,
     )
 

@@ -21,11 +21,15 @@ def test_execute_reaches_director_handoff_with_evidence(backend):
     assert backend.coord.pack["prepared_by"] == "sme.lan"
     rec = r["recommendation"]
     assert rec["option_id"] == "factoring_inv1030" and rec["covers_first_gap"] is True
-    # Honest coverage: the advance bridges week 7 but not the trough, and the agent says so.
-    assert rec["first_negative_week_after"] == 8 and rec["residual_gap_usd"] > 100_000
-    assert any("cannot close" in line for line in rec["what_would_change"])
+    # Base case: after the recalibrated seed, the advance keeps weeks 7-13 at or above zero.
+    assert rec["first_negative_week_after"] is None and rec["residual_gap_usd"] == 0
+    assert any("stays at or above zero in the base case" in line for line in rec["what_would_change"])
+    # Bad paths: the single pack fails often on simulated paths and the agent says how often.
+    core = rec["core_plan"]
+    assert core and core["fixed_workflow"]["p_goal"] < 0.5 < core["chosen"]["p_goal"]
+    assert any("simulated paths" in line for line in rec["what_would_change"])
     statuses = {e["status"] for e in r["evidence"]}
-    assert {"VERIFIED", "CALCULATED", "ASSUMPTION", "NEEDS_HUMAN", "NOT_VERIFIABLE_HERE"} <= statuses
+    assert {"VERIFIED", "CALCULATED", "ASSUMPTION", "MODEL_ESTIMATE", "NEEDS_HUMAN", "NOT_VERIFIABLE_HERE"} <= statuses
     assert "autopilot.prepare_funding_pack" in backend.coord.audit_path.read_text()
 
 

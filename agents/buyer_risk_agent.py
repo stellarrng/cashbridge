@@ -28,6 +28,8 @@ from schemas.document_schemas import CommercialInvoice, Currency, Money
 from schemas.forecast_schemas import OpenReceivable
 
 GRACE_DAYS = 3
+# A model fitted on one SME's history never states certainty: probabilities are kept inside this band.
+P_FLOOR, P_CEILING = 0.02, 0.98
 MODEL_FEATURES = ("terms_30_days", "size_vs_usual")
 
 
@@ -119,7 +121,7 @@ class BuyerRiskAgent:
         smoothed = (sum(labels) + 1) / (len(labels) + 2)  # Laplace smoothing: never exactly 0 or 1
         if len(set(labels)) < 2:
             return RiskModel(self.buyers, {}, 0.0, len(rows), sum(labels) / len(labels) if labels else 0.0, None, smoothed)
-        classifier = (LogisticRegression(C=10.0, solver="lbfgs", max_iter=1000) if LogisticRegression is not None
+        classifier = (LogisticRegression(C=10.0, solver="lbfgs", max_iter=5000, tol=1e-10) if LogisticRegression is not None
                       else NumpyLogisticRegression(C=10.0))
         classifier.fit(np.array(rows), np.array(labels))
         names = [f"buyer {b}" for b in self.buyers] + list(MODEL_FEATURES)
@@ -144,12 +146,15 @@ class BuyerRiskAgent:
     def p_on_time(self, invoice: CommercialInvoice) -> float:
         """Probability the invoice is paid on time. A buyer with no history is scored as the portfolio average."""
         terms = (invoice.due_date - invoice.issue_date).days
-        vector = self._vector(invoice.buyer_id, terms, float(invoice.amount.to_usd()))
-        if not self.has_history(invoice.buyer_id):
-            probability = self._portfolio_probability(terms, float(invoice.amount.to_usd()))
+        return self.p_on_time_for(invoice.buyer_id, terms, float(invoice.amount.to_usd()))
+
+    def p_on_time_for(self, buyer_id: str, terms_days: int, amount_usd: float) -> float:
+        """Same score for something that is not an invoice yet (a confirmed order), from its planned terms."""
+        if not self.has_history(buyer_id):
+            probability = self._portfolio_probability(terms_days, amount_usd)
         else:
-            probability = self._probability(vector)
-        return round(probability, 2)
+            probability = self._probability(self._vector(buyer_id, terms_days, amount_usd))
+        return round(min(P_CEILING, max(P_FLOOR, probability)), 2)
 
     def _portfolio_probability(self, terms_days: int, amount_usd: float) -> float:
         """Average of the known buyers' probabilities for a usual-sized invoice on these terms."""

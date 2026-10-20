@@ -25,7 +25,7 @@
   "location": "Binh Duong, Vietnam",
   "name": "Binh Duong Timberworks Co., Ltd. (SYNTHETIC)",
   "opening_cash_usd": "80000.00",
-  "payroll_usd": "10000.00",
+  "payroll_usd": "42000.00",
   "seller_tax_id": "0312345678",
   "staff": 120,
   "users": [
@@ -40,5 +40,5 @@
       "role": "Director"
     }
   ],
-  "weekly_fixed_costs_usd": "38000.00"
+  "weekly_fixed_costs_usd": "63500.00"
 }

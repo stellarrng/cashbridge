@@ -27,7 +27,7 @@
       "task": "first_negative_week"
     },
     {
-      "answer": "USD 43,881.89",
+      "answer": "USD 42,831.63",
       "baseline_answer": null,
       "baseline_invented_numbers": null,
       "baseline_pass": null,
@@ -195,7 +195,7 @@
       "task": "double_financing_blocked"
     },
     {
-      "answer": "Week 7 is expected to be short by USD 43,881.89. Cash today is USD 80,000.",
+      "answer": "Week 7 is expected to be short by USD 42,831.63. Cash today is USD 80,000.",
       "baseline_answer": null,
       "baseline_invented_numbers": null,
       "baseline_pass": null,

@@ -72,9 +72,10 @@ class _Run:
 class FinanceAutopilot:
     """Runs one governed pass over the coordinator's live case."""
 
-    def __init__(self, coordinator: Any, planner: Optional[Planner] = None) -> None:
+    def __init__(self, coordinator: Any, planner: Optional[Planner] = None, core: Optional[Any] = None) -> None:
         self.coord = coordinator
         self.planner = planner
+        self.core = core  # optional IntelligenceCore: scores the recommendation on simulated paths
 
     # ------------------------------------------------------------------ planning
     @staticmethod
@@ -141,9 +142,15 @@ class FinanceAutopilot:
                          "13-week engine: expected inflow = value x P(on time); late share four weeks later"))
         ev.append(run.ev(f"Shortfall in week {week}", _money(gap), "CALCULATED", f"forecast:{c.forecast_run_id}"))
         ev.append(run.ev("Cash needed to keep all 13 weeks at zero", peak["need_to_zero_usd"], "CALCULATED", f"forecast:{c.forecast_run_id}",
-                         f"Trough in week {peak['trough_week']}; open receivables only, no new sales modelled"))
-        ev.append(run.ev("No new sales in the horizon", "open receivables only", "ASSUMPTION", "forecast:inputs",
-                         "Conservative: the trough overstates need if new orders are invoiced and collected inside 13 weeks"))
+                         f"Trough in week {peak['trough_week']}; open invoices plus confirmed orders, no unconfirmed sales"))
+        orders = c.forecast_inputs.confirmed_orders
+        if orders:
+            ev.append(run.ev(f"Confirmed, not-yet-invoiced orders counted ({len(orders)})",
+                             _money(sum((o.amount.to_usd() for o in orders), Decimal(0))), "ASSUMPTION", "forecast:confirmed_orders",
+                             f"Counted at {orders[0].ship_confidence:.0%} shipment confidence and the buyer's on-time probability; "
+                             "they are not receivables and cannot back a funding request"))
+        ev.append(run.ev("No unconfirmed new sales in the horizon", "invoices + confirmed orders only", "ASSUMPTION", "forecast:inputs",
+                         "Conservative: orders not yet confirmed are left out"))
         for d in drivers[:3]:
             status = "MODEL_ESTIMATE" if d.source_ref.startswith("inv:") else "VERIFIED" if d.source_ref.startswith("doc:") else "CALCULATED"
             ev.append(run.ev(f"Driver: {d.driver}", _money(d.amount_usd), status, d.source_ref))
@@ -152,7 +159,8 @@ class FinanceAutopilot:
         top = drivers[0]
         return {"why": "Find when the account goes negative and why, before looking at any financing.",
                 "result": (f"Week {week} closes USD {_money(gap):,.2f} short. Largest driver: {top.driver} (USD {_money(top.amount_usd):,.2f}). "
-                           f"Without new sales the balance keeps falling to USD {peak['trough_closing_usd']:,.2f} in week {peak['trough_week']}."),
+                           f"Without action the balance is lowest in week {peak['trough_week']} (USD {peak['trough_closing_usd']:,.2f}) "
+                           f"and is negative in {peak['negative_weeks']} of 13 weeks."),
                 "evidence": ev, "data": {"shortfall_week": week, "shortfall_usd": _money(gap), "peak": peak,
                                           "drivers": [{"driver": d.driver, "amount_usd": _money(d.amount_usd), "source": d.source_ref} for d in drivers]}}
 
@@ -305,9 +313,34 @@ class FinanceAutopilot:
             notes.append("In at least one stress case the first gap is larger than the advance.")
         if best_lever:
             notes.append(f"Best non-borrowing lever: {best_lever['label']} improves the trough by USD {best_lever['trough_change_usd']:,.2f}.")
+        core_view = self._core_view(run, ev, notes)
         return {"why": "A recommendation is only useful if it survives bad news; also look for levers that reduce the need to borrow.",
                 "result": " ".join(notes) or "The recommendation holds under the tested stresses.",
-                "evidence": ev, "data": {"scenarios": out, "best_lever": best_lever}}
+                "evidence": ev, "data": {"scenarios": out, "best_lever": best_lever, "core": core_view}}
+
+    def _core_view(self, run: _Run, ev: List[str], notes: List[str]) -> Optional[Dict[str, Any]]:
+        """Score the recommended pack on simulated paths and ask the Intelligence Core for a plan built for bad paths."""
+        if self.core is None or not run.obs.get("recommended_option"):
+            return None
+        from agents import intelligence_core as ic  # local import keeps the autopilot importable without NumPy-heavy modules
+
+        inputs = ic.CoreInputs.from_coordinator(self.coord)
+        result = self.core.plan(inputs, baseline_actions=ic.fixed_workflow_actions(inputs))
+        base, chosen = result.baseline, result.chosen
+        version = result.world_model["version"]
+        if base:
+            ev.append(run.ev("Recommended pack alone: paths with no negative week", f"{base['p_goal']:.0%}", "MODEL_ESTIMATE",
+                             f"core:{version}", f"{result.world_model['paths']} simulated paths; world model {version}"))
+            notes.append(f"On {result.world_model['paths']} simulated paths the recommended pack alone keeps every week at or above zero "
+                         f"{base['p_goal']:.0%} of the time.")
+        ev.append(run.ev(f"Intelligence Core plan ({result.status})", f"{chosen['description']}: {chosen['p_goal']:.0%}", "MODEL_ESTIMATE",
+                         f"core:{version}", f"Expected cost USD {chosen['cost_usd']:,.2f}; {chosen['packs']} pack(s), each needs the Director"))
+        notes.append(f"A plan built for bad paths ({chosen['description']}) reaches {chosen['p_goal']:.0%}"
+                     + (" and meets the goal." if result.status == "GOAL_MET" else f"; no allowed plan reaches {result.goal['min_probability']:.0%}."))
+        run.obs.update(core_status=result.status, core_p_goal=chosen["p_goal"], core_baseline_p_goal=base.get("p_goal") if base else None)
+        return {"status": result.status, "goal": result.goal, "chosen": {k: chosen[k] for k in ("plan_id", "description", "p_goal", "cost_usd", "packs", "actions", "why")},
+                "fixed_workflow": {k: base[k] for k in ("description", "p_goal", "cost_usd")} if base else None,
+                "world_model": version, "paths": result.world_model["paths"]}
 
     def prepare_funding_pack(self, run: _Run, actor: Optional[str], execute: bool) -> Dict[str, Any]:
         c = self.coord
@@ -425,7 +458,7 @@ class FinanceAutopilot:
         if cov and cov["first_negative_week_after"]:
             what_would_change.append(
                 f"The pack bridges week {cov['funding_week']} only. Cash turns negative again in week {cov['first_negative_week_after']} and the trough "
-                f"is USD {cov['residual_gap_usd']:,.2f} short (receivables-only forecast).")
+                f"is USD {cov['residual_gap_usd']:,.2f} short (invoices plus confirmed orders).")
             if structural > 0:
                 what_would_change.append(
                     f"Over 13 weeks, outflows (USD {_money(outflows):,.2f}) exceed opening cash plus expected collections by USD {_money(structural):,.2f}. "
@@ -435,10 +468,28 @@ class FinanceAutopilot:
                 what_would_change.append(
                     f"For timing only, other verified unpledged USD invoices ({', '.join(s['invoice_id'] for s in spare[:4])}) could be advanced "
                     f"(about USD {capacity:,.2f} at {advance_pct:.0%}), each needing its own pack and approval.")
+        if cov and cov["covers_first_gap"] and not cov["first_negative_week_after"]:
+            low = min(cov["weeks"], key=lambda r: r["closing_after"])
+            what_would_change.insert(0,
+                f"With the advance, every week from {cov['funding_week']} to 13 stays at or above zero in the base case "
+                f"(lowest USD {low['closing_after']:,.2f} in week {low['week']}); the factor is repaid from {self.coord.nominee.invoice_no if self.coord.nominee else 'the pledged invoice'} "
+                f"in week {cov['settlement_week']}.")
+            below = [r["week"] for r in cov["weeks"] if r["below_buffer"] and r["week"] >= cov["funding_week"]]
+            if below:
+                label = f"Week {below[0]} stays" if len(below) == 1 else f"Weeks {', '.join(map(str, below))} stay"
+                what_would_change.append(f"{label} below the USD {float(self.coord.forecast.buffer_usd):,.0f} buffer: thin, not negative.")
         if stress.get("best_lever"):
             bl = stress["best_lever"]
-            what_would_change.append(f"{bl['label']} would raise the trough by USD {bl['trough_change_usd']:,.2f} without borrowing.")
-        what_would_change.append("New orders invoiced and collected inside 13 weeks would reduce the residual need; they are not in this forecast.")
+            what_would_change.append(f"{bl['label']} would raise the trough by USD {bl['trough_change_usd']:,.2f} without borrowing, "
+                                     "if the buyers and the supplier agree; the forecast does not assume they will.")
+        core = stress.get("core")
+        if core:
+            what_would_change.append(
+                f"The base case is one path. On simulated paths this pack alone keeps cash at or above zero {core['fixed_workflow']['p_goal']:.0%} "
+                f"of the time; the Intelligence Core's plan ({core['chosen']['description']}) reaches {core['chosen']['p_goal']:.0%} "
+                f"for about USD {core['chosen']['cost_usd']:,.0f} in expected cost. Extra packs each need their own approval.")
+        else:
+            what_would_change.append("The base case is one path. If buyers pay later than their history suggests, coverage can fail.")
         return {
             "option_id": best["id"], "option_name": best["name"], "amount_usd": best["amount_usd"], "apr_pct": best["apr_pct"],
             "total_cost_usd": best["total_cost_usd"], "covers_first_gap": bool(cov and cov["covers_first_gap"]),
@@ -452,13 +503,14 @@ class FinanceAutopilot:
             "structural_gap_usd": _money(max(structural, Decimal(0))),
             "horizon_inflows_usd": _money(inflows), "horizon_outflows_usd": _money(outflows),
             "coverage": cov,
+            "core_plan": stress.get("core"),
         }
 
     @staticmethod
     def _handoff(decision: str, run: _Run) -> Dict[str, str]:
         if decision == "AWAITING_DIRECTOR_APPROVAL":
             return {"who": "Director (sme_director)", "action": f"Review {run.obs.get('pack_id')} and approve with the one-time code, or reject it",
-                    "why": "External submission is L3; also decide how to close the residual gap"}
+                    "why": "External submission is L3; also decide whether to add the extra packs the scenario test suggests for bad paths"}
         if decision == "PLAN_READY_FOR_PREPARER":
             return {"who": "Chief accountant (sme_accountant)", "action": "Run the Autopilot in execute mode to draft the pack",
                     "why": "The Director approves but does not prepare (segregation of duties)"}

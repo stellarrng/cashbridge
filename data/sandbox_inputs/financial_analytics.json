@@ -4,7 +4,7 @@
   "source_id": "synthetic-financial-ledger-2026",
   "balance_sheet": {
     "cash": 80000,
-    "accounts_receivable": 948367,
+    "accounts_receivable": 948032,
     "inventory": 309800,
     "other_current_assets": 50000,
     "current_liabilities": 625000,
