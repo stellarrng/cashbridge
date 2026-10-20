@@ -3,7 +3,7 @@
 > 21 articles + 3 schedules, English, Vietnamese or bilingual side by side, amounts in words the way Vietnamese invoices read them,
 > a receivables-assignment clause (so the invoice stays financeable) and a payee-account call-back clause (BEC fraud). Download as a
 > formatted Word file (A4, numbered clauses, tables, signature blocks, DRAFT watermark, NOT SIGNED header, page X of Y, review
-> checklist). See [docs/INTELLIGENCE_EXTENSION.md](docs/INTELLIGENCE_EXTENSION.md#contract-workflow).
+> checklist). See [docs/CONTRACT_DRAFTING.md](docs/CONTRACT_DRAFTING.md) (with screenshots).
 > **On-chain (Challenge bonus):** Vyper contracts on an in-process EVM register each funded invoice by an HMAC commitment (no invoice
 > data on chain), refuse a second lender (`409 Duplicate financing refused`), and anchor the audit log's Merkle root so even a
 > consistent rewrite of the whole log is caught. Consortium simulated in-process; testnet script written, not run. See
@@ -38,6 +38,38 @@ Built for the 2026 Shenzhen International FinTech Competition, International Tra
 Every company, person, buyer, lender and API in this repository is **SYNTHETIC** or **MOCK**.
 
 ![CashBridge SME overview (dark, Vietnamese)](docs/screenshots/23-sme-overview-vi-dark.png)
+
+## v9.1 in pictures (20 Oct 2026)
+
+**Contract drafting**: details in [docs/CONTRACT_DRAFTING.md](docs/CONTRACT_DRAFTING.md). The Word file it downloads, rendered page by page:
+
+![Word file, bilingual supply agreement (Vietnamese | English): pages 1, 2, 6 and 7](docs/screenshots/53-contract-word-bilingual-pages.png)
+
+![Word file, English supply agreement: parties, articles 16-21, signature blocks, review checklist](docs/screenshots/52-contract-word-en-pages.png)
+
+| The form (Vietnamese UI) | The in-app preview (bilingual) |
+|---|---|
+| ![Contract form](docs/screenshots/50-contract-form-vi.png) | ![Contract preview](docs/screenshots/51-contract-preview-bilingual-vi.png) |
+
+**On-chain register and audit anchor**: details in [docs/ONCHAIN_CHALLENGE.md](docs/ONCHAIN_CHALLENGE.md).
+
+| Lender: second-lender drill refused on chain | Lender re-check with the two on-chain rows |
+|---|---|
+| ![On-chain panel after the duplicate-financing drill](docs/screenshots/59-onchain-register-drill-lender.png) | ![Lender verification checks](docs/screenshots/58-lender-verify-onchain-checks.png) |
+
+| SME: anchors and an inclusion proof (Vietnamese) | Hostile PDF refused before parsing (risk 04) |
+|---|---|
+| ![Anchors and inclusion proof](docs/screenshots/60-onchain-anchor-proof-sme-vi.png) | ![PDF with hidden JavaScript refused](docs/screenshots/57-pdf-active-content-refused-vi.png) |
+
+**v9 models on screen**
+
+| Receipts outlook (survival timing + conformal 80% band, backtest errors) | Financial-distress screen (public benchmark, not a credit decision) |
+|---|---|
+| ![Receipts outlook](docs/screenshots/62-receipts-outlook.png) | ![Distress screen](docs/screenshots/61-distress-screen.png) |
+
+| Lender quotes and the funding timeline (MOCK, labelled) | Security Self-Assessment, 2 pages ([PDF](reports/CashBridge_Security_Self_Assessment.pdf)) |
+|---|---|
+| ![Quotes and funding schedule](docs/screenshots/63-lender-quotes-and-funding-schedule.png) | ![Security Self-Assessment](docs/screenshots/64-security-self-assessment.png) |
 
 ## Version 6 (20 Oct 2026): explain every decision, prove what limits it, measure the Director's attention
 
@@ -393,7 +425,7 @@ frontend/   React + TypeScript web app (landing, SME and Bank workspaces, EN/VI/
 data/       seed_sandbox.py, loader.py, sandbox_inputs/, execution_evidence/
 scripts/    run_demo_story.py, anchor_head.py, export_ui_snapshot.py
 eval/       tasks.yaml, run_eval.py, trust_scorecard.py (security cases, agent scenarios, model backtest), planner_benchmark.py
-docs/       REVIEW_VI.md, INTELLIGENCE_CORE_VI.md, DEPLOY_VI.md, UI_CONTRACT.md, screenshots/
+docs/       CONTRACT_DRAFTING.md, ONCHAIN_CHALLENGE.md, REVIEW_VI.md, INTELLIGENCE_CORE_VI.md, DEPLOY_VI.md, UI_CONTRACT.md, screenshots/
 contracts/ OCR extraction, clause-library drafting (drafting.py, words.py), formatted Word export (docx_export.py), contract and invoice rule-based review
 tests/      pytest suite (original + intelligence extension tests)
 ```

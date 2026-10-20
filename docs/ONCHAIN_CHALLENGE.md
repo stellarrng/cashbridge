@@ -36,6 +36,20 @@ amount and finds none.
    an anchored root without disclosing the rest of the log), **Drill** (lender: a second lender tries to finance the
    same invoice and is refused on chain).
 
+## On screen
+
+Lender, after approving funding and running the drill (a second lender tries to finance the same invoice and is refused on chain):
+
+![On-chain panel, lender view after the drill](screenshots/59-onchain-register-drill-lender.png)
+
+The lender's hash re-check, now with the on-chain register and anchor rows:
+
+![Lender verification with the on-chain rows](screenshots/58-lender-verify-onchain-checks.png)
+
+SME (Vietnamese UI): anchors reproduced by the current log, and an inclusion proof for one audit entry:
+
+![Anchors and inclusion proof, SME view](screenshots/60-onchain-anchor-proof-sme-vi.png)
+
 ## Honest scope
 
 | Real | Simulated / not done |
