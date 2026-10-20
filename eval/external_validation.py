@@ -14,7 +14,6 @@ import csv
 import json
 from pathlib import Path
 from datetime import date
-from math import exp, log
 import numpy as np
 
 

@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
-from .engine import AutomationStore, KINDS
+from .engine import AutomationStore
 
 router = APIRouter(prefix='/api/automation', tags=['local-cloud-automation'])
 

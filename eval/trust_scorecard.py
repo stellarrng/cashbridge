@@ -186,6 +186,37 @@ def security_cases() -> List[Tuple[str, str, Callable[[RealBackend, RoleClient],
     def bank_reads_core(b, c):
         return c.get("/api/intelligence", headers=c.header("bank.lihua")).status_code == 403
 
+    def cross_lender_duplicate(b, c):
+        pack = _submit(c, b)
+        ledger = b._ledger()
+        ledger.register("Simulated Lender B", b._invoice_commitment(ledger), "0" * 64)  # financed elsewhere first
+        c.post(f"/api/bank/cases/{pack}/verify")
+        r = c.post(f"/api/bank/cases/{pack}/decision", json={"decision": "APPROVE_FUNDING", "note": "x"})
+        return r.status_code == 409 and "Duplicate financing" in r.json()["detail"] and b.coord.state.value == "SUBMITTED"
+
+    def audit_rewrite_vs_anchor(b, c):
+        import json as _json
+        from security.audit_log import GENESIS_HASH, _line_hash
+        pack = _submit(c, b)  # anchored on chain at release
+        path = Path(b.coord.audit_path)
+        prev, out = GENESIS_HASH, []
+        for i, raw in enumerate(path.read_text().splitlines()):
+            d = _json.loads(raw)
+            if i == 0:
+                d["reason"] = "rewritten by an administrator"
+            d["prev_line_sha256"] = prev
+            d["line_sha256"] = prev = _line_hash(d)
+            out.append(_json.dumps(d, sort_keys=True))
+        path.write_text("\n".join(out) + "\n")  # a consistent rewrite: the local hash chain still verifies
+        checks = {x["check"]: x["ok"] for x in c.post(f"/api/bank/cases/{pack}/verify").json()["checks"]}
+        return checks["Audit log hash chain intact"] is True and checks["Audit log reproduces every on-chain anchor (Merkle root)"] is False
+
+    def pdf_active_content(b, c):
+        pdf = (b"%PDF-1.7\n1 0 obj\n<< /Type /Catalog /OpenAction << /S /J#61vaScript /JS (app.alert(1)) >> >>\nendobj\n"
+               b"trailer\n<< /Root 1 0 R >>\n%%EOF\n")
+        r = c.post("/api/contracts/extract-upload", files={"file": ("invoice.pdf", pdf, "application/pdf")})
+        return r.status_code in (400, 422) and "PDF refused" in r.text
+
     return [
         ("AUTH-01", "Request without a session is refused", no_session),
         ("AUTH-02", "Forged token (role edited, old signature) is refused", forged_role),
@@ -212,6 +243,9 @@ def security_cases() -> List[Tuple[str, str, Callable[[RealBackend, RoleClient],
         ("CORE-03", "Lender cannot read the SME's Intelligence Core", bank_reads_core),
         ("CORE-04", "A Director-inbox alert cannot be decided by the Chief accountant", accountant_decides_alert),
         ("EVID-03", "A refused API call is written to the hash-chained audit log with who tried it", denial_is_audited),
+        ("FIN-04", "Invoice already financed by another consortium lender: funding refused (on-chain register)", cross_lender_duplicate),
+        ("EVID-04", "Whole audit log rewritten consistently: caught by the on-chain Merkle anchor", audit_rewrite_vs_anchor),
+        ("DOC-01", "PDF with hidden (hex-escaped) JavaScript is refused before it is parsed", pdf_active_content),
     ]
 
 

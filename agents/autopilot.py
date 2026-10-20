@@ -28,7 +28,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from config.settings import Tier
 from config.tool_allowlist import L3_TOOLS, L4_TOOLS
-from core.funding_coverage import coverage, peak_need, week_of
+from core.funding_coverage import coverage, peak_need
 from schemas.agent_schemas import CaseState, Decision
 from schemas.forecast_schemas import ScenarioParams
 from security import injection_guard

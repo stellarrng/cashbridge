@@ -53,5 +53,5 @@ export function TooltipHost() {
     };
   }, []);
 
-  return <div ref={ref} className="tip" role="tooltip" />;
+  return <div ref={ref} className="tip" role="tooltip" aria-hidden="true" />;
 }

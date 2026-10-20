@@ -1,0 +1,5 @@
+# On-chain exploration (Challenge bonus): run the Vyper contracts on an in-process EVM.
+# Optional: without these the app runs and the register/anchor checks report "unavailable".
+# eth-tester and py-evm are only published as beta releases; these are the current ones.
+web3==7.13.0
+eth-tester[py-evm]==0.13.0b1

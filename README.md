@@ -1,4 +1,16 @@
-> **2026 FinTechathon judging pack (current v9; 20 October 2026):** [40/30/30 rubric and evidence](docs/FINTECHATHON_2026_SCORECARD.md) · [security self-assessment](docs/SECURITY_SELF_ASSESSMENT_2026.md) · [3-minute v9 demo script](docs/FINTECHATHON_DEMO_STORY.md) · [plan to maximise scoring (VI)](docs/PLAN_TO_100_VI.md) · [UAT evidence status](reports/UAT_EVIDENCE_STATUS.md). Team reports user testing has been conducted, but de-identified outcomes are not in the received v9 ZIP; do not claim UAT numeric results until supplied. This v9 pack supersedes historical v8 user-testing and demo-count statements for **current** judging.
+> **v9.1 (20 Oct 2026): contracts you can send to counsel, an on-chain cross-lender register, and a hostile-PDF screen.**
+> **Contracts:** a fixed clause library (no language model) now drafts complete supply / services / construction contracts:
+> 21 articles + 3 schedules, English, Vietnamese or bilingual side by side, amounts in words the way Vietnamese invoices read them,
+> a receivables-assignment clause (so the invoice stays financeable) and a payee-account call-back clause (BEC fraud). Download as a
+> formatted Word file (A4, numbered clauses, tables, signature blocks, DRAFT watermark, NOT SIGNED header, page X of Y, review
+> checklist). See [docs/INTELLIGENCE_EXTENSION.md](docs/INTELLIGENCE_EXTENSION.md#contract-workflow).
+> **On-chain (Challenge bonus):** Vyper contracts on an in-process EVM register each funded invoice by an HMAC commitment (no invoice
+> data on chain), refuse a second lender (`409 Duplicate financing refused`), and anchor the audit log's Merkle root so even a
+> consistent rewrite of the whole log is caught. Consortium simulated in-process; testnet script written, not run. See
+> [docs/ONCHAIN_CHALLENGE.md](docs/ONCHAIN_CHALLENGE.md).
+> **Security:** PDFs with JavaScript, launch actions, embedded files, XFA or auto-actions (including hex-escaped names and names
+> hidden in compressed object streams) are refused before parsing and before they reach a lender. Trust scorecard **28/28**; 1672 tests, 0 failures.
+> The 2-page **Security Self-Assessment** matching this code: [reports/CashBridge_Security_Self_Assessment.pdf](reports/CashBridge_Security_Self_Assessment.pdf) (`make security-pdf`).
 
 > **v9 (20 Oct 2026): more accurate models, measured on public data, and every number traceable.**
 > Receipts forecast rebuilt as censoring-aware survival analysis (WAPE 69.9% → 20.9% on 2,466 public invoices, rolling origin),
@@ -155,7 +167,7 @@ Alongside the original 13-week liquidity workflow, this package now includes **w
 | Financial Intelligence / EDA | Nine financial ratios, 12-month monthly ledger, z-score expense outliers and funding/marketing scenario | DSCR is a proxy; synthetic historical data; no automatic ROI modeling |
 | Project / Bid Risk Simulator | Upfront cash gap, delayed-advance + overrun stress, indicative margin and aggregated workforce gap/cost | Simplified, does not evaluate employees or decide a bid |
 | Contract / Invoice Intelligence | Text PDF + local image OCR, USD amount extraction, milestone review, suspicious clause flags, invoice reconciliation | Pattern-based evidence prompts, not fraud proof or legal authenticity |
-| Agreement drafting | Supply / service / construction service unsigned templates, validated milestone math, legal-review checklist, TXT export | Draft only; unsigned DOCX export exists; no e-signature or legal authorization |
+| Agreement drafting | v9: complete supply / services / construction contracts from a fixed clause library (21 articles, 3 schedules), English, Vietnamese or bilingual, amounts in words, receivables-assignment and payee call-back clauses; formatted Word file (A4, numbered clauses, tables, signature blocks, DRAFT watermark, NOT SIGNED header, page numbers, review checklist) and an in-app preview | Draft for counsel only: missing data shown as [●], defaults listed to confirm; no legal advice, no e-signature |
 | Green-investment economics | Synthetic energy saving and simple payback with explicit price / opex assumptions | Not environmental certification or underwriting |
 | SME / Bank reviewer views | Two presentation workspaces with shared deterministic engines and human-review checklist | **Bank portal now needs a `bank_reviewer` session (v2); legacy static token still accepted. Identity is the demo user store, not production OIDC** |
 | Conversational tools | Offline CFO shortcuts for contract-review summary, marketing impact and finance ratios; original CFO intents retained | Controlled local chat; LLM tool planning is intentionally disabled |
@@ -223,7 +235,7 @@ Neither capital planning nor green screening authorizes spending, certifies sust
 
 ## Quickstart
 
-You need Python 3.11 or newer and the Python dependencies in `requirements.txt`. The built web app (`frontend/dist`) is committed and served automatically by FastAPI, so **running the app needs no Node**. Node 20+ and npm are only needed to change the UI (`make dev`, see `frontend/README.md`). For OCR of scanned pages/photos, install the **Tesseract OCR executable** locally; Docker installs it for you.
+You need Python 3.11 or newer and the Python dependencies in `requirements.txt`. The built web app (`frontend/dist`) is committed and served automatically by FastAPI, so **running the app needs no Node**. Node 20.19+ (or 22.12+) and npm are only needed to change the UI (`make dev`, see `frontend/README.md`). For OCR of scanned pages/photos, install the **Tesseract OCR executable** locally; Docker installs it for you.
 
 ```bash
 python3 -m venv .venv
@@ -382,7 +394,7 @@ data/       seed_sandbox.py, loader.py, sandbox_inputs/, execution_evidence/
 scripts/    run_demo_story.py, anchor_head.py, export_ui_snapshot.py
 eval/       tasks.yaml, run_eval.py, trust_scorecard.py (security cases, agent scenarios, model backtest), planner_benchmark.py
 docs/       REVIEW_VI.md, INTELLIGENCE_CORE_VI.md, DEPLOY_VI.md, UI_CONTRACT.md, screenshots/
-contracts/ OCR extraction, unsigned draft templates, contract and invoice rule-based review
+contracts/ OCR extraction, clause-library drafting (drafting.py, words.py), formatted Word export (docx_export.py), contract and invoice rule-based review
 tests/      pytest suite (original + intelligence extension tests)
 ```
 
@@ -397,7 +409,7 @@ tests/      pytest suite (original + intelligence extension tests)
 
 ## Out of scope
 
-Automated marketing execution/ROI forecasting, legally binding contracts and qualified legal review, individual employee scoring, official green taxonomy certification, authentic bank role management, KYC approval, cross-lender duplicate-financing verification, production underwriting, real ERP/bank/e-invoice APIs and full-scale project scheduling. **Basic contract/bid financial review and budget/green what-if are implemented as synthetic MVP features**, not deployed products.
+Automated marketing execution/ROI forecasting, legally binding contracts and qualified legal review, individual employee scoring, official green taxonomy certification, authentic bank role management, KYC approval, cross-lender duplicate-financing verification with real lenders (v9.1 demonstrates it on an in-process EVM with simulated lenders, see docs/ONCHAIN_CHALLENGE.md), production underwriting, real ERP/bank/e-invoice APIs and full-scale project scheduling. **Basic contract/bid financial review and budget/green what-if are implemented as synthetic MVP features**, not deployed products.
 
 Demo video: _link to be added_
 

@@ -10,12 +10,9 @@ from agents import collections_agent as ca
 from agents.coordinator import Coordinator
 from agents.document_agent import DocumentAgent, rule_extract
 from agents.llm_client import LlmClient
-from config.settings import Tier
 from data import loader, seed_sandbox
 from schemas.agent_schemas import CaseState
-from schemas.document_schemas import MatchStatus
 from scripts.run_demo_story import StoryClock
-from core.matching_engine import three_way_match
 from security import number_check
 
 INVOICE_TEXT = (

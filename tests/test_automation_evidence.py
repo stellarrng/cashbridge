@@ -1,6 +1,6 @@
 import copy
 from automation.engine import AutomationStore, evaluate
-from automation.audit_evidence import seal_evidence, verify_evidence
+from automation.audit_evidence import verify_evidence
 from fastapi.testclient import TestClient
 from api.main import create_app
 

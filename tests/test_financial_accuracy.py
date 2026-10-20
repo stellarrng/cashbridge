@@ -26,7 +26,7 @@ import pytest
 from config.settings import FX_VND_PER_UNIT, USD_VND
 from core import funding_evaluator as fe
 from core import scenario_simulator as sim
-from core.forecasting_engine import compute_ccc, forecast_13w, shortfall_attribution, _invoice_views
+from core.forecasting_engine import compute_ccc, forecast_13w, _invoice_views
 from schemas.document_schemas import Currency, Money
 
 RNG = random.Random(20261020)

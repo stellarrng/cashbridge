@@ -54,7 +54,7 @@
       "exit_code": 0,
       "seconds": 32.6,
       "limitation": "Adversarial cases chosen by the team; synthetic invoices for the model.",
-      "headline": "security 25/25, agent 5/5, Brier 0.0907 vs baseline 0.1458 (n=167)",
+      "headline": "security 28/28, agent 5/5, Brier 0.0907 vs baseline 0.1458 (n=167)",
       "n": 167,
       "seed": "walk-forward on synthetic invoices"
     },

@@ -3,7 +3,6 @@
 Run: python -m scripts.automation_worker --once
 """
 import argparse
-import os
 import time
 from automation.engine import AutomationStore
 

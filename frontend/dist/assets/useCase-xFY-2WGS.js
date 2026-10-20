@@ -1,1 +1,0 @@
-import{r as s}from"./react-vendor-SIwY82C9.js";import{a as u}from"./app-D30nVOtH.js";function i(){const{snapshot:o,refresh:r}=u(),[n,a]=s.useState(null);return s.useEffect(()=>{let e=!0;return r().catch(t=>e&&a(t instanceof Error?t:new Error(String(t)))),()=>{e=!1}},[r]),{snapshot:o,error:n,refresh:r}}export{i as u};

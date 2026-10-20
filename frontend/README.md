@@ -5,7 +5,7 @@ never calculates money itself.
 
 ```bash
 cd frontend
-npm install        # once (Node 20+)
+npm install        # once (Node 20.19+ or 22.12+, required by Vite 7)
 npm run dev        # ONE command: starts the API (:8100) and the UI with hot reload on http://localhost:5173
 ```
 

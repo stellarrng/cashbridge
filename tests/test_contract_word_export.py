@@ -1,7 +1,6 @@
 """The Word export is an unsigned template, never a signed legal contract."""
 from io import BytesIO
 from docx import Document
-from fastapi.testclient import TestClient
 from api.main import create_app
 from tests.authed import RoleClient
 from ui.backend_real import RealBackend
@@ -18,8 +17,8 @@ def test_docx_export_returns_unsigned_valid_word_document(tmp_path):
     assert 'wordprocessingml.document' in response.headers['content-type']
     assert response.headers['cache-control']=='no-store'
     document=Document(BytesIO(response.content))
-    text='\n'.join(p.text for p in document.paragraphs)
-    assert 'UNSIGNED CONTRACT DRAFT' in text
+    text='\n'.join([p.text for p in document.paragraphs]+[c.text for t in document.tables for r in t.rows for c in r.cells])
+    assert 'DRAFT FOR LEGAL REVIEW' in text
     assert 'Synthetic Supplier' in text
     assert 'NOT SIGNED' in text
     assert 'LEGAL REVIEW REQUIRED' in text

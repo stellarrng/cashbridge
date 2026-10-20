@@ -1,10 +1,11 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useState, type ChangeEvent } from "react";
 import { useAct } from "@/shared/hooks";
 import { useI18n } from "@/shared/i18n";
 import { usd } from "@/shared/lib/format";
 import type { ScreenProps } from "@/shared/lib/screen";
 import { Button, EngineNote, Kpi, Kpis, Note, PageHead, Panel } from "@/shared/ui";
-import { analyzeContract, downloadDraftDocx, draftContract, extractUpload, reconcileInvoice, type ContractAnalysis, type DraftInput, type ReconcileResult } from "./api";
+import { analyzeContract, extractUpload, reconcileInvoice, type ContractAnalysis, type ReconcileResult } from "./api";
+import { DraftPanel } from "./DraftPanel";
 import { FlagList } from "./FlagList";
 
 const SAMPLE_CONTRACT =
@@ -22,9 +23,6 @@ export default function ContractsScreen(_: ScreenProps) {
   const [contract, setContract] = useState(kept.contract);
   const [invoice, setInvoice] = useState(kept.invoice);
   const [outcome, setOutcome] = useState<Outcome>(null);
-  const [draft, setDraft] = useState("");
-  const draftForm = useRef<HTMLFormElement>(null);
-
   const editContract = (v: string) => { kept.contract = v; setContract(v); };
   const editInvoice = (v: string) => { kept.invoice = v; setInvoice(v); };
 
@@ -35,11 +33,6 @@ export default function ContractsScreen(_: ScreenProps) {
     if (d) editContract(d.text);
   }
 
-  const draftData = (): DraftInput => {
-    const p = Object.fromEntries(new FormData(draftForm.current as HTMLFormElement).entries());
-    return { ...(p as unknown as DraftInput), amount: Number(p.amount) };
-  };
-
   async function review() {
     const data = await act(() => analyzeContract(contract));
     if (data) setOutcome({ kind: "review", data });
@@ -48,12 +41,6 @@ export default function ContractsScreen(_: ScreenProps) {
     const data = await act(() => reconcileInvoice(contract, invoice));
     if (data) setOutcome({ kind: "compare", data });
   }
-  async function generate(e: FormEvent) {
-    e.preventDefault();
-    const r = await act(() => draftContract(draftData()));
-    if (r) setDraft(r.draft);
-  }
-
   return (
     <>
       <PageHead title={t("ctr.title")} lede={t("ctr.lede")} />
@@ -95,24 +82,7 @@ export default function ContractsScreen(_: ScreenProps) {
           )}
         </div>
       </Panel>
-      <Panel title="2" sub="Unsigned draft">
-        <form ref={draftForm} onSubmit={generate}>
-          <div className="inputs">
-            <label className="field">Type<select name="contract_type"><option>supply</option><option>services</option><option>construction</option></select></label>
-            <label className="field">Supplier<input name="supplier" defaultValue="Binh Duong Timberworks (synthetic)" /></label>
-            <label className="field">Customer<input name="customer" defaultValue="Northern Retail (synthetic)" /></label>
-            <label className="field">Amount (USD)<input name="amount" type="number" defaultValue={200000} /></label>
-            <label className="field">Scope<input name="scope" defaultValue="Supply verified goods under purchase order" /></label>
-            <label className="field">Governing law<input name="governing_law" defaultValue="To be confirmed by counsel" /></label>
-          </div>
-          <div className="row">
-            <Button variant="bridge" type="submit">Generate draft</Button>
-            <Button variant="ghost" onClick={() => void act(() => downloadDraftDocx(draftData()))}>.docx</Button>
-          </div>
-        </form>
-        <label className="field mt-2">Draft<textarea rows={14} readOnly value={draft} /></label>
-        <Note>Not legally reviewed or signed. Have qualified counsel review before use.</Note>
-      </Panel>
+      <DraftPanel />
     </>
   );
 }

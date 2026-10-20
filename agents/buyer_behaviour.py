@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Sequence
 
 import numpy as np
 
-from agents.buyer_risk_agent import GRACE_DAYS, NumpyLogisticRegression, _terms_days, _usd
+from agents.buyer_risk_agent import GRACE_DAYS, NumpyLogisticRegression, _usd
 
 FEATURES = ("shrunk_ontime_rate", "recent_days_late", "last_late", "open_at_issue", "log_size")
 PRIOR = 4.0

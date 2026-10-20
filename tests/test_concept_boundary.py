@@ -1,10 +1,9 @@
 import json
 import pytest
-from agents.concept_explainer import ConceptExplainer, TOPICS
+from agents.concept_explainer import ConceptExplainer
 from agents.llm_client import LlmClient
 from api.main import create_app
 from tests.authed import RoleClient
-from fastapi.testclient import TestClient
 from ui.backend_real import RealBackend
 from scripts.run_demo_story import StoryClock
 

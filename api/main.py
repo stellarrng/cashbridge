@@ -812,6 +812,33 @@ def create_app(backend_provider: Callable[[], Any] = get_backend, dist_dir: Path
             return pack
         return call(check)
 
+    # ------------------------------------------------------------------ on-chain consortium (Challenge bonus)
+    def chain_call(action: Callable[[Any], Any], refusal_status: int = 409) -> Any:
+        from chain.ledger import ChainUnavailable
+        try:
+            return call(action, refusal_status)
+        except ChainUnavailable as error:
+            raise HTTPException(status_code=503, detail=f"On-chain module unavailable: {error}") from error
+
+    @app.get('/api/chain/status', tags=['chain'])
+    def chain_status(principal: Principal = Depends(auth.current_principal)) -> Dict[str, Any]:
+        if not (principal.tenant_id == SME_TENANT and principal.can('sme:read') or
+                principal.tenant_id == LENDER_TENANT and principal.can('bank:read')):
+            raise HTTPException(status_code=403, detail='Not permitted')
+        return chain_call(lambda b: b.chain_status())
+
+    @app.post('/api/chain/anchor', tags=['chain'])
+    def chain_anchor(_: Principal = Depends(sme_any("sme:prepare", "sme:approve"))) -> Dict[str, Any]:
+        return chain_call(lambda b: b.chain_anchor())
+
+    @app.get('/api/chain/proof/{entry}', tags=['chain'])
+    def chain_proof(entry: int, _: Principal = Depends(sme("sme:read"))) -> Dict[str, Any]:
+        return chain_call(lambda b: b.chain_proof(entry))
+
+    @app.post('/api/chain/drill', tags=['chain'])
+    def chain_drill(_: Principal = Depends(bank("bank:decide"))) -> Dict[str, Any]:
+        return chain_call(lambda b: b.chain_drill())
+
     @app.get('/api/workspace/cases/{pack_id}/messages', tags=['workspace'])
     def case_messages(pack_id: str, principal: Principal = Depends(auth.current_principal)) -> Dict[str, Any]:
         if not (principal.tenant_id==SME_TENANT and principal.can('sme:read') or

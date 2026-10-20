@@ -8,6 +8,7 @@ import type { ScreenProps } from "@/shared/lib/screen";
 import { Button, Kpi, Kpis, PageHead, Panel, Scroll } from "@/shared/ui";
 import { useAuth } from "../auth";
 import { fetchScorecard, tamperDemo, verifyChain, type Scorecard } from "./api";
+import { OnChainPanel } from "./OnChainPanel";
 
 export default function AuditTrustScreen(_: ScreenProps) {
   const { user } = useAuth();
@@ -45,6 +46,7 @@ function Audit({ snapshot, refresh }: { snapshot: CaseSnapshot | null; refresh: 
   return (
     <>
       <PageHead title={t("tr.title")} lede={t("tr.lede")} actions={actions} />
+      <OnChainPanel />
       {score.data && <ScorecardView sc={score.data} />}
       {sme && snapshot && ev && (
         <div className="grid2">

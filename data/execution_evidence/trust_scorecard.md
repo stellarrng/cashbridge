@@ -1,8 +1,8 @@
 # Trust scorecard (SYNTHETIC)
 
-Generated 2026-10-20T11:39:54+00:00 by `make trust`.
+Generated 2026-10-20T14:24:06+00:00 by `make trust`.
 
-- Security & compliance: **25/25** adversarial cases handled correctly
+- Security & compliance: **28/28** adversarial cases handled correctly
 - Agent task completion: **5/5** scenarios reach the correct outcome (act, stop or escalate)
 - Payment model: Brier 0.0907 vs baseline 0.1458 (37.8% better, n=167)
 
@@ -35,6 +35,9 @@ Generated 2026-10-20T11:39:54+00:00 by `make trust`.
 | CORE-03 | Lender cannot read the SME's Intelligence Core | PASS |
 | CORE-04 | A Director-inbox alert cannot be decided by the Chief accountant | PASS |
 | EVID-03 | A refused API call is written to the hash-chained audit log with who tried it | PASS |
+| FIN-04 | Invoice already financed by another consortium lender: funding refused (on-chain register) | PASS |
+| EVID-04 | Whole audit log rewritten consistently: caught by the on-chain Merkle anchor | PASS |
+| DOC-01 | PDF with hidden (hex-escaped) JavaScript is refused before it is parsed | PASS |
 
 ## Agent scenarios
 

@@ -86,6 +86,7 @@ export function Button({ variant = "", small, className = "", type = "button", .
   return <button type={type} className={["btn", variant, small ? "small" : "", className].filter(Boolean).join(" ")} {...rest} />;
 }
 
-export function Scroll({ children }: { children: ReactNode }) {
-  return <div className="scroll">{children}</div>;
+/** Horizontally scrollable wrapper; focusable so keyboard users can scroll it (WCAG 2.1.1). */
+export function Scroll({ children, label }: { children: ReactNode; label?: string }) {
+  return <div className="scroll" tabIndex={0} role="region" aria-label={label ?? "Scrollable table"}>{children}</div>;
 }

@@ -1,7 +1,6 @@
 """FastAPI app serves the UI contract (Step 4.1)."""
 
 import pytest
-from fastapi.testclient import TestClient
 
 from api.main import create_app
 from tests.authed import RoleClient

@@ -1,5 +1,4 @@
 """Independent adversarial, no-LLM, and server-role checks for the competition demo."""
-import json
 
 import pytest
 from fastapi.testclient import TestClient

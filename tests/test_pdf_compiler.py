@@ -2,10 +2,8 @@
 
 import hashlib
 import json
-from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 from agents.coordinator import Coordinator
 from api.main import create_app

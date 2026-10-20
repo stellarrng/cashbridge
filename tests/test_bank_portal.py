@@ -47,7 +47,8 @@ def test_full_two_portal_flow(client, backend):
     assert client.post(f"/api/bank/cases/{pack_id}/decision", json={"decision": "APPROVE_FUNDING"}).status_code == 409
     verify = client.post(f"/api/bank/cases/{pack_id}/verify").json()
     assert verify["all_verifiable_ok"] is True
-    assert any(c["ok"] is None for c in verify["checks"])  # cross-lender check stays honest
+    cross = next(c for c in verify["checks"] if "another" in c["check"])  # cross-lender check stays honest about its scope
+    assert "simulated" in cross["detail"] or cross["ok"] is None
     assert client.post(f"/api/bank/cases/{pack_id}/decision", json={"decision": "DECLINE"}).status_code == 409  # needs a reason
     done = client.post(f"/api/bank/cases/{pack_id}/decision", json={"decision": "APPROVE_FUNDING", "note": "KYC done offline"}).json()
     assert done["case_state"] == "FUNDED" and done["review"]["status"] == "FUNDED_MOCK"

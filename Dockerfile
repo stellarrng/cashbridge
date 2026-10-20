@@ -7,7 +7,7 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-COPY requirements.txt requirements-ml.txt ./
+COPY requirements.txt requirements-ml.txt requirements-chain.txt ./
 RUN pip install --no-cache-dir -r requirements-ml.txt \
     && apt-get update && apt-get install -y --no-install-recommends tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*

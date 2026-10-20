@@ -9,7 +9,7 @@ import json
 import math
 from pathlib import Path
 from statistics import mean, median
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from config.settings import SANDBOX_INPUTS_DIR
 

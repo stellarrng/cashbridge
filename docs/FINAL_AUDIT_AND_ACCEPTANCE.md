@@ -1,5 +1,3 @@
-> **Historical document notice (updated 20 October 2026):** Statements below saying no real-user test describe the status *when this historical audit/research note was written*. The team now reports user testing has occurred, but the v9 ZIP does not contain de-identified session records or a UAT summary. See `reports/UAT_EVIDENCE_STATUS.md` and the current `docs/FINTECHATHON_2026_SCORECARD.md`; do not infer or invent results.
-
 # Final audit and acceptance (v8, feature freeze)
 
 **Freeze rule:** after v8 no new modules or agents. This round only checked five areas a judge could challenge,

@@ -18,7 +18,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List
+from typing import Any, Dict, List
 
 ROOT = Path(__file__).resolve().parent.parent
 EVID = ROOT / "data" / "execution_evidence"

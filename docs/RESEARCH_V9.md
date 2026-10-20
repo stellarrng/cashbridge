@@ -1,5 +1,3 @@
-> **Historical document notice (updated 20 October 2026):** Statements below saying no real-user test describe the status *when this historical audit/research note was written*. The team now reports user testing has occurred, but the v9 ZIP does not contain de-identified session records or a UAT summary. See `reports/UAT_EVIDENCE_STATUS.md` and the current `docs/FINTECHATHON_2026_SCORECARD.md`; do not infer or invent results.
-
 # CashBridge v9: research basis and measured results
 
 What changed in the models, which paper each change comes from, what it was compared with, and what the

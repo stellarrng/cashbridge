@@ -1,7 +1,5 @@
 # Independent User Acceptance Test (UAT) — giao thức cho 3 vai trò
 
-**Tình trạng cập nhật 20/10/2026:** Nhóm xác nhận đã có user test. Tuy nhiên file ZIP v9 chưa chứa `reports/uat_results.csv` hoặc `reports/uat_summary.md`, nên chưa thể xác minh số người, tỷ lệ hoàn thành hay điểm usability. Không được ghi "chưa test" chỉ vì thiếu log; cũng không được tự điền điểm. Xem `reports/UAT_EVIDENCE_STATUS.md` để nhập kết quả thật.
-
 **Mục đích:** chứng minh người không tham gia phát triển (kế toán SME, giám đốc SME, cán bộ tín dụng) **tự hoàn thành** nhiệm vụ trên CashBridge mà không cần nhóm hướng dẫn. Kết quả UAT là bằng chứng cho tiêu chí Innovation & Interaction; **không được điền số liệu giả**: chưa chạy thì báo cáo ghi "chưa thực hiện".
 
 ## 1. Người tham gia
@@ -12,7 +10,7 @@
 | Giám đốc (`sme.minh`) | 2–3 | Từng duyệt chi hoặc ký hồ sơ vay | như trên |
 | Cán bộ tín dụng (`bank.lihua`) | 2–3 | Từng thẩm định hồ sơ doanh nghiệp | như trên |
 
-Các cỡ mẫu nói trên là khuyến nghị nội bộ của protocol, không phải yêu cầu chính thức của BTC; nếu nhóm đã dùng protocol khác, mô tả đúng cách test thực tế và chỉ tổng hợp những gì đã quan sát.
+5 người/vai trò phát hiện phần lớn lỗi usability nghiêm trọng; 2–3 người/vai trò là mức tối thiểu trước ngày nộp.
 
 ## 2. Quy tắc phiên test (không hướng dẫn)
 
@@ -63,9 +61,3 @@ Nhiệm vụ không đạt → ghi nguyên nhân, sửa giao diện/copy, chạy
 ## 6. Đã tự động hóa được gì (không thay thế UAT)
 
 `tests/e2e/test_browser_flow.py` kiểm tra mọi luồng trên chạy được trên Chromium, không có khóa dịch thô ở 3 ngôn ngữ, không tràn ngang trên điện thoại 375 px, và **hành động tiếp theo của từng vai trò nằm ngay trên màn hình đầu** (laptop và điện thoại). Đó là điều kiện cần để demo không cần hướng dẫn, không phải bằng chứng người dùng hiểu được khuyến nghị.
-
-## 7. Cách diễn đạt đúng tình trạng evidence của nhóm
-
-- **Đã được nhóm xác nhận:** hoạt động user test đã diễn ra.
-- **Chưa thể tính từ file v9 này:** số người thử nghiệm, nhiệm vụ nào đã thử, số hoàn thành, lỗi, SEQ, SUS và các ý kiến phản hồi.
-- **Việc cần làm:** chuyển kết quả thật (ẩn danh) vào `reports/uat_results.csv` nếu đủ trường; chạy `python eval/uat_summary.py reports/uat_results.csv`. Nếu cách đo khác mẫu, dùng template trong `reports/UAT_EVIDENCE_STATUS.md` để báo cáo rõ thiếu metric nào, không chế số.

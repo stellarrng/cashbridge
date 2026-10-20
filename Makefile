@@ -2,7 +2,7 @@ SHELL := /bin/bash
 # CashBridge tasks. Uses .venv if present.
 PY := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 
-.PHONY: install seed test test-fast test-report e2e faults deploy-check evidence story eval trust bench ops run anchor
+.PHONY: security-pdf chain-build install seed test test-fast test-report e2e faults deploy-check evidence story eval trust bench ops run anchor
 
 install: ## install the full local stack (runtime + scikit-learn + test tools)
 	$(PY) -m pip install -r requirements-dev.txt
@@ -38,6 +38,12 @@ story:   ## run the 11-step demo story headless and regenerate data/execution_ev
 eval:    ## run the evaluation harness and write eval_report.md
 	$(PY) eval/run_eval.py
 
+security-pdf: ## rebuild the 2-page Security Self-Assessment PDF (reports/CashBridge_Security_Self_Assessment.pdf)
+	$(PY) scripts/security_self_assessment.py
+
+chain-build: ## recompile the Vyper contracts into chain/build (needs vyper==0.4.3)
+	$(PY) -m chain.build_contracts
+
 trust:   ## run the security + agent + model trust scorecard and write data/execution_evidence/trust_scorecard.json
 	$(PY) eval/trust_scorecard.py
 
@@ -57,7 +63,7 @@ anchor:  ## write chain head hashes to data/execution_evidence/ANCHORS.md
 dev:         ## develop the UI: one command starts the API (:8100) and the UI with hot reload (http://localhost:5173)
 	cd frontend && npm run dev
 
-web-install: ## install the frontend's packages (Node 20+)
+web-install: ## install the frontend's packages (Node 20.19+ or 22.12+)
 	cd frontend && npm install
 
 web-build:   ## type-check and rebuild frontend/dist (commit the result)

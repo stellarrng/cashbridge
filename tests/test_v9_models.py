@@ -94,7 +94,7 @@ def test_receipts_outlook_and_behaviour_cross_check(tmp_path):
 
 
 def test_external_results_when_data_available():
-    from scripts.fetch_external_data import DATASETS, path
+    from scripts.fetch_external_data import path
     if not path("ar_ibm_sample.csv").exists():
         pytest.skip("external data not downloaded (python scripts/fetch_external_data.py)")
     from eval.external_buyer_validation import run

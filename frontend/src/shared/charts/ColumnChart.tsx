@@ -34,7 +34,7 @@ export function ColumnChart({ items, overlay, overlayTip, width = 720, height = 
   const gap = Math.max(2, bw * 0.22);
 
   return (
-    <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}>
+    <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label || `Chart of ${items.length} values: ` + items.slice(0, 13).map((d) => `${d.label} ${d.tip ?? d.value}`).join("; ")}>
       {ticks(min, max, step).map((v) => (
         <g key={v}>
           <line className="cg" x1={L} x2={W - R} y1={y(v)} y2={y(v)} />

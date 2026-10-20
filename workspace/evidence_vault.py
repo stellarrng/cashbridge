@@ -100,6 +100,12 @@ class EvidenceVault:
         if len(data) > MAX_BYTES:
             raise VaultError(f"File larger than {MAX_BYTES // 1_000_000} MB")
         mime = sniff(data)
+        if mime == "application/pdf":
+            from security.pdf_screen import PdfRefused, screen_pdf
+            try:
+                screen_pdf(data)  # no scripts, launch actions, embedded files or submitting forms reach a lender
+            except PdfRefused as exc:
+                raise VaultError(str(exc)) from None
         sha = hashlib.sha256(data).hexdigest()
         file_id = "EVF-" + secrets.token_hex(8).upper()
         nonce = secrets.token_bytes(12)

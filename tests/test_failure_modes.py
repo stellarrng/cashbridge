@@ -7,10 +7,8 @@ to the user (never a bare 500 or a stack trace), and an entry in the hash-chaine
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 from api.main import create_app
 from scripts.run_demo_story import StoryClock

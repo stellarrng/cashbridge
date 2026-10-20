@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-10-20T11:39:54+00:00",
+  "generated_at": "2026-10-20T14:24:06+00:00",
   "synthetic": true,
   "summary": {
     "security": {
-      "passed": 25,
-      "total": 25
+      "passed": 28,
+      "total": 28
     },
     "agent": {
       "passed": 5,
@@ -216,6 +216,24 @@
     {
       "id": "EVID-03",
       "title": "A refused API call is written to the hash-chained audit log with who tried it",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "FIN-04",
+      "title": "Invoice already financed by another consortium lender: funding refused (on-chain register)",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "EVID-04",
+      "title": "Whole audit log rewritten consistently: caught by the on-chain Merkle anchor",
+      "passed": true,
+      "error": null
+    },
+    {
+      "id": "DOC-01",
+      "title": "PDF with hidden (hex-escaped) JavaScript is refused before it is parsed",
       "passed": true,
       "error": null
     }

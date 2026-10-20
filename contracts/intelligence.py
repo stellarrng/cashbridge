@@ -9,17 +9,26 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List
 
-from security.injection_guard import inspect
+from security.injection_guard import scan
 
 MAX_CHARS = 50000
 _PERCENT = re.compile(r'(?<![\d.])(\d{1,3}(?:\.\d+)?)\s*%')
 _AMOUNT = re.compile(r'(?:USD\s*|US\$\s*|\$\s*)(\d[\d,]*(?:\.\d{1,2})?)', re.IGNORECASE)
+# Vietnamese convention: 60.000,00 USD (dot thousands, comma decimals, currency after the number).
+_AMOUNT_VI = re.compile(r'(?<![\d.,])(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+,\d{2})\s*USD\b')
 _INVOICE = re.compile(r'\b(?:INV|INVOICE)[- #:]*(\d{3,12})\b', re.IGNORECASE)
 _TAX = re.compile(r'\b(?:tax\s*id|tax\s*number|vat\s*id)\s*[:#]?\s*([A-Z0-9\-]{7,20})', re.IGNORECASE)
 _BANK_CHANGE = re.compile(r'(?:change|replace|switch|update|different|new)\s+(?:the\s+)?(?:bank\s+)?(?:account|beneficiary|payment\s+details)', re.IGNORECASE)
 _BANK = re.compile(r'\b(?:bank\s+account|beneficiary\s+account|account\s+number)\b', re.IGNORECASE)
 _AMBIGUOUS = re.compile(r'\b(?:as\s+soon\s+as\s+possible|at\s+our\s+discretion|when\s+convenient)\b', re.IGNORECASE)
-_PAYMENT = re.compile(r'\b(?:payment|paid|deposit|advance|milestone|on\s+delivery|upon\s+acceptance)\b', re.IGNORECASE)
+_PAYMENT = re.compile(r'\b(?:payment|paid|deposit|advance|milestone|on\s+delivery|upon\s+acceptance|thanh\s+toán|tạm\s+ứng|đặt\s+cọc)\b', re.IGNORECASE)
+# A schedule line such as "Milestone 2: ... - 70% - ..." or "Đợt 2: ...": when a document has them, they ARE the
+# payment schedule and other percentages (interest, retention, VAT, liability caps) are not instalments.
+_SCHEDULE_LINE = re.compile(r'^\s*(?:milestone|instalment|installment|đợt)\s*\d+\s*[:.)]', re.IGNORECASE)
+# Percentages that are rates or caps, not instalments, on a payment line without a schedule.
+_NOT_INSTALMENT = re.compile(r'\b(?:interest|per\s+annum|p\.a\.|retention|retain|vat|value-added|tax|liability|penalty|liquidated|'
+                             r'security|guarantee|insurance|lãi|năm|giữ\s+lại|thuế|trách\s+nhiệm|phạt|bảo\s+đảm|bảo\s+lãnh|bảo\s+hiểm)\b', re.IGNORECASE)
+_TERMINATION = re.compile(r'\b(?:termination|terminate|cancel|cancellation|chấm\s+dứt|hủy\s+bỏ|huỷ\s+bỏ)\b', re.IGNORECASE)
 
 
 def _text(value: Any, name: str, limit: int = MAX_CHARS) -> str:
@@ -44,20 +53,34 @@ def _money(value: Any, name: str) -> float:
 def analyze(text: str, invoice_amount_usd: float | None = None) -> Dict[str, Any]:
     content = _text(text, 'contract text')
     money = [float(m.replace(',', '')) for m in _AMOUNT.findall(content)]
+    money += [float(m.replace('.', '').replace(',', '.')) for m in _AMOUNT_VI.findall(content)]
     percentages = [float(x) for x in _PERCENT.findall(content)]
     # Extract payment phases only on lines mentioning a payment event; don't count taxes, penalties etc.
     milestones: List[Dict[str, Any]] = []
-    for line_number, line in enumerate(content.splitlines(), start=1):
-        if not _PAYMENT.search(line):
-            continue
-        for m in _PERCENT.finditer(line):
-            percent = float(m.group(1))
-            milestones.append({'line': line_number, 'percentage': percent, 'evidence': line[:240]})
+    lines = content.splitlines()
+    scheduled = [i for i, line in enumerate(lines) if _SCHEDULE_LINE.match(line) and _PERCENT.search(line)]
+    for idx, line in enumerate(lines):
+        if scheduled:
+            if idx not in scheduled:
+                continue
+            found = list(_PERCENT.finditer(line))[:1]  # one instalment per schedule line
+        else:
+            if not _PAYMENT.search(line) or _NOT_INSTALMENT.search(line):
+                continue
+            found = list(_PERCENT.finditer(line))
+        for m in found:
+            milestones.append({'line': idx + 1, 'percentage': float(m.group(1)), 'evidence': line[:240]})
     flags = []
     def flag(code: str, severity: str, description: str, evidence: str):
         flags.append({'code': code, 'severity': severity, 'description': description, 'evidence': evidence})
-    if inspect(content).suspicious:
-        flag('UNTRUSTED_INSTRUCTIONS', 'high', 'Document contains instruction-like text; never execute it.', 'Prompt-injection pattern in document')
+    # Override / role-change / tool-name patterns are scanned over the whole document (so an instruction split across
+    # lines is still caught). The "send/transfer ... payment" pattern is scanned per line: across a line break it
+    # matched ordinary contract wording ("...by bank transfer." / "ARTICLE 4. PAYMENT") in every real contract.
+    hits = [h for h in scan(content) if h != 'action_command']
+    hits += ['action_command'] if any('action_command' in scan(line) for line in lines) else []
+    if hits:
+        flag('UNTRUSTED_INSTRUCTIONS', 'high', 'Document contains instruction-like text; never execute it.',
+             'Prompt-injection pattern in document: ' + ', '.join(hits))
     if _BANK_CHANGE.search(content):
         flag('BENEFICIARY_CHANGE', 'high', 'Bank-account change wording needs independent callback verification.', 'Bank-detail change wording')
     if _AMBIGUOUS.search(content):
@@ -67,7 +90,7 @@ def analyze(text: str, invoice_amount_usd: float | None = None) -> Dict[str, Any
         flag('PAYMENT_PERCENTAGES', 'medium', 'Payment milestone percentages do not sum to 100%.', f'{total_pct}% across marked milestones')
     if not _PAYMENT.search(content):
         flag('MISSING_PAYMENT_CLAUSE', 'medium', 'No recognizable payment wording found.', 'No payment terms found')
-    if not re.search(r'\b(?:termination|terminate|cancel|cancellation)\b', content, re.IGNORECASE):
+    if not _TERMINATION.search(content):
         flag('TERMINATION_NOT_DETECTED', 'low', 'No termination provision detected by simple rules.', 'Section not detected')
     if invoice_amount_usd is not None:
         invoice = _money(invoice_amount_usd, 'invoice_amount_usd')
@@ -89,51 +112,9 @@ def analyze(text: str, invoice_amount_usd: float | None = None) -> Dict[str, Any
 
 
 def draft(data: Dict[str, Any]) -> Dict[str, Any]:
-    kind = _text(data.get('contract_type', 'supply'), 'contract_type', 30).lower()
-    if kind not in {'supply','services','construction'}:
-        raise ValueError('contract_type must be supply, services, or construction')
-    seller = _text(data.get('supplier', ''), 'supplier', 120)
-    buyer = _text(data.get('customer', ''), 'customer', 120)
-    scope = _text(data.get('scope', ''), 'scope', 1200)
-    currency = str(data.get('currency', 'USD')).upper()
-    if currency not in {'USD','VND','CNY','EUR'}:
-        raise ValueError('Unsupported currency')
-    amount = _money(data.get('amount'), 'amount')
-    law = _text(data.get('governing_law', 'TO BE CONFIRMED BY COUNSEL'), 'governing_law', 120)
-    milestones = data.get('milestones', [{'event':'Advance after signing','percentage':30},
-                                         {'event':'Upon delivery','percentage':40},
-                                         {'event':'After written acceptance','percentage':30}])
-    if not isinstance(milestones, list) or not 1 <= len(milestones) <= 8:
-        raise ValueError('Provide between 1 and 8 payment milestones')
-    safe = []
-    for row in milestones:
-        if not isinstance(row, dict): raise ValueError('Each milestone must be an object')
-        event = _text(row.get('event',''), 'milestone event', 180)
-        pct = _money(row.get('percentage'), 'milestone percentage')
-        if pct > 100: raise ValueError('Milestone percentage cannot exceed 100')
-        safe.append({'event': event, 'percentage': pct, 'amount': round(amount*pct/100,2)})
-    if abs(sum(m['percentage'] for m in safe)-100) > .001:
-        raise ValueError('Milestone percentages must total 100')
-    # Text generation is deterministic and intentionally marked DRAFT. No untrusted LLM completion.
-    label = {'supply':'SUPPLY AGREEMENT','services':'SERVICES AGREEMENT','construction':'CONSTRUCTION SERVICES AGREEMENT'}[kind]
-    parts = [f'DRAFT — FOR HUMAN LEGAL REVIEW ONLY\n{label}',
-             f'1. PARTIES\nSupplier/Contractor: {seller}\nCustomer/Client: {buyer}',
-             f'2. SCOPE\n{scope}',
-             f'3. PRICE\nTotal contract consideration: {currency} {amount:,.2f}. Tax treatment to be confirmed.',
-             '4. PAYMENT MILESTONES\n' + '\n'.join(f"- {m['event']}: {m['percentage']:g}% ({currency} {m['amount']:,.2f})" for m in safe),
-             '5. DELIVERY AND ACCEPTANCE\nDates, specifications, evidence of acceptance and delivery remedies: [REQUIRES NEGOTIATION].',
-             '6. INVOICING AND LATE PAYMENT\nInvoice deadline, payment due dates, late fees, dispute procedure: [REQUIRES NEGOTIATION].',
-             '7. CONFIDENTIALITY AND DATA PROTECTION\n[APPROPRIATE TERMS REQUIRED].',
-             '8. WARRANTIES AND LIABILITY\nScope, limitations, exclusions, warranties: [LEGAL REVIEW REQUIRED].',
-             '9. TERMINATION AND DISPUTE RESOLUTION\nGrounds, notice, remedies, forum: [LEGAL REVIEW REQUIRED].',
-             f'10. GOVERNING LAW\n{law}. Confirm with qualified counsel.',
-             '11. SIGNATURES\nSupplier: [NOT SIGNED]    Customer: [NOT SIGNED]']
-    document = '\n\n'.join(parts)
-    return {'synthetic_demo': True, 'document_type': kind, 'draft': document, 'milestones': safe,
-            'status': 'UNSIGNED_DRAFT_REQUIRES_LEGAL_REVIEW',
-            'human_review_required': True, 'review_checklist': ['Confirm party identities and signatory authority',
-                'Confirm applicable law and mandatory clauses', 'Negotiate acceptance, cancellation and dispute rules',
-                'Verify bank details independently before making payments', 'Have qualified counsel approve before signature']}
+    """Unsigned contract draft from the clause library in contracts/drafting.py (EN, VI or bilingual)."""
+    from contracts.drafting import draft as _draft
+    return _draft(data)
 
 
 def reconcile(data: Dict[str, Any]) -> Dict[str, Any]:

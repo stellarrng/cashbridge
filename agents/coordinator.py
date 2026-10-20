@@ -23,7 +23,7 @@ from __future__ import annotations
 import hashlib
 
 import json
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -32,7 +32,7 @@ from pydantic import BaseModel
 
 from agents import collections_agent
 from agents.buyer_risk_agent import BuyerRiskAgent
-from agents.document_agent import DocumentAgent, Extraction
+from agents.document_agent import DocumentAgent
 from agents.llm_client import LlmClient
 from api import lender_connector_mock
 from config.settings import (

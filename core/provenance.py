@@ -149,7 +149,9 @@ def lineage(coord) -> Dict[str, Any]:
 
     i_idx = _index(coord, "trade_documents.json", "invoices", "invoice_no", inv.invoice_no)
     rec_path = f"$.invoices[{i_idx}]" if i_idx is not None else "$.invoices[?invoice_no]"
-    fx = "" if inv.currency.value == "USD" else f" converted to USD at the sandbox rate"
+    from config.settings import FX_NOTE, FX_VND_PER_UNIT, USD_VND
+    fx = "" if inv.currency.value == "USD" else (
+        f" x {FX_VND_PER_UNIT[inv.currency.value]} VND per {inv.currency.value} / {USD_VND} VND per USD ({FX_NOTE})")
     add("invoice_amount_usd", "Invoice face value in USD (record; the scanned invoice and PO must agree)",
         f"{inv.amount.display()}{fx} = USD {inv.amount.to_usd():,.2f}", inv.amount.to_usd(),
         [{"name": "amount", "value": inv.amount.display()}],

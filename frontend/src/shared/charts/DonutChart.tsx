@@ -38,7 +38,7 @@ export function DonutChart({ parts, center, centerSub, label = "" }: Props) {
 
   return (
     <div className="donut">
-      <svg viewBox="0 0 160 160" role="img" aria-label={label}>
+      <svg viewBox="0 0 160 160" role="img" aria-label={label || [center, centerSub].filter(Boolean).join(" ") + ": " + parts.map((p) => `${p.label} ${p.display ?? p.value}`).join(", ")}>
         {segments}
         {center && (
           <>

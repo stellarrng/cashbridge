@@ -2,7 +2,6 @@
 
 import filecmp
 import json
-import sys
 from datetime import date
 from decimal import Decimal
 

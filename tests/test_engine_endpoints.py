@@ -3,7 +3,6 @@
 import json
 
 import pytest
-from fastapi.testclient import TestClient
 
 from api.main import create_app
 from tests.authed import RoleClient

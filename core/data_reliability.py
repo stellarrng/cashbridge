@@ -4,7 +4,7 @@ Only bounded metadata / structured amounts, never raw sensitive documents. A hig
 is NOT a credit score or assurance that submitted documents are authentic.
 """
 from __future__ import annotations
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 

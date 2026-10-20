@@ -28,6 +28,8 @@ def extract_upload(filename: str, data: bytes) -> Dict[str, object]:
     if suffix == 'txt':
         value = data.decode('utf-8-sig', errors='replace')
     elif suffix == 'pdf':
+        from security.pdf_screen import screen_pdf
+        screen_pdf(data)  # PdfRefused is a ValueError: refused before any parser touches the file
         try:
             import fitz
         except ImportError as exc:

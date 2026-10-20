@@ -65,7 +65,7 @@ export function LineChart({ labels, series, fmt, yfmt = compactUsd, endLabels, a
           </li>
         ))}
       </ul>
-      <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}>
+      <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label || "Line chart: " + series.map((s) => s.name).join(", ")}>
         {ticks(min, max, step).map((v) => (
           <g key={v}>
             <line className="cg" x1={L} x2={W - R} y1={y(v)} y2={y(v)} />

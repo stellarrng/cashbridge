@@ -408,3 +408,59 @@ dialog.settings td { vertical-align: top; }
 .cb-result { border-radius: var(--r-m); margin-top: 12px; line-height: 1.6; }
 .cb-result:not(:empty) { padding: 12px; background: var(--surface-2); border: 1px solid var(--line); }
 @media (max-width: 650px) { .cb-review { flex-direction: column; align-items: stretch; } .cb-review input { min-width: 0; } .cb-work-form .btn { width: 100%; justify-self: stretch; } }
+
+/* Contract drafting form + paper-like preview (the preview mirrors the Word export; it stays light in dark mode, like paper) */
+.cform { border: 1px solid var(--rule); border-radius: var(--r-m); padding: 10px 14px 0; margin: 0 0 12px; min-width: 0; }
+.cform legend { padding: 0 6px; font-weight: 700; font-size: var(--step--1); color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.06em; }
+.cform .inputs { margin-bottom: 12px; }
+.cform-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 12px; }
+.span-all { grid-column: 1 / -1; }
+.check { display: inline-flex; gap: 8px; align-items: center; font-size: var(--step--1); font-weight: 600; color: var(--ink-2); }
+.ms-edit { display: grid; gap: 6px; margin-top: 8px; }
+.ms-edit .row input { padding: 7px 9px; border-radius: var(--r-m); border: 1px solid var(--rule); background: var(--surface); color: var(--ink); font: inherit; }
+.ms-edit .row input:first-child { flex: 1; min-width: 160px; }
+.ms-edit .row input[type="number"] { width: 90px; }
+.pill.pos { color: var(--good); border-color: var(--good); } .pill.neg { color: var(--deficit); border-color: var(--deficit); }
+.cp-open { border: 1px solid var(--risk); background: var(--risk-soft); border-radius: var(--r-m); padding: 10px 14px; margin-bottom: 12px; font-size: var(--step--1); }
+.cp-open ul { margin: 6px 0 0; padding-left: 18px; columns: 2 260px; }
+.contract-preview { position: relative; overflow: hidden; background: #fff; color: #1a1a1a; border: 1px solid #d0d0cc; border-radius: 2px;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.12); padding: 40px 48px; max-width: 860px; margin: 0 auto; font-family: "Times New Roman", Times, serif;
+  font-size: 15px; line-height: 1.5; max-height: 80vh; overflow-y: auto; }
+.contract-preview::before { content: "DRAFT"; position: absolute; inset: 30% 0 auto; text-align: center; font-size: 140px; font-weight: 700; color: rgba(0, 0, 0, 0.05);
+  transform: rotate(-35deg); pointer-events: none; user-select: none; }
+.cp-notice { border: 1px solid #c77700; background: #fff4e5; color: #5c3700; padding: 8px 12px; font-size: 12.5px; text-align: justify; margin: 0 0 18px; }
+.cp-motto { display: grid; text-align: center; font-size: 14px; margin-bottom: 8px; }
+.cp-title { text-align: center; color: #1f3a5f; font-size: 22px; margin: 6px 0 0; letter-spacing: 0.02em; }
+.cp-subtitle { text-align: center; color: #1f3a5f; font-style: italic; font-weight: 700; margin: 0; }
+.cp-meta { text-align: center; color: #595959; font-size: 13px; margin: 2px 0 18px; }
+.contract-preview h4 { color: #1f3a5f; font-size: 14.5px; margin: 16px 0 6px; letter-spacing: 0.02em; }
+.cp-clause { display: grid; grid-template-columns: 44px 1fr; margin: 0 0 6px; text-align: justify; }
+.cp-bi { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.cp-bi p { margin: 0 0 6px; text-align: justify; font-size: 14px; }
+.cp-bi.cp-h h4 { margin-bottom: 4px; }
+.cp-parties { display: grid; gap: 12px; }
+.cp-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.cp-table caption { text-align: left; background: #dce3ec; color: #1f3a5f; padding: 4px 8px; border: 1px solid #bfbfbf; border-bottom: 0; }
+.cp-table th, .cp-table td { border: 1px solid #bfbfbf; padding: 3px 8px; vertical-align: top; text-align: left; }
+.cp-table th[scope="row"] { color: #595959; font-weight: 400; width: 34%; }
+.cp-grid thead th { background: #dce3ec; color: #1f3a5f; text-align: center; }
+.cp-grid td.num { text-align: right; white-space: nowrap; }
+.cp-total td { background: #f2f2f2; font-weight: 700; }
+.cp-todo { color: #b02a2a; font-weight: 700; }
+.cp-signs { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 28px 0 8px; text-align: center; }
+.cp-signs > div { display: grid; gap: 2px; font-size: 13.5px; }
+.cp-signs b { color: #1f3a5f; }
+.cp-line { display: block; border-bottom: 1px solid #555; margin: 46px 20px 4px; }
+.cp-unsigned { color: #b02a2a; font-weight: 700; font-size: 12px; }
+.cp-schedule { border-top: 2px dashed #d0d0cc; margin-top: 24px; padding-top: 6px; }
+@media (max-width: 650px) {
+  .contract-preview { padding: 20px 16px; font-size: 14px; }
+  .cp-bi, .cp-signs { grid-template-columns: 1fr; gap: 4px; }
+  .contract-preview::before { font-size: 80px; }
+  .cp-clause { grid-template-columns: 36px 1fr; }
+}
+.contract-preview h3, .contract-preview h4, .contract-preview th, .contract-preview td, .contract-preview caption { font-family: inherit; }
+.contract-preview th { text-transform: none; letter-spacing: 0; font-size: 13.5px; }
+.contract-preview h3 { font-weight: 700; }
+.h-sm { font-size: var(--step-0); margin: 0 0 6px; }
+#onchain .btn { white-space: normal; height: auto; min-height: 36px; padding-top: 6px; padding-bottom: 6px; text-align: left; max-width: 100%; }
